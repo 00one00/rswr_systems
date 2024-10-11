@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<h1>{% if repair %}Edit Repair{% else %}Create New Repair{% endif %}</h1>
+
+<div id="warningDiv" class="alert alert-warning" style="display: none;"></div>
+
+<form method="post" id="repairForm">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save</button>
+</form>
+
+<div class="action-buttons">
+    <a href="{% url 'repair_list' %}" class="btn">Back to All Repairs</a>
+    <a href="{% url 'technician_dashboard' %}" class="btn">Back to Dashboard</a>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const customerSelect = document.getElementById('id_customer');
+        const unitNumberInput = document.getElementById('id_unit_number');
+        const warningDiv = document.getElementById('warningDiv');
+        const form = document.getElementById('repairForm');
+    
+        function checkExistingRepair() {
+            const customerId = customerSelect.value;
+            const unitNumber = unitNumberInput.value;
+            console.log('Checking existing repair:', {customerId, unitNumber});
+    
+            if (customerId && unitNumber) {
+                const url = `{% url 'check_existing_repair' %}?customer=${customerId}&unit_number=${unitNumber}`;
+                console.log('Fetching URL:', url);
+    
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Data received:', data);
+                        if (data.existing_repair) {
+                            warningDiv.innerHTML = `
+                                <div class="warning-message">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    ${data.warning_message} 
+                                    <a href="/technician/repairs/${data.repair_id}/">View existing repair</a>
+                                </div>
+                            `;
+                            warningDiv.style.display = 'block';
+                        } else {
+                            warningDiv.style.display = 'none';
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+            } else {
+                warningDiv.style.display = 'none';
+            }
+        }
+    
+        unitNumberInput.addEventListener('blur', checkExistingRepair);
+        customerSelect.addEventListener('change', checkExistingRepair);
+    });
+    </script>
+
+<style>
+    .warning-message {
+        background-color: #ffebee;
+        border: 1px solid #f44336;
+        color: #f44336;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+    }
+
+    .warning-message i {
+        margin-right: 10px;
+        font-size: 1.2em;
+    }
+
+    .warning-message a {
+        color: #f44336;
+        text-decoration: underline;
+    }
+</style>
+
+{% endblock %}

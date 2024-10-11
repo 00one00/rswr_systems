@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Repair Details</h1>
+
+<div class="card">
+    <div class="card-body">
+        <p><strong>Customer:</strong> {{ repair.customer.name }}</p>
+        <p><strong>Unit Number:</strong> {{ repair.unit_number }}</p>
+        <p><strong>Damage Type:</strong> {{ repair.damage_type }}</p>
+        <p><strong>Description:</strong> {{ repair.description }}</p>
+        <p><strong>Status:</strong> {{ repair.get_queue_status_display }}</p>
+        <p><strong>Date:</strong> {{ repair.repair_date|date:"Y-m-d H:i:s" }} {{ TIME_ZONE }}</p>
+        <p><strong>Cost:</strong> ${{ repair.cost|floatformat:2 }}</p>
+        <p><strong>Drilled Before Repair:</strong> {% if repair.drilled_before_repair %}Yes{% else %}No{% endif %}</p>
+        <p><strong>Windshield Temperature:</strong> {% if repair.windshield_temperature %}{{ repair.windshield_temperature }}°F{% else %}N/A{% endif %}</p>
+        <p><strong>Resin Viscosity:</strong> {{ repair.resin_viscosity|default:"N/A" }}</p>
+    </div>
+</div>
+
+<div class="action-buttons">
+    <a href="{% url 'update_repair' repair.id %}" class="btn">Edit Repair</a>
+    <a href="{% url 'repair_list' %}" class="btn">Back to Repair List</a>
+</div>
+{% endblock %}

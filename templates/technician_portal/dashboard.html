@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Welcome, {{ technician.user.first_name }}</h1>
+
+<div class="dashboard-actions">
+    <a href="{% url 'create_repair' %}" class="btn btn-success">Create New Repair</a>
+    <a href="{% url 'repair_list' %}" class="btn">View Repairs</a>
+    <a href="{% url 'create_customer' %}" class="btn btn-info">Create Customer</a>
+</div>
+{% endblock %}

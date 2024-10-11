@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>All Customers</h1>
+
+<div class="filter-form">
+    <form method="get" class="form-inline">
+        <div class="form-group">
+            <label for="customer_search">Search Customer:</label>
+            <input type="text" name="customer_search" id="customer_search" placeholder="Customer Name" value="{{ customer_search }}" class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+</div>
+
+<div class="customer-list">
+    {% for customer in customers %}
+        <div class="customer-item">
+            <a href="{% url 'customer_details' customer.id %}">{{ customer.name }}</a>
+        </div>
+    {% empty %}
+        <p>No customers found.</p>
+    {% endfor %}
+</div>
+
+<div class="action-buttons">
+    <a href="{% url 'create_repair' %}" class="btn btn-success">Create New Repair</a>
+    <a href="{% url 'create_customer' %}" class="btn">Add New Customer</a>
+    <a href="{% url 'technician_dashboard' %}" class="btn">Back to Dashboard</a>
+</div>
+
+{% endblock %}

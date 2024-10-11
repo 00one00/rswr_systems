@@ -1,0 +1,7 @@
+technician_portal/migrations/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
