@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div style="width: 100%; max-width: 800px; margin: 20px auto; padding: 20px;">
+    <h2>Register New Technician</h2>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+        <div style="margin-bottom: 1rem;">
+            {{ field.label_tag }}
+            {{ field }}
+            {% if field.errors %}
+            <small style="color: red;">
+                {% for error in field.errors %}
+                {{ error }}
+                {% endfor %}
+            </small>
+            {% endif %}
+            {% if field.help_text %}
+            <small style="color: grey;">{{ field.help_text }}</small>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" style="background-color: #447e9b; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+            Register Technician
+        </button>
+    </form>
+</div>
+{% endblock %}

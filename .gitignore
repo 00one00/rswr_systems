@@ -1,7 +1,58 @@
 technician_portal/migrations/
+db.sqlite3
+rs_systems/db.sqlite3
+rs_systems/db.sqlite3-shm
+rs_systems/db.sqlite3-wal
+rs_systems/static/
+rs_systems/settings.py 
+staticfiles/admin/
+
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pyw
-*.pyz
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+
+# Environment variables
+.env
+.venv
+venv/
+ENV/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Django static files
+staticfiles/
+
+# Sensitive data
+*/settings/local.py
+*/settings/production.py
+secrets.json

@@ -1,7 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
+<<<<<<< HEAD
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+=======
+>>>>>>> 7e7f4cf (Updated technician portal with repair management functionality)
 from django.utils import timezone
 import logging
 
@@ -15,6 +18,7 @@ class Technician(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.expertise}"
 
+<<<<<<< HEAD
 @receiver(post_save, sender=User)
 def create_technician(sender, instance, created, **kwargs):
     if created:
@@ -24,6 +28,8 @@ def create_technician(sender, instance, created, **kwargs):
 def save_technician(sender, instance, **kwargs):
     instance.technician.save()
 
+=======
+>>>>>>> 7e7f4cf (Updated technician portal with repair management functionality)
 class Customer(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -118,3 +124,7 @@ class Invoice(models.Model):
 
     def __str__(self):
         return f"Invoice {self.id} - Repair {self.repair.id} - {self.payment_status}"
+<<<<<<< HEAD
+=======
+
+>>>>>>> 7e7f4cf (Updated technician portal with repair management functionality)

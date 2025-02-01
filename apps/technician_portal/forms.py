@@ -1,9 +1,19 @@
 from django import forms
+<<<<<<< HEAD
 from .models import Technician, Repair, Customer, UnitRepairCount
 from django.utils import timezone
 from django.forms.widgets import DateTimeInput
 import logging
 
+=======
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from .models import Technician, Repair, Customer, UnitRepairCount
+from django.utils import timezone
+from django.forms.widgets import DateTimeInput
+from django.db import transaction
+import logging
+>>>>>>> 7e7f4cf (Updated technician portal with repair management functionality)
 logger = logging.getLogger(__name__)
 
 class TechnicianForm(forms.ModelForm):
@@ -11,6 +21,37 @@ class TechnicianForm(forms.ModelForm):
         model = Technician
         fields = ['phone_number', 'expertise']
 
+<<<<<<< HEAD
+=======
+class TechnicianRegistrationForm(UserCreationForm):
+    first_name = forms.CharField(max_length=30, required=True)
+    last_name = forms.CharField(max_length=30, required=True)
+    email = forms.EmailField(required=True)
+    phone_number = forms.CharField(max_length=15, required=True)
+    expertise = forms.CharField(max_length=100, required=True)
+
+    class Meta:
+        model = User
+        fields = ('username', 'first_name', 'last_name', 'email', 'password1', 'password2')
+
+    @transaction.atomic
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.first_name = self.cleaned_data['first_name']
+        user.last_name = self.cleaned_data['last_name']
+        user.email = self.cleaned_data['email']
+        
+        if commit:
+            user.save()
+            # Create the technician profile
+            Technician.objects.create(
+                user=user,
+                phone_number=self.cleaned_data['phone_number'],
+                expertise=self.cleaned_data['expertise']
+            )
+        return user
+    
+>>>>>>> 7e7f4cf (Updated technician portal with repair management functionality)
 class CustomerForm(forms.ModelForm):
     class Meta:
         model = Customer
@@ -54,4 +95,8 @@ class RepairForm(forms.ModelForm):
                         code='existing_repair'
                     )
 
+<<<<<<< HEAD
         return cleaned_data
+=======
+        return cleaned_data
+>>>>>>> 7e7f4cf (Updated technician portal with repair management functionality)
