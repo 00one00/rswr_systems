@@ -3,6 +3,9 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.views.decorators.http import require_POST
+from django.contrib.admin.views.decorators import staff_member_required
+from apps.technician_portal.forms import TechnicianRegistrationForm
+from django.contrib import messages
 
 def home(request):
     return render(request, 'home.html')
@@ -28,3 +31,15 @@ def logout_view(request):
 
 def technician_dashboard(request):
     return render(request, 'technician_dashboard.html')
+
+@staff_member_required
+def register_technician(request):
+    if request.method == 'POST':
+        form = TechnicianRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f'Account created for {user.username}')
+            return redirect('admin:index')
+    else:
+        form = TechnicianRegistrationForm()
+    return render(request, 'registration/register_technician.html', {'form': form})

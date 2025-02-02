@@ -3,10 +3,7 @@ from . import views
 
 urlpatterns = [
     path('dashboard/', views.technician_dashboard, name='technician_dashboard'),
-<<<<<<< HEAD
-=======
     path('profile/', views.update_technician_profile, name='update_profile'),
->>>>>>> 7e7f4cf (Updated technician portal with repair management functionality)
     path('repairs/', views.repair_list, name='repair_list'),
     path('repairs/<int:repair_id>/', views.repair_detail, name='repair_detail'),
     path('repairs/create/', views.create_repair, name='create_repair'),

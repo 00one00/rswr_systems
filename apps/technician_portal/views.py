@@ -82,6 +82,19 @@ def update_queue_status(request, repair_id):
     return redirect('repair_detail', repair_id=repair.id)
 
 @login_required
+def update_technician_profile(request):
+    technician = get_object_or_404(Technician, user=request.user)
+    if request.method == 'POST':
+        form = TechnicianForm(request.POST, instance=technician)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully.')
+            return redirect('technician_dashboard')
+    else:
+        form = TechnicianForm(instance=technician)
+    return render(request, 'technician_portal/update_profile.html', {'form': form})
+
+@login_required
 def create_customer(request):
     if request.method == 'POST':
         form = CustomerForm(request.POST)
