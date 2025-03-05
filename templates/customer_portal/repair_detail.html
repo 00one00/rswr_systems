@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Repair Details</h2>
+    
+    <div class="mb-4">
+        <a href="{% url 'customer_repairs' %}" class="btn btn-outline-secondary">
+            <i class="fa fa-arrow-left"></i> Back to Repairs
+        </a>
+    </div>
+    
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Repair #{{ repair.id }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Status:</div>
+                        <div class="col-md-8">
+                            <span class="badge {% if repair.queue_status == 'COMPLETED' %}bg-success{% elif repair.queue_status == 'IN_PROGRESS' %}bg-warning{% elif repair.queue_status == 'REQUESTED' %}bg-secondary{% elif repair.queue_status == 'DENIED' %}bg-danger{% else %}bg-primary{% endif %}">
+                                {% if repair.queue_status == 'REQUESTED' %}
+                                Submitted - Awaiting Technician
+                                {% elif repair.queue_status == 'APPROVED' and repair.customer_initiated %}
+                                Scheduled for Repair
+                                {% else %}
+                                {{ repair.get_queue_status_display }}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Date:</div>
+                        <div class="col-md-8">{{ repair.repair_date|date:"F d, Y" }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Unit Number:</div>
+                        <div class="col-md-8">{{ repair.unit_number }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Damage Type:</div>
+                        <div class="col-md-8">{{ repair.damage_type }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Description:</div>
+                        <div class="col-md-8">{{ repair.description }}</div>
+                    </div>
+                    
+                    {% if repair.cost %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Estimated Cost:</div>
+                        <div class="col-md-8">${{ repair.cost }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if approval %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Approval Status:</div>
+                        <div class="col-md-8">
+                            {% if approval.approved %}
+                            <span class="badge bg-success">Approved</span>
+                            {% else %}
+                            <span class="badge bg-danger">Denied</span>
+                            {% endif %}
+                            on {{ approval.approval_date|date:"F d, Y" }}
+                        </div>
+                    </div>
+                    
+                    {% if approval.notes %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Notes:</div>
+                        <div class="col-md-8">{{ approval.notes }}</div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                
+                {% if repair.queue_status == 'PENDING' %}
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'customer_repair_deny' repair.id %}" class="btn btn-danger">
+                            <i class="fa fa-times"></i> Deny Repair
+                        </a>
+                        <a href="{% url 'customer_repair_approve' repair.id %}" class="btn btn-success">
+                            <i class="fa fa-check"></i> Approve Repair
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'customer_repairs' %}" class="btn btn-outline-primary">
+                            <i class="fa fa-list"></i> View All Repairs
+                        </a>
+                        <a href="{% url 'customer_dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="fa fa-home"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

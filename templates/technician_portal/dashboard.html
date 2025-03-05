@@ -1,11 +1,100 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Welcome, {{ technician.user.first_name }}</h1>
+<h1>Welcome to the technician portal, {{ technician.user.first_name|default:request.user.first_name }}</h1>
+
+{% if is_admin %}
+<div class="admin-panel card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h3 class="mb-0">Administrator Panel</h3>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h4>{{ admin_data.total_repairs }}</h4>
+                        <p class="mb-0">Total Repairs</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h4>{{ admin_data.pending_repairs }}</h4>
+                        <p class="mb-0">Pending Repairs</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h4>{{ admin_data.customers }}</h4>
+                        <p class="mb-0">Customers</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h4>{{ admin_data.technicians }}</h4>
+                        <p class="mb-0">Technicians</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="admin-actions mt-3">
+            <h5>Admin Actions:</h5>
+            <a href="{% url 'create_customer' %}" class="btn btn-success">Create New Customer</a>
+            <a href="{% url 'admin:index' %}" class="btn btn-primary">Go to Admin Panel</a>
+            <a href="{% url 'repair_list' %}" class="btn btn-info">View All Repairs</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if customer_requested_repairs %}
+<div class="customer-requested-repairs card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h3 class="mb-0">Customer-Requested Repairs - Attention Required</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-danger">These repairs were directly requested by customers and need your review:</p>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Unit #</th>
+                        <th>Damage Type</th>
+                        <th>Request Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for repair in customer_requested_repairs %}
+                    <tr>
+                        <td>{{ repair.customer.name }}</td>
+                        <td>{{ repair.unit_number }}</td>
+                        <td>{{ repair.damage_type }}</td>
+                        <td>{{ repair.repair_date|date:"Y-m-d" }}</td>
+                        <td>
+                            <a href="{% url 'repair_detail' repair.id %}" class="btn btn-primary btn-sm">Review</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="dashboard-actions">
     <a href="{% url 'create_repair' %}" class="btn btn-success">Create New Repair</a>
-    <a href="{% url 'repair_list' %}" class="btn">View Repairs</a>
+    <a href="{% url 'repair_list' %}" class="btn btn-primary">View Repairs</a>
+    {% if is_admin %}
     <a href="{% url 'create_customer' %}" class="btn btn-info">Create Customer</a>
+    {% endif %}
 </div>
 {% endblock %}
