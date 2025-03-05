@@ -59,6 +59,11 @@ class CustomDateTimeInput(DateTimeInput):
 
 class RepairForm(forms.ModelForm):
     customer = forms.ModelChoiceField(queryset=Customer.objects.all().order_by('name'))
+    technician = forms.ModelChoiceField(
+        queryset=Technician.objects.all(),
+        required=False,  # Not required because it might be set automatically for non-admin users
+        help_text="Only required for admin users. Regular technicians will be automatically assigned."
+    )
     repair_date = forms.DateTimeField(
         widget=CustomDateTimeInput(),
         initial=timezone.now
@@ -66,13 +71,26 @@ class RepairForm(forms.ModelForm):
 
     class Meta:
         model = Repair
-        fields = ['customer', 'unit_number', 'repair_date', 'description', 'queue_status', 'damage_type', 'drilled_before_repair', 'windshield_temperature', 'resin_viscosity']
+        fields = ['technician', 'customer', 'unit_number', 'repair_date', 'description', 'queue_status', 'damage_type', 'drilled_before_repair', 'windshield_temperature', 'resin_viscosity']
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super(RepairForm, self).__init__(*args, **kwargs)
+        
+        # Hide technician field for non-admin users
+        if self.user and not self.user.is_staff:
+            self.fields['technician'].widget = forms.HiddenInput()
+        
     def clean(self):
         cleaned_data = super().clean()
         customer = cleaned_data.get('customer')
         unit_number = cleaned_data.get('unit_number')
         queue_status = cleaned_data.get('queue_status')
+        technician = cleaned_data.get('technician')
+
+        # Admin users must select a technician
+        if hasattr(self, 'user') and self.user.is_staff and not technician:
+            self.add_error('technician', 'Please select a technician to assign this repair to.')
 
         if customer and unit_number:
             existing_repairs = Repair.objects.filter(

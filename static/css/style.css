@@ -176,5 +176,47 @@ a:hover {
   font-size: 2rem;
   font-weight: bold;
   margin: 0;
-  color: var(--primary-color);
+}
+
+/* Customer-requested repairs styling */
+.customer-requested-repairs {
+  border: 2px solid #ffc107;
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+.customer-requested-repairs .card-header {
+  background-color: #ffc107;
+  color: #212529;
+  font-weight: bold;
+}
+
+.repair-item.bg-warning {
+  background-color: #fff3cd;
+  border-left: 5px solid #ffc107;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.repair-item.bg-warning:hover {
+  background-color: #ffe8a1;
+  transform: translateX(5px);
+}
+
+.repair-item.bg-warning a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-decoration: none;
+  color: #212529;
+}
+
+.repair-item.bg-warning .badge {
+  background-color: #dc3545;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
 }

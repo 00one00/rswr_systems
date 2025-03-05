@@ -26,8 +26,10 @@ urlpatterns = [
     path('admin/register-technician/', views.register_technician, name='register_technician'),
     path('admin/', admin.site.urls),
     path('technician/', include('apps.technician_portal.urls')),
+    path('customer/', include('apps.customer_portal.urls')),
     path('accounts/login/', views.login_view, name='login'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+    path('jobs/', include('apps.jobs_mvp.urls')),
     # path('api-token-auth/', views.obtain_auth_token, name='api_token_auth'),
 ]

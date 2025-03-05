@@ -1,32 +1,148 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>All Customers</h1>
-
-<div class="filter-form">
-    <form method="get" class="form-inline">
-        <div class="form-group">
-            <label for="customer_search">Search Customer:</label>
-            <input type="text" name="customer_search" id="customer_search" placeholder="Customer Name" value="{{ customer_search }}" class="form-control">
+<div class="repair-list">
+    <h1>
+        {% if is_admin %}
+        All System Repairs
+        {% else %}
+        Your Assigned Repairs
+        {% endif %}
+    </h1>
+    
+    {% if is_admin %}
+    <div class="admin-alert alert alert-info">
+        <i class="fa fa-info-circle"></i> You're viewing this page with administrative privileges. You can see and manage all repairs in the system.
+    </div>
+    {% endif %}
+    
+    <div class="filter-panel card mb-4">
+        <div class="card-body">
+            <form method="get" class="mb-0">
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="form-group">
+                            <label for="customer_search">Customer Name</label>
+                            <input type="text" class="form-control" id="customer_search" name="customer_search" value="{{ customer_search }}">
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="form-group">
+                            <label for="status">Status</label>
+                            <select class="form-control" id="status" name="status">
+                                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+                                {% for status_code, status_label in queue_choices %}
+                                <option value="{{ status_code }}" {% if status_filter == status_code %}selected{% endif %}>{{ status_label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    </div>
+                </div>
+            </form>
         </div>
-        <button type="submit" class="btn btn-primary">Search</button>
-    </form>
-</div>
+    </div>
 
-<div class="customer-list">
-    {% for customer in customers %}
-        <div class="customer-item">
-            <a href="{% url 'customer_details' customer.id %}">{{ customer.name }}</a>
-        </div>
-    {% empty %}
-        <p>No customers found.</p>
-    {% endfor %}
+    {% if requested_repairs_count > 0 %}
+    <div class="alert alert-warning">
+        <strong>Attention Required!</strong> There are {{ requested_repairs_count }} customer-requested repairs pending your review.
+    </div>
+    {% endif %}
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Customer</th>
+                    <th>Unit #</th>
+                    <th>Damage Type</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    {% if is_admin %}
+                    <th>Technician</th>
+                    {% endif %}
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for repair in repairs %}
+                <tr>
+                    <td>{{ repair.id }}</td>
+                    <td>{{ repair.customer.name }}</td>
+                    <td>{{ repair.unit_number }}</td>
+                    <td>{{ repair.damage_type }}</td>
+                    <td>
+                        <span class="badge {% if repair.queue_status == 'COMPLETED' %}bg-success{% elif repair.queue_status == 'IN_PROGRESS' %}bg-primary{% elif repair.queue_status == 'PENDING' %}bg-warning{% elif repair.queue_status == 'APPROVED' %}bg-info{% elif repair.queue_status == 'DENIED' %}bg-danger{% elif repair.queue_status == 'REQUESTED' %}bg-secondary{% else %}bg-secondary{% endif %}">
+                            {{ repair.get_queue_status_display }}
+                        </span>
+                    </td>
+                    <td>{{ repair.repair_date|date:"Y-m-d" }}</td>
+                    {% if is_admin %}
+                    <td>{{ repair.technician.user.get_full_name }}</td>
+                    {% endif %}
+                    <td>
+                        <a href="{% url 'repair_detail' repair.id %}" class="btn btn-primary btn-sm">View</a>
+                        {% if is_admin %}
+                        <a href="{% url 'update_repair' repair.id %}" class="btn btn-info btn-sm">Edit</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{% if is_admin %}8{% else %}7{% endif %}" class="text-center">No repairs found matching the criteria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if repairs.has_other_pages %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if repairs.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" aria-label="First">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ repairs.previous_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for i in repairs.paginator.page_range %}
+                {% if repairs.number == i %}
+                <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                {% elif i > repairs.number|add:'-3' and i < repairs.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ i }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}">{{ i }}</a></li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if repairs.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ repairs.next_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ repairs.paginator.num_pages }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" aria-label="Last">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+    <div class="action-buttons mt-4">
+        <a href="{% url 'create_repair' %}" class="btn btn-success">Create New Repair</a>
+        <a href="{% url 'technician_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
 </div>
-
-<div class="action-buttons">
-    <a href="{% url 'create_repair' %}" class="btn btn-success">Create New Repair</a>
-    <a href="{% url 'create_customer' %}" class="btn">Add New Customer</a>
-    <a href="{% url 'technician_dashboard' %}" class="btn">Back to Dashboard</a>
-</div>
-
 {% endblock %}

@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Your Repairs</h2>
+    
+    <div class="mb-4">
+        <a href="{% url 'customer_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fa fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+    
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Repair Records</h5>
+            <div>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'customer_repairs' %}?status=all" class="btn btn-sm btn-outline-secondary {% if status_filter == 'all' %}active{% endif %}">All</a>
+                    <a href="{% url 'customer_repairs' %}?status=pending" class="btn btn-sm btn-outline-secondary {% if status_filter == 'pending' %}active{% endif %}">Pending</a>
+                    <a href="{% url 'customer_repairs' %}?status=approved" class="btn btn-sm btn-outline-secondary {% if status_filter == 'approved' %}active{% endif %}">Approved</a>
+                    <a href="{% url 'customer_repairs' %}?status=in_progress" class="btn btn-sm btn-outline-secondary {% if status_filter == 'in_progress' %}active{% endif %}">In Progress</a>
+                    <a href="{% url 'customer_repairs' %}?status=completed" class="btn btn-sm btn-outline-secondary {% if status_filter == 'completed' %}active{% endif %}">Completed</a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if repairs %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Date</th>
+                                <th>Unit #</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for repair in repairs %}
+                            <tr>
+                                <td>#{{ repair.id }}</td>
+                                <td>{{ repair.repair_date|date:"M d, Y" }}</td>
+                                <td>{{ repair.unit_number }}</td>
+                                <td>{{ repair.description|truncatechars:50 }}</td>
+                                <td>
+                                    <span class="badge {% if repair.queue_status == 'COMPLETED' %}bg-success{% elif repair.queue_status == 'IN_PROGRESS' %}bg-warning{% elif repair.queue_status == 'REQUESTED' %}bg-secondary{% elif repair.queue_status == 'APPROVED' %}bg-info{% else %}bg-primary{% endif %}">
+                                        {% if repair.queue_status == 'REQUESTED' %}
+                                        Submitted - Awaiting Technician
+                                        {% elif repair.queue_status == 'APPROVED' and repair.customer_initiated %}
+                                        Scheduled for Repair
+                                        {% else %}
+                                        {{ repair.get_queue_status_display }}
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'customer_repair_detail' repair.id %}" class="btn btn-sm btn-primary">
+                                        View Details
+                                    </a>
+                                    {% if repair.queue_status == 'PENDING' %}
+                                    <a href="{% url 'customer_repair_approve' repair.id %}" class="btn btn-sm btn-success">
+                                        Approve
+                                    </a>
+                                    <a href="{% url 'customer_repair_deny' repair.id %}" class="btn btn-sm btn-danger">
+                                        Deny
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    No repairs found for the selected filter.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

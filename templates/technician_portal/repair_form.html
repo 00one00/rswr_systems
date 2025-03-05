@@ -2,19 +2,57 @@
 {% load static %}
 
 {% block content %}
-<h1>{% if repair %}Edit Repair{% else %}Create New Repair{% endif %}</h1>
-
-<div id="warningDiv" class="alert alert-warning" style="display: none;"></div>
-
-<form method="post" id="repairForm">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save</button>
-</form>
-
-<div class="action-buttons">
-    <a href="{% url 'repair_list' %}" class="btn">Back to All Repairs</a>
-    <a href="{% url 'technician_dashboard' %}" class="btn">Back to Dashboard</a>
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h3>{% if repair %}Edit{% else %}Create New{% endif %} Repair</h3>
+            </div>
+            <div class="card-body">
+                {% if pending_repair_warning %}
+                <div class="alert alert-warning">
+                    {{ pending_repair_warning }}
+                </div>
+                {% endif %}
+                
+                <div id="warningDiv" class="alert alert-warning" style="display: none;"></div>
+                
+                <form method="post" id="repairForm">
+                    {% csrf_token %}
+                    
+                    {% for field in form %}
+                    <div class="form-group mb-3">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="text-danger">
+                            {{ field.errors }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    {% if is_admin and technicians %}
+                    <div class="form-group mb-3">
+                        <label for="technician_id">Assign Technician</label>
+                        <select name="technician_id" id="technician_id" class="form-control" required>
+                            <option value="">Select Technician</option>
+                            {% for tech in technicians %}
+                            <option value="{{ tech.id }}">{{ tech.user.get_full_name }} ({{ tech.expertise }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="action-buttons text-center mt-4">
+                        <button type="submit" class="btn btn-primary">{% if repair %}Update{% else %}Create{% endif %} Repair</button>
+                        <a href="{% url 'repair_list' %}" class="btn btn-secondary">Back to Repairs</a>
+                        <a href="{% url 'technician_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>

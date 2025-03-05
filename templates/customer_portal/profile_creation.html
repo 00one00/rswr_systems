@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Create Your Customer Profile</h2>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-group mb-3">
+            <label>Are you joining an existing company or creating a new one?</label>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="is_new_company" id="existing_company" value="no" checked onchange="toggleCompanyForm()">
+                <label class="form-check-label" for="existing_company">
+                    Join existing company
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="is_new_company" id="new_company" value="yes" onchange="toggleCompanyForm()">
+                <label class="form-check-label" for="new_company">
+                    Create new company
+                </label>
+            </div>
+        </div>
+        
+        <!-- Existing company selection -->
+        <div id="existing_company_form">
+            <div class="form-group mb-3">
+                <label for="customer">Select Your Company</label>
+                <select class="form-control" id="customer" name="customer">
+                    <option value="">-- Select a company --</option>
+                    {% for customer in customers %}
+                    <option value="{{ customer.id }}">{{ customer.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <!-- New company form -->
+        <div id="new_company_form" style="display: none;">
+            <div class="form-group mb-3">
+                <label for="company_name">Company Name</label>
+                <input type="text" class="form-control" id="company_name" name="company_name">
+            </div>
+            
+            <div class="form-group mb-3">
+                <label for="company_email">Company Email</label>
+                <input type="email" class="form-control" id="company_email" name="company_email">
+            </div>
+            
+            <div class="form-group mb-3">
+                <label for="company_phone">Company Phone</label>
+                <input type="text" class="form-control" id="company_phone" name="company_phone">
+            </div>
+            
+            <div class="form-group mb-3">
+                <label for="company_address">Company Address</label>
+                <textarea class="form-control" id="company_address" name="company_address" rows="3"></textarea>
+            </div>
+        </div>
+        
+        <div class="form-group mb-3">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="is_primary_contact" name="is_primary_contact" value="True">
+                <label class="form-check-label" for="is_primary_contact">
+                    I am the primary contact for this company
+                </label>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Create Profile</button>
+    </form>
+</div>
+
+<script>
+function toggleCompanyForm() {
+    if (document.getElementById('new_company').checked) {
+        document.getElementById('existing_company_form').style.display = 'none';
+        document.getElementById('new_company_form').style.display = 'block';
+        document.getElementById('customer').removeAttribute('required');
+        document.getElementById('company_name').setAttribute('required', '');
+        document.getElementById('company_email').setAttribute('required', '');
+        document.getElementById('company_phone').setAttribute('required', '');
+    } else {
+        document.getElementById('existing_company_form').style.display = 'block';
+        document.getElementById('new_company_form').style.display = 'none';
+        document.getElementById('customer').setAttribute('required', '');
+        document.getElementById('company_name').removeAttribute('required');
+        document.getElementById('company_email').removeAttribute('required');
+        document.getElementById('company_phone').removeAttribute('required');
+    }
+}
+</script>
+{% endblock %} 

@@ -1,116 +1,222 @@
+:root {
+  --primary-color: #0056b3;
+  --secondary-color: #007bff;
+  --background-color: #f8f9fa;
+  --text-color: #333;
+  --border-color: #dee2e6;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    line-height: 1.6;
-    margin: 0;
-    padding: 20px;
-    background-color: #f4f4f4;
+  font-family: 'Roboto', Arial, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+  background-color: var(--background-color);
+  color: var(--text-color);
 }
 
-h1 {
-    color: #333;
-    border-bottom: 2px solid #333;
-    padding-bottom: 10px;
-}
-
-.dashboard-actions, .action-buttons {
-    margin: 20px 0;
-}
-
-.btn {
-    display: inline-block;
-    padding: 10px 15px;
-    margin-right: 10px;
-    background-color: #007bff;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 5px;
-    transition: background-color 0.3s;
-}
-
-.btn:hover {
-    background-color: #0056b3;
-}
-
-.btn-success {
-    background-color: #28a745;
-}
-
-.btn-success:hover {
-    background-color: #218838;
-}
-
-.btn-info {
-    background-color: #17a2b8;
-}
-
-.btn-info:hover {
-    background-color: #138496;
-}
-
-.filter-form {
-    background-color: #fff;
-    padding: 15px;
-    border-radius: 5px;
-    margin-bottom: 20px;
-}
-
-.form-group {
-    margin-right: 15px;
-    display: inline-block;
-}
-
-.repair-list h2 {
-    margin-top: 30px;
-    color: #007bff;
-}
-
-.repair-list h3 {
-    margin-top: 20px;
-    color: #28a745;
-}
-
-.repair-list ul {
-    list-style-type: none;
-    padding-left: 0;
-}
-
-.repair-list li {
-    margin-bottom: 10px;
-    background-color: #fff;
-    padding: 10px;
-    border-radius: 5px;
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
 header {
-    background-color: #f8f9fa;
-    padding: 10px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 1rem 0;
 }
 
-.logo {
-    margin: 0;
-    font-size: 24px;
-    color: #333;
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 1rem;
 }
 
-.btn-logout {
-    background-color: transparent;
-    color: #dc3545;
-    border: none;
-    padding: 5px 10px;
-    font-size: 14px;
-    text-decoration: underline;
+nav ul {
+  list-style-type: none;
+  display: flex;
+  margin: 0;
+  padding: 0;
 }
 
-.btn-logout:hover {
-    color: #c82333;
-    background-color: transparent;
+nav ul li {
+  margin-left: 1rem;
 }
 
-.logout-container {
-    position: absolute;
-    top: 10px;
-    right: 10px;
+nav a {
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--primary-color);
+}
+
+a {
+  color: var(--secondary-color);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--primary-color);
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  text-decoration: none;
+}
+
+.btn:hover {
+  background-color: var(--primary-color);
+}
+
+.btn-success {
+  background-color: #28a745;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}
+
+.btn-info {
+  background-color: #17a2b8;
+}
+
+.btn-info:hover {
+  background-color: #138496;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+}
+
+.filter-form {
+  background-color: white;
+  padding: 1rem;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: var(--primary-color);
+}
+
+.list-group {
+  list-style-type: none;
+  padding: 0;
+}
+
+.list-group-item {
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem 0;
+}
+
+.list-group-item:last-child {
+  border-bottom: none;
+}
+
+.action-buttons {
+  margin-top: 1rem;
+}
+
+.action-buttons .btn {
+  margin-right: 0.5rem;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background-color: white;
+  border-radius: 5px;
+  padding: 1rem;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card h3 {
+  margin-bottom: 0.5rem;
+}
+
+.stat-card p {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* Customer-requested repairs styling */
+.customer-requested-repairs {
+  border: 2px solid #ffc107;
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+.customer-requested-repairs .card-header {
+  background-color: #ffc107;
+  color: #212529;
+  font-weight: bold;
+}
+
+.repair-item.bg-warning {
+  background-color: #fff3cd;
+  border-left: 5px solid #ffc107;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.repair-item.bg-warning:hover {
+  background-color: #ffe8a1;
+  transform: translateX(5px);
+}
+
+.repair-item.bg-warning a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-decoration: none;
+  color: #212529;
+}
+
+.repair-item.bg-warning .badge {
+  background-color: #dc3545;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
 }
