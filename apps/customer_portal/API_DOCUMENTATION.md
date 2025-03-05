@@ -1,22 +1,20 @@
 # Customer Portal API Documentation
 
 ## Overview
-This document provides detailed information about the API endpoints available in the Customer Portal application of RS Wind Repair Systems. These APIs are primarily used to retrieve data for the interactive visualizations and to support various customer-facing functionalities.
+This document describes the API endpoints powering the RSWR Systems Customer Portal's interactive data visualizations and features. These APIs provide authenticated access to repair metrics, unit data, and status information.
 
-## Authentication
-All API endpoints require authentication. The APIs use Django's session-based authentication, and users must be logged in as a valid customer user to access these endpoints. Unauthorized requests will be redirected to the login page.
+## Authentication Requirements
+All API endpoints use Django's session-based authentication. Users must be logged in with a valid customer account to access these endpoints. Unauthorized access attempts will be redirected to the login page.
 
-## API Endpoints
+## Available API Endpoints
 
-### 1. Unit Repair Data API
+### Unit Repair Data API
 
 **Endpoint**: `/customer/api/unit-repair-data/`
 
 **Method**: GET
 
-**Description**: Retrieves repair counts for each unit associated with the logged-in customer's account.
-
-**Request Parameters**: None
+**Purpose**: Retrieves repair counts for each unit/vehicle associated with the logged-in customer's account. This data powers the "Repairs by Unit" bar chart visualization.
 
 **Response Format**:
 ```json
@@ -28,38 +26,37 @@ All API endpoints require authentication. The APIs use Django's session-based au
   {
     "unit_number": "B456",
     "repair_count": 5
-  },
-  ...
+  }
 ]
 ```
 
 **Status Codes**:
-- 200: Successful request
-- 302: Redirect to login if not authenticated
+- 200: Success - Data returned as expected
+- 302: Authentication required - Redirected to login
 - 404: Customer profile not found
 
-**Usage Example**:
+**Example Implementation**:
 ```javascript
+// Fetch unit repair count data for visualization
 fetch('/customer/api/unit-repair-data/')
   .then(response => response.json())
   .then(data => {
-    // Process unit repair data
-    console.log(data);
+    // Process unit repair data for visualization
+    createUnitRepairChart(data);
   })
   .catch(error => {
     console.error('Error fetching unit repair data:', error);
+    showErrorMessage('Unable to load unit repair data');
   });
 ```
 
-### 2. Repair Frequency Data API
+### Repair Frequency Data API
 
 **Endpoint**: `/customer/api/repair-cost-data/`
 
 **Method**: GET
 
-**Description**: Retrieves repair frequency over time, grouped by month, for the logged-in customer's account.
-
-**Request Parameters**: None
+**Purpose**: Retrieves repair frequency data grouped by month, showing repair volume trends over time. This powers the "Repair Frequency Over Time" line chart.
 
 **Response Format**:
 ```json
@@ -71,125 +68,84 @@ fetch('/customer/api/unit-repair-data/')
   {
     "date": "2023-02",
     "count": 7
-  },
-  ...
+  }
 ]
 ```
 
 **Status Codes**:
-- 200: Successful request
-- 302: Redirect to login if not authenticated
+- 200: Success - Data returned as expected
+- 302: Authentication required - Redirected to login
 - 404: Customer profile not found
 
-**Usage Example**:
+**Example Implementation**:
 ```javascript
+// Fetch repair frequency data for time series chart
 fetch('/customer/api/repair-cost-data/')
   .then(response => response.json())
   .then(data => {
-    // Process repair frequency data
-    console.log(data);
+    // Process repair frequency data for visualization
+    createRepairFrequencyChart(data);
   })
   .catch(error => {
     console.error('Error fetching repair frequency data:', error);
+    showErrorMessage('Unable to load repair trend data');
   });
 ```
 
-### 3. Repair Status Data
+### Repair Status Distribution Data
 
-**Note**: This data is not provided via a separate API endpoint but is included directly in the context of the dashboard template.
+**Note**: Unlike the other APIs, this data is passed directly through the Django template context rather than being accessed through a separate API endpoint.
 
 **Data Structure**:
 ```json
 {
   "repair_status_counts": [
-    {
-      "status": "REQUESTED",
-      "count": 5
-    },
-    {
-      "status": "PENDING",
-      "count": 3
-    },
-    {
-      "status": "APPROVED",
-      "count": 2
-    },
-    {
-      "status": "IN_PROGRESS",
-      "count": 4
-    },
-    {
-      "status": "COMPLETED",
-      "count": 12
-    },
-    {
-      "status": "DENIED",
-      "count": 1
-    }
+    {"status": "REQUESTED", "count": 5},
+    {"status": "PENDING", "count": 3},
+    {"status": "APPROVED", "count": 2},
+    {"status": "IN_PROGRESS", "count": 4},
+    {"status": "COMPLETED", "count": 12},
+    {"status": "DENIED", "count": 1}
   ]
 }
 ```
 
-**Usage**: This data is accessed directly in the dashboard template and passed to the JavaScript functions that generate the pie chart.
+**Usage**: This data is accessed in the dashboard template and used directly by the JavaScript functions that generate the pie chart visualization.
 
 ## Implementation Details
 
-### Backend Code
+### Backend Implementation
 
-The API endpoints are implemented in `views.py`:
+The API endpoints are implemented in `views.py` using the following pattern:
 
 ```python
 @login_required
 def unit_repair_data_api(request):
     try:
+        # Get the customer associated with the logged-in user
         customer_user = CustomerUser.objects.get(user=request.user)
         customer = customer_user.customer
         
-        # Get unit repair counts
+        # Query repair counts for this customer's units
         unit_repair_counts = UnitRepairCount.objects.filter(customer=customer)
+        
+        # Format data for the visualization
         data = [
             {"unit_number": unit.unit_number, "repair_count": unit.repair_count}
             for unit in unit_repair_counts
         ]
         
+        # Return JSON response
         return JsonResponse(data, safe=False)
+        
     except CustomerUser.DoesNotExist:
-        return JsonResponse({"error": "Customer profile not found"}, status=404)
-        
-@login_required
-def repair_cost_data_api(request):
-    try:
-        customer_user = CustomerUser.objects.get(user=request.user)
-        customer = customer_user.customer
-        
-        # Get repair frequency data by month
-        repairs = Repair.objects.filter(customer=customer)
-        
-        # Group by month and count
-        from django.db.models import Count
-        from django.db.models.functions import TruncMonth
-        
-        repair_data = (
-            repairs.annotate(month=TruncMonth('repair_date'))
-            .values('month')
-            .annotate(count=Count('id'))
-            .order_by('month')
-        )
-        
-        # Format data for chart
-        data = [
-            {"date": item['month'].strftime('%Y-%m'), "count": item['count']}
-            for item in repair_data
-        ]
-        
-        return JsonResponse(data, safe=False)
-    except CustomerUser.DoesNotExist:
+        # Handle the case where user doesn't have a customer profile
         return JsonResponse({"error": "Customer profile not found"}, status=404)
 ```
 
 ### URL Configuration
 
-The API endpoints are configured in `urls.py`:
+The API endpoints are registered in `urls.py`:
 
 ```python
 from django.urls import path
@@ -204,25 +160,34 @@ urlpatterns = [
 
 ## Error Handling
 
-The API endpoints include error handling for common scenarios:
+The API implements consistent error handling for common scenarios:
 
-1. **User Not Authenticated**: Django's `@login_required` decorator redirects to the login page.
-2. **Customer Profile Not Found**: Returns a 404 status with an error message.
-3. **Server Error**: Standard Django error handling applies; 500 status is returned.
+1. **Authentication Errors**: The `@login_required` decorator handles unauthorized access by redirecting to the login page.
+
+2. **Missing Customer Profile**: If a user is authenticated but doesn't have an associated customer profile, a 404 status is returned with an error message.
+
+3. **Server Errors**: Django's standard error handling returns appropriate 500-series status codes for unexpected errors.
 
 ## Best Practices for API Usage
 
-1. **Error Handling**: Always include error handling in your API calls.
-2. **Loading States**: Show loading indicators while waiting for API responses.
-3. **Caching**: Consider caching API responses if they are used frequently.
-4. **Rate Limiting**: Be mindful of how frequently you call the APIs, especially in loops or intervals.
-5. **Authentication**: Ensure users are authenticated before attempting to access the APIs.
+1. **Include Error Handling**: Always implement error handling for API calls to provide a smooth user experience even when data cannot be loaded.
 
-## Future API Extensions
+2. **Show Loading States**: Display loading indicators while waiting for API responses, especially for visualizations.
 
-Potential future API endpoints that may be implemented:
+3. **Implement Caching**: Consider caching API responses in the browser for frequently accessed data that doesn't change often.
 
-1. **Repair Details API**: Get detailed information about a specific repair.
-2. **Repair Status Update API**: Allow customers to update repair statuses via API.
-3. **Repair Request API**: Submit new repair requests programmatically.
-4. **Customer Profile API**: Retrieve and update customer profile information. 
+4. **Handle Network Issues**: Implement retry logic or graceful degradation for network failures.
+
+5. **Respect Rate Limits**: Avoid making excessive API calls, especially in loops or short intervals.
+
+## Planned Future API Extensions
+
+The following API endpoints are planned for future development:
+
+1. **Repair Details API**: Detailed information retrieval for specific repairs.
+
+2. **Repair Status Update API**: Allow customers to programmatically update repair statuses.
+
+3. **Repair Request API**: Submit new repair requests via the API.
+
+4. **Customer Profile API**: Access and update customer profile information.
