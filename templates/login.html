@@ -1,96 +1,44 @@
 {% extends "base_auth.html" %}
 
-{% block title %}Login | RSWR Systems{% endblock %}
+{% block title %}Login | RS Systems{% endblock %}
+
+{% block auth_title %}Welcome Back{% endblock %}
+{% block auth_subtitle %}Please sign in to your account to continue{% endblock %}
 
 {% block content %}
-<div class="flex min-h-screen bg-gray-50">
-    <!-- Left side: Image/Brand -->
-    <div class="hidden lg:flex lg:w-1/2 bg-blue-600 items-center justify-center">
-        <div class="max-w-md text-center">
-            <h1 class="text-5xl font-bold text-white mb-6">RSWR Systems</h1>
-            <p class="text-xl text-blue-100">Your trusted partner for repair management solutions.</p>
+<form method="post">
+    {% csrf_token %}
+    
+    {% if form.non_field_errors %}
+        <div class="auth-error">
+            {{ form.non_field_errors.0 }}
         </div>
+    {% endif %}
+    
+    <div class="form-group">
+        <label for="{{ form.username.id_for_label }}">Username</label>
+        <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" 
+               class="form-control" {% if form.username.value %}value="{{ form.username.value }}"{% endif %}>
+        {% if form.username.errors %}
+            <p class="auth-error">{{ form.username.errors.0 }}</p>
+        {% endif %}
     </div>
     
-    <!-- Right side: Login Form -->
-    <div class="w-full lg:w-1/2 flex items-center justify-center px-6 py-12">
-        <div class="w-full max-w-md">
-            <!-- Logo for mobile -->
-            <div class="lg:hidden text-center mb-10">
-                <h1 class="text-4xl font-bold text-blue-600">RSWR Systems</h1>
-                <p class="text-gray-600 mt-2">Your trusted partner for repair management</p>
-            </div>
-            
-            <!-- Login Card -->
-            <div class="bg-white rounded-lg shadow-lg p-8">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Welcome Back</h2>
-                
-                <!-- Show messages if any -->
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="mb-4 p-4 rounded-md {{ message.tags|yesno:'bg-green-100 text-green-700,bg-red-100 text-red-700' }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-                
-                <form method="post" class="space-y-6">
-                    {% csrf_token %}
-                    
-                    <!-- Username field -->
-                    <div>
-                        <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
-                            Username
-                        </label>
-                        <div class="mt-1">
-                            <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                {% if form.username.value %}value="{{ form.username.value }}"{% endif %}>
-                        </div>
-                        {% if form.username.errors %}
-                            <p class="mt-2 text-sm text-red-600">{{ form.username.errors.0 }}</p>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Password field -->
-                    <div>
-                        <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
-                            Password
-                        </label>
-                        <div class="mt-1">
-                            <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        {% if form.password.errors %}
-                            <p class="mt-2 text-sm text-red-600">{{ form.password.errors.0 }}</p>
-                        {% endif %}
-                    </div>
-                    
-                    {% if form.non_field_errors %}
-                        <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                            <div class="text-red-700">
-                                {{ form.non_field_errors.0 }}
-                            </div>
-                        </div>
-                    {% endif %}
-                    
-                    <div>
-                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                            Sign In
-                        </button>
-                    </div>
-                </form>
-                
-                <div class="mt-6 text-center">
-                    <p class="text-sm text-gray-600">
-                        Don't have an account? 
-                        <a href="{% url 'customer_register' %}" class="font-medium text-blue-600 hover:text-blue-500">
-                            Register here
-                        </a>
-                    </p>
-                </div>
-            </div>
-        </div>
+    <div class="form-group">
+        <label for="{{ form.password.id_for_label }}">Password</label>
+        <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" 
+               class="form-control">
+        {% if form.password.errors %}
+            <p class="auth-error">{{ form.password.errors.0 }}</p>
+        {% endif %}
     </div>
-</div>
+    
+    <button type="submit" class="btn-auth">
+        <i class="fas fa-sign-in-alt"></i> Sign In
+    </button>
+</form>
+{% endblock %}
+
+{% block auth_footer %}
+Don't have an account? <a href="{% url 'customer_register' %}">Register now</a>
 {% endblock %}

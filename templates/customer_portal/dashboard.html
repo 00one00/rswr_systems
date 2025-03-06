@@ -5,122 +5,347 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/dashboard_visualizations.css' %}">
+<style>
+    .sidebar {
+        position: sticky;
+        top: 100px;
+    }
+    
+    .stats-card {
+        height: 140px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    .sidebar-menu {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+    }
+    
+    .sidebar-menu a {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.5rem;
+        color: var(--text-color);
+        border-bottom: 1px solid var(--border-color);
+        transition: var(--transition);
+    }
+    
+    .sidebar-menu a:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+    
+    .sidebar-menu a.active {
+        background-color: var(--primary-color);
+        color: white;
+    }
+    
+    .sidebar-menu a i {
+        font-size: 1.25rem;
+        width: 24px;
+        text-align: center;
+    }
+    
+    .sidebar-menu a:last-child {
+        border-bottom: none;
+    }
+    
+    .approval-item {
+        border-left: 4px solid var(--warning-color);
+    }
+    
+    .welcome-banner {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-banner h1 {
+        color: white;
+        margin-bottom: 0.5rem;
+    }
+    
+    .welcome-banner p {
+        margin-bottom: 1.5rem;
+        opacity: 0.9;
+        max-width: 600px;
+    }
+    
+    .welcome-banner .decoration {
+        position: absolute;
+        right: -50px;
+        bottom: -50px;
+        font-size: 12rem;
+        opacity: 0.1;
+        transform: rotate(-15deg);
+    }
+    
+    .dropdown-menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: white;
+        box-shadow: var(--box-shadow);
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        min-width: 200px;
+        z-index: 100;
+    }
+    
+    .dropdown-menu.show {
+        display: block;
+    }
+    
+    .dropdown-menu a, 
+    .dropdown-menu button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        text-decoration: none;
+        color: var(--text-color);
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+    
+    .dropdown-menu a:hover, 
+    .dropdown-menu button:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+    
+    .btn-link {
+        background: none;
+        border: none;
+        color: var(--primary-color);
+        cursor: pointer;
+        padding: 0;
+        font-size: inherit;
+        text-decoration: none;
+    }
+    
+    .btn-link:hover {
+        color: var(--primary-dark);
+        text-decoration: underline;
+    }
+    
+    .alert {
+        padding: 1rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .alert-success {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: var(--success-color);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    
+    .alert-warning {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: var(--warning-color);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    
+    .alert-danger {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: var(--danger-color);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    
+    .close-alert {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: inherit;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard-container">
-    <div class="dashboard-header">
-        <h1>Welcome, {{ customer.name }}</h1>
-    </div>
-    
-    <!-- Add data visualization section at the top of the dashboard -->
-    <div class="visualizations-container">
-        <h2>Repair Analytics</h2>
-        <div class="charts-container">
-            <div class="chart-card">
-                <h3>Repair Status Distribution</h3>
-                <div id="status-chart"></div>
-            </div>
-            <div class="chart-card">
-                <h3>Repairs by Unit</h3>
-                <div id="unit-chart"></div>
-            </div>
-            <div class="chart-card">
-                <h3>Repair Frequency Over Time</h3>
-                <div id="cost-chart"></div>
-            </div>
+    <!-- Welcome Banner -->
+    <div class="welcome-banner">
+        <h1>Welcome back, {{ request.user.first_name }}!</h1>
+        <p>Manage your repair requests, view repair status, and keep track of your equipment maintenance all in one place.</p>
+        <a href="{% url 'request_repair' %}" class="btn btn-success">
+            <i class="fas fa-plus-circle"></i> New Repair Request
+        </a>
+        <div class="decoration">
+            <i class="fas fa-tools"></i>
         </div>
     </div>
     
-    <!-- Stats summary cards section -->
-    <div class="stats-container">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card text-white bg-primary mb-4">
-                    <div class="card-body text-center">
-                        <h5 class="card-title">Active Repairs</h5>
-                        <p class="display-4">{{ active_repairs_count|default:"0" }}</p>
-                    </div>
+    <!-- Stats Cards -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card stats-card" style="background-color: var(--primary-color);">
+                <div class="card-body">
+                    <h5 class="card-title">Active Repairs</h5>
+                    <p class="display-4">{{ active_repairs_count|default:"0" }}</p>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-cogs"></i>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card text-white bg-success mb-4">
-                    <div class="card-body text-center">
-                        <h5 class="card-title">Completed</h5>
-                        <p class="display-4">{{ completed_repairs_count|default:"0" }}</p>
-                    </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stats-card" style="background-color: var(--success-color);">
+                <div class="card-body">
+                    <h5 class="card-title">Completed</h5>
+                    <p class="display-4">{{ completed_repairs_count|default:"0" }}</p>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle"></i>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card text-white bg-warning mb-4">
-                    <div class="card-body text-center">
-                        <h5 class="card-title">Awaiting Approval</h5>
-                        <p class="display-4">{{ pending_approval_count|default:"0" }}</p>
-                    </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stats-card" style="background-color: var(--warning-color);">
+                <div class="card-body">
+                    <h5 class="card-title">Awaiting Approval</h5>
+                    <p class="display-4">{{ pending_approval_count|default:"0" }}</p>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
                 </div>
             </div>
         </div>
     </div>
     
     <div class="row">
-        <!-- Company Information -->
+        <!-- Sidebar with Quick Links and Company Info -->
         <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Company Information</h5>
-                    <a href="{% url 'edit_company' %}" class="btn btn-sm btn-outline-primary">Edit</a>
+            <div class="sidebar">
+                <!-- Quick Actions -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title"><i class="fas fa-bolt"></i> Quick Actions</h5>
+                    </div>
+                    <div class="sidebar-menu">
+                        <a href="{% url 'customer_dashboard' %}" class="active">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                        <a href="{% url 'customer_repairs' %}">
+                            <i class="fas fa-tools"></i> View All Repairs
+                        </a>
+                        <a href="{% url 'request_repair' %}">
+                            <i class="fas fa-plus-circle"></i> Request New Repair
+                        </a>
+                        <a href="{% url 'account_settings' %}">
+                            <i class="fas fa-user-cog"></i> Account Settings
+                        </a>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p class="mb-1"><strong>Name:</strong> {{ customer.name|title }}</p>
-                    <p class="mb-1"><strong>Email:</strong> {{ customer.email }}</p>
-                    <p class="mb-1"><strong>Phone:</strong> {{ customer.phone }}</p>
-                    <p class="mb-1"><strong>Address:</strong> {{ customer.address }}</p>
-                    {% if customer.city or customer.state %}
-                    <p class="mb-1"><strong>Location:</strong> {{ customer.city|default:"" }}, {{ customer.state|default:"" }} {{ customer.zip_code|default:"" }}</p>
-                    {% endif %}
-                    <p class="mb-0">
-                        <strong>Primary Contact:</strong> {{ request.user.first_name }} {{ request.user.last_name }}
-                        {% if customer_user.is_primary_contact %}
-                        <span class="badge bg-primary">Primary Contact</span>
+                
+                <!-- Company Information -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title"><i class="fas fa-building"></i> Company Information</h5>
+                        <a href="{% url 'edit_company' %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>Name:</strong> {{ customer.name|title }}</p>
+                        <p class="mb-1"><strong>Email:</strong> {{ customer.email }}</p>
+                        <p class="mb-1"><strong>Phone:</strong> {{ customer.phone }}</p>
+                        <p class="mb-1"><strong>Address:</strong> {{ customer.address }}</p>
+                        {% if customer.city or customer.state %}
+                        <p class="mb-1"><strong>Location:</strong> {{ customer.city|default:"" }}, {{ customer.state|default:"" }} {{ customer.zip_code|default:"" }}</p>
                         {% endif %}
-                    </p>
-                </div>
-            </div>
-            
-            <!-- Quick Links -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Quick Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'customer_repairs' %}" class="btn btn-primary">
-                            <i class="fa fa-list"></i> View All Repairs
-                        </a>
-                        <a href="{% url 'request_repair' %}" class="btn btn-outline-primary">
-                            <i class="fa fa-wrench"></i> Request New Repair
-                        </a>
-                        <a href="{% url 'account_settings' %}" class="btn btn-outline-secondary">
-                            <i class="fa fa-cog"></i> Account Settings
-                        </a>
+                        <p class="mb-0">
+                            <strong>Primary Contact:</strong> {{ request.user.first_name }} {{ request.user.last_name }}
+                            {% if customer_user.is_primary_contact %}
+                            <span class="badge bg-primary">Primary Contact</span>
+                            {% endif %}
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Recent Repairs and Notifications -->
+        <!-- Main Content Area -->
         <div class="col-md-8">
+            <!-- Repairs Awaiting Approval -->
+            {% if pending_approval_count > 0 %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h5 class="card-title text-white"><i class="fas fa-exclamation-circle"></i> Repairs Awaiting Your Approval</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group">
+                        {% for repair in pending_approval_repairs %}
+                        <div class="list-group-item list-group-item-action approval-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Repair #{{ repair.id }}: {{ repair.description|truncatechars:50 }}</h6>
+                                <small>{{ repair.repair_date|date:"M d, Y" }}</small>
+                            </div>
+                            <p class="mb-1 text-muted">
+                                {% if repair.cost %}
+                                Estimated cost: ${{ repair.cost }}
+                                {% endif %}
+                            </p>
+                            <div class="d-flex justify-content-end mt-2">
+                                <a href="{% url 'customer_repair_detail' repair.id %}" class="btn btn-sm btn-outline-primary me-2">
+                                    <i class="fas fa-eye"></i> Details
+                                </a>
+                                <a href="{% url 'customer_repair_approve' repair.id %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-check"></i> Approve
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Data Visualizations -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title"><i class="fas fa-chart-pie"></i> Repair Analytics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="charts-container">
+                        <div class="chart-card">
+                            <h3>Repair Status Distribution</h3>
+                            <div id="status-chart"></div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Repairs by Unit</h3>
+                            <div id="unit-chart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Recent Repairs -->
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Recent Repairs</h5>
-                    <a href="{% url 'customer_repairs' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                    <h5 class="card-title"><i class="fas fa-history"></i> Recent Repairs</h5>
+                    <a href="{% url 'customer_repairs' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt"></i> View All
+                    </a>
                 </div>
                 <div class="card-body p-0">
                     {% if recent_repairs %}
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
-                            <thead class="table-light">
+                            <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Date</th>
@@ -138,16 +363,18 @@
                                     <td>
                                         <span class="badge {% if repair.queue_status == 'COMPLETED' %}bg-success{% elif repair.queue_status == 'IN_PROGRESS' %}bg-warning{% elif repair.queue_status == 'REQUESTED' %}bg-secondary{% elif repair.queue_status == 'APPROVED' %}bg-info{% else %}bg-primary{% endif %}">
                                             {% if repair.queue_status == 'REQUESTED' %}
-                                            Submitted - Awaiting Technician
+                                            Submitted
                                             {% elif repair.queue_status == 'APPROVED' and repair.customer_initiated %}
-                                            Scheduled for Repair
+                                            Scheduled
                                             {% else %}
                                             {{ repair.get_queue_status_display }}
                                             {% endif %}
                                         </span>
                                     </td>
                                     <td>
-                                        <a href="{% url 'customer_repair_detail' repair.id %}" class="btn btn-sm btn-primary">View</a>
+                                        <a href="{% url 'customer_repair_detail' repair.id %}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -155,41 +382,16 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="p-4 text-center">
-                        <p class="mb-0 text-muted">No recent repairs found.</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Repairs Awaiting Approval -->
-            <div class="card mb-4">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">Repairs Awaiting Your Approval</h5>
-                </div>
-                <div class="card-body">
-                    {% if pending_approval_repairs %}
-                    <div class="list-group">
-                        {% for repair in pending_approval_repairs %}
-                        <div class="list-group-item list-group-item-action">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Repair #{{ repair.id }}: {{ repair.description|truncatechars:50 }}</h6>
-                                <small>{{ repair.repair_date|date:"M d, Y" }}</small>
-                            </div>
-                            <p class="mb-1">
-                                {% if repair.cost %}
-                                Estimated cost: ${{ repair.cost }}
-                                {% endif %}
-                            </p>
-                            <div class="d-flex justify-content-end mt-2">
-                                <a href="{% url 'customer_repair_detail' repair.id %}" class="btn btn-sm btn-outline-primary me-2">Details</a>
-                                <a href="{% url 'customer_repair_approve' repair.id %}" class="btn btn-sm btn-success">Approve</a>
-                            </div>
+                    <div class="empty-state">
+                        <div class="icon">
+                            <i class="fas fa-clipboard-list"></i>
                         </div>
-                        {% endfor %}
+                        <h4>No Recent Repairs</h4>
+                        <p>You don't have any recent repair requests.</p>
+                        <a href="{% url 'request_repair' %}" class="btn btn-primary">
+                            <i class="fas fa-plus-circle"></i> Request a Repair
+                        </a>
                     </div>
-                    {% else %}
-                    <p class="text-center mb-0">No repairs waiting for approval.</p>
                     {% endif %}
                 </div>
             </div>
@@ -229,6 +431,7 @@
             
             if (data.length === 0) {
                 d3.select('#status-chart').append('p')
+                    .attr('class', 'text-center text-muted')
                     .text('No repair data available');
                 return;
             }
@@ -296,197 +499,77 @@
         // Function to load unit repair data via AJAX and create bar chart
         function loadUnitDataAndCreateChart() {
             fetch('/customer/api/unit-repair-data/')
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    repairData.unitCounts = data;
-                    createUnitChart();
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        d3.select('#unit-chart').append('p')
+                            .attr('class', 'text-center text-muted')
+                            .text('No unit data available');
+                        return;
+                    }
+                    
+                    // Sort data by repair count
+                    data.sort((a, b) => b.count - a.count);
+                    
+                    // Dimensions
+                    const margin = {top: 20, right: 30, bottom: 40, left: 40};
+                    const width = 350 - margin.left - margin.right;
+                    const height = 250 - margin.top - margin.bottom;
+                    
+                    // Create SVG
+                    const svg = d3.select('#unit-chart')
+                        .append('svg')
+                        .attr('width', width + margin.left + margin.right)
+                        .attr('height', height + margin.top + margin.bottom)
+                        .append('g')
+                        .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+                    
+                    // X scale
+                    const x = d3.scaleBand()
+                        .range([0, width])
+                        .domain(data.map(d => d.unit_name))
+                        .padding(0.2);
+                    
+                    // Y scale
+                    const y = d3.scaleLinear()
+                        .domain([0, d3.max(data, d => d.count)])
+                        .range([height, 0]);
+                    
+                    // X axis
+                    svg.append('g')
+                        .attr('transform', 'translate(0,' + height + ')')
+                        .call(d3.axisBottom(x))
+                        .selectAll('text')
+                        .attr('transform', 'translate(-10,0)rotate(-45)')
+                        .style('text-anchor', 'end');
+                    
+                    // Y axis
+                    svg.append('g')
+                        .call(d3.axisLeft(y));
+                    
+                    // Bars
+                    svg.selectAll('.bar')
+                        .data(data)
+                        .enter()
+                        .append('rect')
+                        .attr('class', 'bar')
+                        .attr('x', d => x(d.unit_name))
+                        .attr('width', x.bandwidth())
+                        .attr('y', d => y(d.count))
+                        .attr('height', d => height - y(d.count))
+                        .attr('fill', '#2563eb');
                 })
-                .catch(function(error) {
+                .catch(error => {
                     console.error('Error loading unit data:', error);
                     d3.select('#unit-chart').append('p')
-                        .text('Error loading unit repair data');
+                        .attr('class', 'text-center text-muted')
+                        .text('Error loading unit data');
                 });
         }
         
-        // Function to create the unit repair count bar chart
-        function createUnitChart() {
-            if (!repairData.unitCounts || repairData.unitCounts.length === 0) {
-                d3.select('#unit-chart').append('p')
-                    .text('No unit repair data available');
-                return;
-            }
-            
-            // Sort by repair count (descending)
-            const data = repairData.unitCounts.sort(function(a, b) {
-                return b.count - a.count;
-            }).slice(0, 10);
-            
-            // Dimensions
-            const margin = {top: 20, right: 20, bottom: 60, left: 40};
-            const width = 400 - margin.left - margin.right;
-            const height = 300 - margin.top - margin.bottom;
-            
-            // Create SVG
-            const svg = d3.select('#unit-chart')
-                .append('svg')
-                .attr('width', width + margin.left + margin.right)
-                .attr('height', height + margin.top + margin.bottom)
-                .append('g')
-                .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
-            
-            // X scale
-            const x = d3.scaleBand()
-                .domain(data.map(function(d) { return d.unit_number; }))
-                .range([0, width])
-                .padding(0.2);
-            
-            // Y scale
-            const y = d3.scaleLinear()
-                .domain([0, d3.max(data, function(d) { return d.count; }) + 1])
-                .range([height, 0]);
-            
-            // Add X axis
-            svg.append('g')
-                .attr('transform', 'translate(0,' + height + ')')
-                .call(d3.axisBottom(x))
-                .selectAll('text')
-                .attr('transform', 'translate(-10,0)rotate(-45)')
-                .style('text-anchor', 'end');
-            
-            // Add Y axis
-            svg.append('g')
-                .call(d3.axisLeft(y));
-            
-            // Create bars
-            svg.selectAll('rect')
-                .data(data)
-                .enter()
-                .append('rect')
-                .attr('x', function(d) { return x(d.unit_number); })
-                .attr('y', function(d) { return y(d.count); })
-                .attr('width', x.bandwidth())
-                .attr('height', function(d) { return height - y(d.count); })
-                .attr('fill', '#3498DB');
-            
-            // Add axes labels
-            svg.append('text')
-                .attr('text-anchor', 'middle')
-                .attr('x', width / 2)
-                .attr('y', height + margin.bottom - 10)
-                .text('Unit Number');
-            
-            svg.append('text')
-                .attr('text-anchor', 'middle')
-                .attr('transform', 'translate(' + (-margin.left/2) + ',' + (height/2) + ')rotate(-90)')
-                .text('Repair Count');
-        }
-        
-        // Function to load cost data and create line chart
-        function loadCostDataAndCreateChart() {
-            fetch('/customer/api/repair-cost-data/')
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    repairData.costData = data;
-                    createCostChart();
-                })
-                .catch(function(error) {
-                    console.error('Error loading cost data:', error);
-                    d3.select('#cost-chart').append('p')
-                        .text('Error loading repair cost data');
-                });
-        }
-        
-        // Function to create the cost over time line chart
-        function createCostChart() {
-            if (!repairData.costData || repairData.costData.length === 0) {
-                d3.select('#cost-chart').append('p')
-                    .text('No frequency data available');
-                return;
-            }
-            
-            // Sort by date
-            const data = repairData.costData.sort(function(a, b) {
-                return new Date(a.date) - new Date(b.date);
-            });
-            
-            // Dimensions
-            const margin = {top: 20, right: 30, bottom: 50, left: 60};
-            const width = 400 - margin.left - margin.right;
-            const height = 300 - margin.top - margin.bottom;
-            
-            // Create SVG
-            const svg = d3.select('#cost-chart')
-                .append('svg')
-                .attr('width', width + margin.left + margin.right)
-                .attr('height', height + margin.top + margin.bottom)
-                .append('g')
-                .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
-            
-            // X scale (time)
-            const x = d3.scaleTime()
-                .domain(d3.extent(data, function(d) { return new Date(d.date); }))
-                .range([0, width]);
-            
-            // Y scale (count)
-            const y = d3.scaleLinear()
-                .domain([0, d3.max(data, function(d) { return d.count; }) * 1.1])
-                .range([height, 0]);
-            
-            // Create line generator
-            const line = d3.line()
-                .x(function(d) { return x(new Date(d.date)); })
-                .y(function(d) { return y(d.count); })
-                .curve(d3.curveMonotoneX);
-            
-            // Add X axis
-            svg.append('g')
-                .attr('transform', 'translate(0,' + height + ')')
-                .call(d3.axisBottom(x).ticks(5).tickFormat(d3.timeFormat('%b %Y')))
-                .selectAll('text')
-                .attr('transform', 'translate(-10,0)rotate(-45)')
-                .style('text-anchor', 'end');
-            
-            // Add Y axis
-            svg.append('g')
-                .call(d3.axisLeft(y).tickFormat(function(d) { return d; }));
-            
-            // Add the line path
-            svg.append('path')
-                .datum(data)
-                .attr('fill', 'none')
-                .attr('stroke', '#E74C3C')
-                .attr('stroke-width', 2)
-                .attr('d', line);
-            
-            // Add dots for each data point
-            svg.selectAll('circle')
-                .data(data)
-                .enter()
-                .append('circle')
-                .attr('cx', function(d) { return x(new Date(d.date)); })
-                .attr('cy', function(d) { return y(d.count); })
-                .attr('r', 5)
-                .attr('fill', '#E74C3C')
-                .attr('stroke', 'white')
-                .attr('stroke-width', 1.5);
-            
-            // Add axes labels
-            svg.append('text')
-                .attr('text-anchor', 'middle')
-                .attr('x', width / 2)
-                .attr('y', height + margin.bottom - 10)
-                .text('Date');
-            
-            svg.append('text')
-                .attr('text-anchor', 'middle')
-                .attr('transform', 'translate(' + (-margin.left/2) + ',' + (height/2) + ')rotate(-90)')
-                .text('Repair Count');
-        }
-        
-        // Initialize charts
+        // Call the chart creation functions
         createStatusChart();
         loadUnitDataAndCreateChart();
-        loadCostDataAndCreateChart();
     });
 </script>
 {% endblock %}
