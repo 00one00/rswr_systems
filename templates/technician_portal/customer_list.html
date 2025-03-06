@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Customer Management</h3>
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <form method="get" class="search-form d-flex gap-2 w-50">
+                    <input type="text" name="search" class="form-control" placeholder="Search customers..." value="{{ search_query }}">
+                    <button type="submit" class="btn btn-primary">Search</button>
+                </form>
+                
+                {% if is_admin %}
+                <a href="{% url 'create_customer' %}" class="btn btn-success">
+                    <i class="fas fa-plus"></i> Create Customer
+                </a>
+                {% endif %}
+            </div>
+            
+            {% if customers %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Active Repairs</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in customers %}
+                        <tr>
+                            <td>{{ customer.name }}</td>
+                            <td>{{ customer.email }}</td>
+                            <td>{{ customer.phone }}</td>
+                            <td>
+                                <span class="badge {% if customer.active_repairs_count > 0 %}bg-primary{% else %}bg-secondary{% endif %}">
+                                    {{ customer.active_repairs_count|default:"0" }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'customer_details' customer.id %}" class="btn btn-sm btn-outline-primary">View Details</a>
+                                {% if is_admin %}
+                                <a href="{% url 'create_repair' %}?customer={{ customer.id }}" class="btn btn-sm btn-outline-success">Create Repair</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state p-4 text-center">
+                <div class="icon mb-3">
+                    <i class="fa fa-users fa-3x text-muted"></i>
+                </div>
+                <h4>No customers found</h4>
+                <p class="text-muted">
+                    {% if search_query %}
+                    No customers match your search criteria.
+                    {% else %}
+                    {% if is_admin %}
+                    You haven't added any customers yet.
+                    {% else %}
+                    You don't have any customers assigned to you.
+                    {% endif %}
+                    {% endif %}
+                </p>
+                {% if is_admin %}
+                <a href="{% url 'create_customer' %}" class="btn btn-primary mt-2">
+                    Create New Customer
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

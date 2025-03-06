@@ -10,6 +10,7 @@ from django.http import JsonResponse
 import logging
 from django.core.paginator import Paginator
 from functools import wraps
+from django.db.models import Q
 
 # Add a helper function to safely check if a user has technician access
 def has_technician_access(user):
@@ -341,6 +342,46 @@ def create_customer(request):
     else:
         form = CustomerForm()
     return render(request, 'technician_portal/customer_form.html', {'form': form})
+
+@technician_required
+def customer_list(request):
+    """View to list all customers that a technician can access"""
+    if request.user.is_staff:
+        # Admin can see all customers
+        customers = Customer.objects.all().order_by('name')
+    else:
+        # Regular technicians can only see customers with repairs assigned to them
+        if hasattr(request.user, 'technician'):
+            technician = request.user.technician
+            # Get customer IDs from repairs assigned to this technician
+            customer_ids = Repair.objects.filter(technician=technician).values_list('customer_id', flat=True).distinct()
+            customers = Customer.objects.filter(id__in=customer_ids).order_by('name')
+        else:
+            customers = Customer.objects.none()
+    
+    # Handle search
+    search_query = request.GET.get('search', '')
+    if search_query:
+        customers = customers.filter(
+            Q(name__icontains=search_query) | 
+            Q(email__icontains=search_query) |
+            Q(phone__icontains=search_query)
+        )
+    
+    # Annotate each customer with active repairs count
+    for customer in customers:
+        active_repairs = Repair.objects.filter(
+            customer=customer
+        ).exclude(
+            queue_status='COMPLETED'
+        ).count()
+        customer.active_repairs_count = active_repairs
+    
+    return render(request, 'technician_portal/customer_list.html', {
+        'customers': customers,
+        'search_query': search_query,
+        'is_admin': request.user.is_staff
+    })
 
 @technician_required
 def customer_details(request, customer_id):
