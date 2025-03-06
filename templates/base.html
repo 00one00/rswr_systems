@@ -4,28 +4,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Technician Portal{% endblock %}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <title>{% block title %}RS Systems{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_css %}{% endblock %}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <header>
-        <nav>
-            <h1 class="logo">Technician Portal</h1>
-            <form method="post" action="{% url 'logout' %}" style="display: inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-logout">Logout</button>
-            </form>
-        </nav>
+        <div class="navbar">
+            <div class="logo">
+                <i class="fas fa-tools"></i>
+                <span>RS Systems</span>
+            </div>
+            
+            <button class="mobile-menu-btn" id="mobile-menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <nav>
+                <ul id="main-nav">
+                    {% if user.is_authenticated %}
+                        {% if user.is_staff %}
+                            <li><a href="{% url 'admin:index' %}" {% if request.path == '/admin/' %}class="active"{% endif %}><i class="fas fa-tachometer-alt"></i> Admin Dashboard</a></li>
+                        {% elif customer_user %}
+                            <li><a href="{% url 'customer_dashboard' %}" {% if request.path == '/customer/dashboard/' %}class="active"{% endif %}><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                            <li><a href="{% url 'customer_repairs' %}" {% if '/customer/repairs/' in request.path %}class="active"{% endif %}><i class="fas fa-tools"></i> Repairs</a></li>
+                            <li><a href="{% url 'request_repair' %}" {% if request.path == '/customer/request-repair/' %}class="active"{% endif %}><i class="fas fa-plus-circle"></i> Request Repair</a></li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+            </nav>
+            
+            <div class="user-menu">
+                {% if user.is_authenticated %}
+                    <div class="dropdown">
+                        <button class="dropdown-toggle">
+                            <div class="avatar">
+                                {{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}
+                            </div>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'account_settings' %}"><i class="fas fa-user-cog"></i> Account Settings</a>
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-link"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                            </form>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-primary btn-sm">Login</a>
+                {% endif %}
+            </div>
+        </div>
     </header>
+    
     <main class="container">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+                        <i class="fas fa-info-circle"></i> {{ message }}
+                        <button type="button" class="close-alert"><i class="fas fa-times"></i></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
         {% block content %}{% endblock %}
     </main>
-    <footer>
-        <!-- Add your footer content here -->
+    
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <i class="fas fa-tools"></i> RS Systems
+                </div>
+                <div class="footer-text">
+                    &copy; {% now "Y" %} RS Systems. All rights reserved.
+                </div>
+            </div>
+        </div>
     </footer>
+
+    <script>
+        // Mobile Menu Toggle
+        document.getElementById('mobile-menu-toggle').addEventListener('click', function() {
+            document.getElementById('main-nav').classList.toggle('open');
+        });
+        
+        // Close alerts
+        document.querySelectorAll('.close-alert').forEach(button => {
+            button.addEventListener('click', () => {
+                button.parentElement.style.display = 'none';
+            });
+        });
+        
+        // Dropdown toggle
+        document.querySelectorAll('.dropdown-toggle').forEach(dropdown => {
+            dropdown.addEventListener('click', () => {
+                dropdown.nextElementSibling.classList.toggle('show');
+            });
+        });
+        
+        // Close dropdowns when clicking outside
+        window.addEventListener('click', (e) => {
+            if (!e.target.matches('.dropdown-toggle') && !e.target.closest('.dropdown-toggle')) {
+                document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                    if (menu.classList.contains('show')) {
+                        menu.classList.remove('show');
+                    }
+                });
+            }
+        });
+    </script>
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>
