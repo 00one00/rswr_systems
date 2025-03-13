@@ -21,9 +21,8 @@ RUN chmod +x railway_manage.py
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DEBUG=False
+ENV DEBUG=True
 ENV ALLOWED_HOSTS=*
-ENV RAILWAY_ENVIRONMENT=True
 ENV DJANGO_SETTINGS_MODULE=railway_settings
 ENV PYTHONPATH=/app
 
@@ -31,4 +30,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # Run migrations, collect static files, and start the server
-CMD ["sh", "-c", "ls -la && python -c 'import sys; print(sys.path)' && python railway_manage.py migrate && python railway_manage.py collectstatic --noinput && gunicorn railway_wsgi:application --bind 0.0.0.0:$PORT"] 
+CMD ["sh", "-c", "python railway_manage.py migrate && python railway_manage.py collectstatic --noinput && gunicorn --log-level debug railway_wsgi:application --bind 0.0.0.0:$PORT"] 
