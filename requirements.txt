@@ -9,9 +9,11 @@ inflection==0.5.1
 jsonschema==4.23.0
 jsonschema-specifications==2024.10.1
 psycopg==3.2.3
+python-dotenv==1.0.1
 PyYAML==6.0.2
 referencing==0.35.1
 rpds-py==0.20.0
 sqlparse==0.5.1
 typing_extensions==4.12.2
 uritemplate==4.1.1
+whitenoise==6.9.0

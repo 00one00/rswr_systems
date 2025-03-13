@@ -1,0 +1,1 @@
+web: cd src && DJANGO_SETTINGS_MODULE=rs_systems.production gunicorn rs_systems.wsgi --log-file - 
