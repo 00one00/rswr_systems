@@ -15,18 +15,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DEBUG=False
 ENV ALLOWED_HOSTS=*
 ENV RAILWAY_ENVIRONMENT=True
+ENV DJANGO_SETTINGS_MODULE=rs_systems.settings
+ENV PYTHONPATH=/app
+
+# Make verification script executable
+RUN chmod +x verify_settings.py
 
 # Expose port
 EXPOSE 8000
 
-# Run gunicorn
-CMD ["sh", "-c", "python manage.py migrate && gunicorn rs_systems.wsgi:application --bind 0.0.0.0:8000"] 
+# Run verification script, migrations, collect static files, and start the server
+CMD ["sh", "-c", "python verify_settings.py && python manage.py migrate && python manage.py collectstatic --noinput && gunicorn rs_systems.wsgi:application --bind 0.0.0.0:$PORT"] 
