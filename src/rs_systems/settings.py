@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+railway_url = 'https://rswrsystems-production.up.railway.app/'
 
 # Environment detection - define BEFORE using it
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
@@ -47,12 +48,12 @@ DEBUG = os.environ.get('DEBUG', 'True' if ENVIRONMENT == 'development' else 'Fal
 # Configure allowed hosts for Railway
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.railway.app']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.railway.app', railway_url]
 
 # CSRF trusted origins for Railway
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
 if not CSRF_TRUSTED_ORIGINS or CSRF_TRUSTED_ORIGINS == ['']:
-    CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
+    CSRF_TRUSTED_ORIGINS = ['https://*.railway.app', railway_url]
 
 # Application definition
 
