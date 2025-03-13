@@ -35,7 +35,7 @@ COPY ./src .
 RUN python manage.py collectstatic --noinput
 
 # Set the Django default project name
-ARG PROJ_NAME="cfehome"
+ARG PROJ_NAME="rs_systems"
 
 # Create a runtime bash script with improved error handling
 RUN printf "#!/bin/bash\n" > ./paracord_runner.sh && \
