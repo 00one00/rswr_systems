@@ -15,20 +15,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
+# Make railway_manage.py executable
+RUN chmod +x railway_manage.py
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DEBUG=False
 ENV ALLOWED_HOSTS=*
 ENV RAILWAY_ENVIRONMENT=True
-ENV DJANGO_SETTINGS_MODULE=rs_systems.settings
+ENV DJANGO_SETTINGS_MODULE=railway_settings
 ENV PYTHONPATH=/app
-
-# Make verification script executable
-RUN chmod +x verify_settings.py
 
 # Expose port
 EXPOSE 8000
 
-# Run verification script, migrations, collect static files, and start the server
-CMD ["sh", "-c", "python verify_settings.py && python manage.py migrate && python manage.py collectstatic --noinput && gunicorn rs_systems.wsgi:application --bind 0.0.0.0:$PORT"] 
+# Run migrations, collect static files, and start the server
+CMD ["sh", "-c", "ls -la && python -c 'import sys; print(sys.path)' && python railway_manage.py migrate && python railway_manage.py collectstatic --noinput && gunicorn railway_wsgi:application --bind 0.0.0.0:$PORT"] 
