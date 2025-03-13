@@ -39,7 +39,7 @@ ARG PROJ_NAME="rs_systems"
 
 # Create a runtime bash script with improved error handling
 RUN printf "#!/bin/bash\n" > ./paracord_runner.sh && \
-    printf "RUN_PORT=\"\${PORT:-8080}\"\n\n" >> ./paracord_runner.sh && \
+    printf "RUN_PORT=\"\${PORT:-8000}\"\n\n" >> ./paracord_runner.sh && \
     printf "# Attempt to run migrations, but continue if they fail\n" >> ./paracord_runner.sh && \
     printf "python manage.py migrate --no-input || echo 'Migration failed, but continuing startup.'\n\n" >> ./paracord_runner.sh && \
     printf "# Collect static files\n" >> ./paracord_runner.sh && \
