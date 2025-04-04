@@ -7,6 +7,7 @@ rs_systems/static/
 rs_systems/settings.py 
 staticfiles/admin/
 DS_Store
+code_improvement_guidelines.txt
 
 # Python
 __pycache__/

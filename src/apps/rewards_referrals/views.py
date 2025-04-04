@@ -8,25 +8,82 @@ import uuid
 import random
 import string
 from django.contrib import messages
-from .services import RewardFulfillmentService
+from .services import ReferralService, RewardService, RewardFulfillmentService
 
 # Helper functions
 def generate_unique_code(length=8):
-    """Generate a unique alphanumeric code"""
+    """
+    Generate a unique alphanumeric code for referrals.
+    
+    Creates random codes and checks against the database to ensure uniqueness.
+    
+    Args:
+        length (int): The length of the code to generate
+        
+    Returns:
+        str: A unique alphanumeric code
+    """
     characters = string.ascii_uppercase + string.digits
     while True:
         code = ''.join(random.choice(characters) for _ in range(length))
         if not ReferralCode.objects.filter(code=code).exists():
             return code
 
+def get_customer_user(request):
+    """
+    Helper function to get the CustomerUser for the current authenticated user.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        CustomerUser: The customer user object for the current user
+    """
+    return CustomerUser.objects.get(user=request.user)
+
+def get_user_referral_code(customer_user):
+    """
+    Helper function to get a user's referral code.
+    
+    Args:
+        customer_user: The CustomerUser object
+        
+    Returns:
+        ReferralCode or None: The user's referral code object, or None if not found
+    """
+    return ReferralCode.objects.filter(customer_user=customer_user).first()
+
+def get_user_reward(customer_user):
+    """
+    Helper function to get a user's reward record.
+    
+    Args:
+        customer_user: The CustomerUser object
+        
+    Returns:
+        Reward or None: The user's reward object, or None if not found
+    """
+    return Reward.objects.filter(customer_user=customer_user).first()
+
 # Referral code management
 @login_required
 def generate_referral_code(request):
-    """Generate a new referral code for the logged-in user"""
-    customer_user = CustomerUser.objects.get(user=request.user)
+    """
+    Generate a new referral code for the logged-in user.
+    
+    If the user already has a referral code, it returns the existing code.
+    If the user doesn't have a code, it generates a new one when a POST request is received.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        HttpResponse: Rendered template or redirect
+    """
+    customer_user = get_customer_user(request)
     
     # Check if user already has a referral code
-    existing_code = ReferralCode.objects.filter(customer_user=customer_user).first()
+    existing_code = get_user_referral_code(customer_user)
     
     if request.method == 'POST':
         if existing_code:
@@ -36,12 +93,8 @@ def generate_referral_code(request):
                 'code': existing_code.code
             })
         
-        # Generate new code
-        code = generate_unique_code()
-        referral_code = ReferralCode.objects.create(
-            code=code,
-            customer_user=customer_user
-        )
+        # Generate new code using the service
+        code = ReferralService.generate_code_for_user(customer_user).code
         
         # Redirect back to the same page to show the new code
         return redirect('generate_referral_code')
@@ -53,9 +106,19 @@ def generate_referral_code(request):
 
 @login_required
 def referral_code(request):
-    """Get the current user's referral code"""
-    customer_user = CustomerUser.objects.get(user=request.user)
-    referral_code = ReferralCode.objects.filter(customer_user=customer_user).first()
+    """
+    Get the current user's referral code.
+    
+    Returns the user's existing referral code as JSON response.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        JsonResponse: Contains the referral code or error message
+    """
+    customer_user = get_customer_user(request)
+    referral_code = get_user_referral_code(customer_user)
     
     if referral_code:
         return JsonResponse({
@@ -71,50 +134,63 @@ def referral_code(request):
 # Referral tracking
 @login_required
 def referral_tracking(request):
-    """Track a successful referral"""
+    """
+    Track a successful referral.
+    
+    Processes a POST request containing a referral code.
+    Validates the code, creates a referral record, and awards points.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        JsonResponse: Result of the referral processing
+    """
     if request.method == 'POST':
         code = request.POST.get('code')
         if not code:
             return JsonResponse({'success': False, 'message': 'Referral code is required'})
         
         try:
-            referral_code = ReferralCode.objects.get(code=code)
-            customer_user = CustomerUser.objects.get(user=request.user)
+            # Use the service to validate and process the referral
+            referral_code = ReferralService.validate_referral_code(code)
+            if not referral_code:
+                return JsonResponse({'success': False, 'message': 'Invalid referral code'})
+                
+            customer_user = get_customer_user(request)
             
-            # Ensure users can't refer themselves
-            if referral_code.customer_user == customer_user:
-                return JsonResponse({'success': False, 'message': 'You cannot refer yourself'})
+            # Use the service to process the referral
+            success = ReferralService.process_referral(referral_code, customer_user)
             
-            # Check if this referral already exists
-            if Referral.objects.filter(referral_code=referral_code, customer_user=customer_user).exists():
-                return JsonResponse({'success': False, 'message': 'This referral has already been processed'})
-            
-            # Create the referral
-            Referral.objects.create(
-                referral_code=referral_code,
-                customer_user=customer_user
-            )
-            
-            # Give points to the referrer
-            referrer = referral_code.customer_user
-            reward, created = Reward.objects.get_or_create(customer_user=referrer)
-            reward.points += 500  # Assume 500 points per referral
-            reward.save()
-            
-            return JsonResponse({'success': True, 'message': 'Referral processed successfully'})
+            if success:
+                return JsonResponse({'success': True, 'message': 'Referral processed successfully'})
+            else:
+                return JsonResponse({'success': False, 'message': 'Unable to process referral'})
             
         except ReferralCode.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'Invalid referral code'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
     
     return JsonResponse({'success': False, 'message': 'Only POST method is allowed'})
 
 @login_required
 def referral_history(request):
-    """Get referral history for the current user"""
-    customer_user = CustomerUser.objects.get(user=request.user)
+    """
+    Get referral history for the current user.
+    
+    Displays all successful referrals made using the user's referral code.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        HttpResponse: Rendered template with referral history
+    """
+    customer_user = get_customer_user(request)
     
     # Get the user's referral code
-    referral_code = ReferralCode.objects.filter(customer_user=customer_user).first()
+    referral_code = get_user_referral_code(customer_user)
     
     if referral_code:
         # Get all referrals using this code
@@ -132,9 +208,20 @@ def referral_history(request):
 
 @login_required
 def referral_stats(request):
-    """Get stats about the user's referrals"""
-    customer_user = CustomerUser.objects.get(user=request.user)
-    referral_code = ReferralCode.objects.filter(customer_user=customer_user).first()
+    """
+    Get statistics about the user's referrals.
+    
+    Returns a JSON response with the total number of referrals,
+    current reward points, and the user's referral code.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        JsonResponse: Referral statistics
+    """
+    customer_user = get_customer_user(request)
+    referral_code = get_user_referral_code(customer_user)
     
     if not referral_code:
         return JsonResponse({
@@ -142,23 +229,32 @@ def referral_stats(request):
             'message': 'No referral code found'
         })
     
-    # Count referrals
-    total_referrals = Referral.objects.filter(referral_code=referral_code).count()
+    # Count referrals using the service
+    referral_count = ReferralService.get_referral_count(customer_user)
     
-    # Get reward points
-    reward = Reward.objects.filter(customer_user=customer_user).first()
-    points = reward.points if reward else 0
+    # Get reward points using the service
+    points = RewardService.get_reward_balance(customer_user)
     
     return JsonResponse({
         'success': True,
-        'total_referrals': total_referrals,
+        'total_referrals': referral_count,
         'points': points,
         'code': referral_code.code
     })
 
 @login_required
 def referral_leaderboard(request):
-    """View top referrers"""
+    """
+    View top referrers.
+    
+    Displays a leaderboard of customers with the most successful referrals.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        HttpResponse: Rendered template with leaderboard data
+    """
     # Get referral counts for each user
     top_referrers = []
     
@@ -178,11 +274,19 @@ def referral_leaderboard(request):
 # Reward management
 @login_required
 def reward_balance(request):
-    """Get the current user's reward balance"""
-    customer_user = CustomerUser.objects.get(user=request.user)
-    reward = Reward.objects.filter(customer_user=customer_user).first()
+    """
+    Get the current user's reward balance.
     
-    points = reward.points if reward else 0
+    Returns a JSON response with the user's current point balance.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        JsonResponse: Current reward points
+    """
+    customer_user = get_customer_user(request)
+    points = RewardService.get_reward_balance(customer_user)
     
     return JsonResponse({
         'success': True,
@@ -191,11 +295,19 @@ def reward_balance(request):
 
 @login_required
 def reward_history(request):
-    """View reward history"""
-    customer_user = CustomerUser.objects.get(user=request.user)
-    redemptions = RewardRedemption.objects.filter(
-        reward__customer_user=customer_user
-    ).order_by('-created_at')
+    """
+    View reward history.
+    
+    Displays a history of the user's reward redemptions.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        HttpResponse: Rendered template with redemption history
+    """
+    customer_user = get_customer_user(request)
+    redemptions = RewardService.get_reward_redemptions(customer_user)
     
     return render(request, 'customer_portal/referrals/rewards.html', {
         'redemptions': redemptions
@@ -203,8 +315,19 @@ def reward_history(request):
 
 @login_required
 def reward_options(request):
-    """List available reward options"""
-    options = RewardOption.objects.all().order_by('points_required')
+    """
+    List available reward options.
+    
+    Returns all reward options, either as JSON for API requests or as
+    rendered HTML for browser requests.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        JsonResponse or HttpResponse: Available reward options
+    """
+    options = RewardService.get_reward_options().order_by('points_required')
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         # Return JSON for API requests
@@ -229,7 +352,18 @@ def reward_options(request):
 @login_required
 @require_POST
 def redeem_reward(request):
-    """Redeem points for a reward"""
+    """
+    Redeem points for a reward.
+    
+    Processes a redemption request, validates the user has enough points,
+    creates a redemption record, and deducts points from the user's balance.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        HttpResponse: Redirect to rewards page with success or error message
+    """
     option_id = request.POST.get('option_id')
     
     if not option_id:
@@ -237,31 +371,21 @@ def redeem_reward(request):
         return redirect('referral_rewards')
     
     try:
-        customer_user = CustomerUser.objects.get(user=request.user)
-        reward_option = RewardOption.objects.get(id=option_id)
+        customer_user = get_customer_user(request)
         
-        # Get or create user reward record
-        reward, created = Reward.objects.get_or_create(customer_user=customer_user)
+        # Use the reward service to handle the redemption
+        success, result = RewardService.redeem_reward(customer_user, option_id)
         
-        # Check if user has enough points
-        if reward.points < reward_option.points_required:
-            messages.error(request, f'Not enough points. You need {reward_option.points_required} points, but have {reward.points}.')
+        if not success:
+            messages.error(request, result)  # Result contains the error message
             return redirect('referral_rewards')
+            
+        redemption = result  # Result contains the redemption object
         
-        # Create redemption record
-        redemption = RewardRedemption.objects.create(
-            reward=reward,
-            reward_option=reward_option,
-            status='PENDING'
-        )
-        
-        # Deduct points
-        reward.points -= reward_option.points_required
-        reward.save()
-
         # Assign a technician to fulfill this redemption
         assigned_technician = RewardFulfillmentService.assign_technician(redemption)
         
+        reward_option = redemption.reward_option
         if assigned_technician:
             messages.success(
                 request, 
@@ -284,15 +408,26 @@ def redeem_reward(request):
 
 @login_required
 def referral_rewards(request):
-    """View dashboard for rewards system"""
-    customer_user = CustomerUser.objects.get(user=request.user)
+    """
+    View dashboard for rewards system.
+    
+    Displays the user's current point balance, available reward options,
+    and redemption history.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        HttpResponse: Rendered template with rewards dashboard
+    """
+    customer_user = get_customer_user(request)
     
     # Get reward points
-    reward = Reward.objects.filter(customer_user=customer_user).first()
+    reward = get_user_reward(customer_user)
     points = reward.points if reward else 0
     
     # Get referral code
-    referral_code = ReferralCode.objects.filter(customer_user=customer_user).first()
+    referral_code = get_user_referral_code(customer_user)
     code = referral_code.code if referral_code else None
     
     # Get referral count
@@ -320,8 +455,19 @@ def referral_rewards(request):
 
 @login_required
 def referral_rewards_history(request):
-    """View reward redemption history"""
-    customer_user = CustomerUser.objects.get(user=request.user)
+    """
+    View complete redemption history.
+    
+    Displays a complete history of the user's reward redemptions
+    with their current status.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        HttpResponse: Rendered template with full redemption history
+    """
+    customer_user = get_customer_user(request)
     redemptions = RewardRedemption.objects.filter(
         reward__customer_user=customer_user
     ).order_by('-created_at')
@@ -332,9 +478,19 @@ def referral_rewards_history(request):
 
 @login_required
 def referral_rewards_balance(request):
-    """Get the current reward balance"""
-    customer_user = CustomerUser.objects.get(user=request.user)
-    reward = Reward.objects.filter(customer_user=customer_user).first()
+    """
+    Get the current reward balance.
+    
+    Returns a JSON response with the user's current point balance.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        JsonResponse: Current reward points
+    """
+    customer_user = get_customer_user(request)
+    reward = get_user_reward(customer_user)
     points = reward.points if reward else 0
     
     return JsonResponse({
