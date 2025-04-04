@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2 mb-0">Reward Fulfillment Details</h1>
+            <p class="text-muted">Process customer reward redemption</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Reward Details Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Reward Information</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Customer:</strong> {{ redemption.reward.customer_user.user.email }}</p>
+                            <p><strong>Customer Name:</strong> {{ redemption.reward.customer_user.user.get_full_name }}</p>
+                            <p><strong>Reward Option:</strong> {{ redemption.reward_option.name }}</p>
+                            <p><strong>Points Used:</strong> {{ redemption.reward_option.points_required }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Redemption Date:</strong> {{ redemption.created_at|date:"M d, Y" }}</p>
+                            <p><strong>Status:</strong> <span class="badge bg-{{ redemption.status|lower }}">{{ redemption.get_status_display }}</span></p>
+                            <p><strong>Assigned Technician:</strong> 
+                                {% if redemption.assigned_technician %}
+                                {{ redemption.assigned_technician.user.get_full_name }}
+                                {% else %}
+                                Not assigned
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <h5>Reward Description:</h5>
+                        <p>{{ redemption.reward_option.description }}</p>
+                    </div>
+
+                    {% if redemption.notes %}
+                    <div class="mt-3">
+                        <h5>Notes:</h5>
+                        <p>{{ redemption.notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Fulfillment Form -->
+            {% if redemption.status == 'PENDING' %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Mark as Fulfilled</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if customer_repairs %}
+                        <div class="form-group mb-3">
+                            <label for="apply_to_repair">Apply to Repair (Optional)</label>
+                            <select name="apply_to_repair" id="apply_to_repair" class="form-control">
+                                <option value="">-- Do not apply to any repair --</option>
+                                {% for repair in customer_repairs %}
+                                <option value="{{ repair.id }}">
+                                    Unit #{{ repair.unit_number }} - {{ repair.damage_type }} - ${{ repair.cost }} - {{ repair.get_queue_status_display }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">
+                                {% if redemption.reward_option.reward_type %}
+                                    This reward will apply: 
+                                    {% if redemption.reward_option.reward_type.discount_type == 'PERCENTAGE' %}
+                                        {{ redemption.reward_option.reward_type.discount_value }}% discount
+                                    {% elif redemption.reward_option.reward_type.discount_type == 'FIXED_AMOUNT' %}
+                                        ${{ redemption.reward_option.reward_type.discount_value }} discount
+                                    {% elif redemption.reward_option.reward_type.discount_type == 'FREE' %}
+                                        100% discount (free)
+                                    {% endif %}
+                                {% else %}
+                                    Select a repair to apply this reward to (if applicable).
+                                {% endif %}
+                            </small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="form-group mb-3">
+                            <label for="notes">Fulfillment Notes</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="3" placeholder="Enter any notes about the fulfillment process"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success">Mark as Fulfilled</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Customer Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0">Customer Information</h3>
+                </div>
+                <div class="card-body">
+                    <p><strong>Email:</strong> {{ redemption.reward.customer_user.user.email }}</p>
+                    <p><strong>Name:</strong> {{ redemption.reward.customer_user.user.get_full_name }}</p>
+                    <p><strong>Reward Balance:</strong> {{ redemption.reward.points }} points remaining</p>
+                    
+                    {% if redemption.reward.customer_user.phone %}
+                    <p><strong>Phone:</strong> {{ redemption.reward.customer_user.phone }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h3 class="mb-0">Actions</h3>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'technician_dashboard' %}" class="btn btn-outline-secondary mb-2 w-100">Back to Dashboard</a>
+                    
+                    {% if redemption.status == 'PENDING' %}
+                    <button type="button" class="btn btn-outline-primary mb-2 w-100" data-bs-toggle="modal" data-bs-target="#contactCustomerModal">
+                        Contact Customer
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Customer Modal -->
+<div class="modal fade" id="contactCustomerModal" tabindex="-1" aria-labelledby="contactCustomerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactCustomerModalLabel">Contact Customer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Customer:</strong> {{ redemption.reward.customer_user.user.get_full_name }}</p>
+                <p><strong>Email:</strong> {{ redemption.reward.customer_user.user.email }}</p>
+                
+                {% if redemption.reward.customer_user.phone %}
+                <p><strong>Phone:</strong> {{ redemption.reward.customer_user.phone }}</p>
+                {% else %}
+                <p><em>No phone number available</em></p>
+                {% endif %}
+                
+                <hr>
+                
+                <div class="form-group">
+                    <label for="emailSubject">Email Subject</label>
+                    <input type="text" class="form-control" id="emailSubject" value="Regarding your reward redemption">
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label for="emailMessage">Email Message</label>
+                    <textarea class="form-control" id="emailMessage" rows="5">Hello {{ redemption.reward.customer_user.user.first_name }},
+
+I'm reaching out regarding your redemption of {{ redemption.reward_option.name }}. 
+
+Best regards,
+{{ redemption.assigned_technician.user.get_full_name }}
+                    </textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="mailto:{{ redemption.reward.customer_user.user.email }}?subject=Regarding your reward redemption" class="btn btn-primary" id="sendEmailBtn">Send Email</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update the email link when subject or message changes
+        const subjectInput = document.getElementById('emailSubject');
+        const messageInput = document.getElementById('emailMessage');
+        const emailBtn = document.getElementById('sendEmailBtn');
+        
+        function updateEmailLink() {
+            const subject = encodeURIComponent(subjectInput.value);
+            const body = encodeURIComponent(messageInput.value);
+            const emailAddress = '{{ redemption.reward.customer_user.user.email }}';
+            
+            emailBtn.href = `mailto:${emailAddress}?subject=${subject}&body=${body}`;
+        }
+        
+        subjectInput.addEventListener('input', updateEmailLink);
+        messageInput.addEventListener('input', updateEmailLink);
+        
+        // Initialize the link
+        updateEmailLink();
+    });
+</script>
+{% endblock %} 

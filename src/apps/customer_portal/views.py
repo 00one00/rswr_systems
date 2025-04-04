@@ -114,6 +114,20 @@ def customer_dashboard(request):
             'repairs_denied': Repair.objects.filter(customer=customer, queue_status='DENIED').count(),
         }
         
+        # Get referral and reward information
+        from apps.rewards_referrals.services import ReferralService, RewardService
+        from apps.rewards_referrals.models import ReferralCode
+        
+        # Get user's referral code (or None if they don't have one)
+        referral_code = ReferralCode.objects.filter(customer_user=customer_user).first()
+        referral_code_value = referral_code.code if referral_code else None
+        
+        # Get number of successful referrals
+        referral_count = ReferralService.get_referral_count(customer_user)
+        
+        # Get reward points balance
+        reward_points = RewardService.get_reward_balance(customer_user)
+        
         return render(request, 'customer_portal/dashboard.html', {
             'customer': customer,
             'stats': stats,
@@ -123,7 +137,11 @@ def customer_dashboard(request):
             'recent_repairs': recent_repairs,
             'pending_approval_repairs': repairs_awaiting_approval,
             'customer_user': customer_user,
-            'customer_initiated_repair_ids': list(customer_initiated_approvals)
+            'customer_initiated_repair_ids': list(customer_initiated_approvals),
+            # Reward and referral data
+            'referral_code': referral_code_value,
+            'referral_count': referral_count,
+            'reward_points': reward_points,
         })
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")
@@ -170,11 +188,39 @@ def profile_creation(request):
         
         # Create CustomerUser record
         try:
-            CustomerUser.objects.create(
+            customer_user = CustomerUser.objects.create(
                 user=request.user,
                 customer=customer,
                 is_primary_contact=request.POST.get('is_primary_contact') == 'True'
             )
+            
+            # Process referral code if it exists in the session
+            referral_code = request.session.get('referral_code')
+            if referral_code:
+                # Import the referral service
+                from apps.rewards_referrals.services import ReferralService
+                
+                # Validate and process the referral
+                referral_code_obj = ReferralService.validate_referral_code(referral_code)
+                if referral_code_obj:
+                    # Process the referral and give points to both users
+                    success = ReferralService.process_referral(referral_code_obj, customer_user)
+                    if success:
+                        messages.success(
+                            request, 
+                            "Thanks for using a referral code! You and your referrer have received bonus points."
+                        )
+                    else:
+                        messages.warning(
+                            request, 
+                            "The referral code was valid, but we couldn't process it. Perhaps it's already been used."
+                        )
+                else:
+                    messages.warning(request, "The referral code you entered was not valid.")
+                
+                # Clear the referral code from the session
+                del request.session['referral_code']
+            
             messages.success(request, "Profile created successfully!")
             return redirect('customer_dashboard')
         except Exception as e:
@@ -363,6 +409,7 @@ def customer_register(request):
         confirm_password = request.POST.get('confirm_password')
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
+        referral_code = request.POST.get('referral_code')
         
         # Validation
         if password != confirm_password:
@@ -391,6 +438,12 @@ def customer_register(request):
         if user:
             login(request, user)
             messages.success(request, f"Account created successfully! Welcome, {first_name}.")
+            
+            # Store referral code in session if provided
+            if referral_code:
+                request.session['referral_code'] = referral_code
+                # We'll process this after the CustomerUser is created in the profile_creation view
+                
             return redirect('profile_creation')
             
     return render(request, 'customer_portal/register.html')

@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load reward_tags %}
+
+{% block title %}Rewards & Redemptions{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2 mb-0">Rewards & Redemptions</h1>
+            <p class="text-muted">View and redeem your earned rewards</p>
+        </div>
+    </div>
+
+    <!-- Current Balance -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-0">Your Current Balance</h4>
+                            <p class="mb-0 text-white-50">Earn more points by referring friends</p>
+                        </div>
+                        <div class="col-md-4 text-center text-md-right">
+                            <h2 class="display-4 mb-0">{{ points }}</h2>
+                            <span>points</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Rewards -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Available Rewards</h5>
+                </div>
+                <div class="card-body">
+                    {% if reward_options %}
+                        <div class="row">
+                            {% for option in reward_options %}
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100 {% if points < option.points_required %}bg-light{% endif %}">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ option.name }}</h5>
+                                        <p class="card-text">{{ option.description }}</p>
+                                        <p class="text-primary font-weight-bold">{{ option.points_required }} points</p>
+                                    </div>
+                                    <div class="card-footer bg-white border-top-0">
+                                        <form action="{% url 'redeem_reward' %}" method="post">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="option_id" value="{{ option.id }}">
+                                            <button type="submit" class="btn btn-primary btn-block" 
+                                                    {% if points < option.points_required %}disabled{% endif %}>
+                                                {% if points >= option.points_required %}
+                                                    Redeem Reward
+                                                {% else %}
+                                                    Need {{ option.points_required|sub:points }} more points
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <p>No reward options available at this time.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Redemption History -->
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Your Redemption History</h5>
+                </div>
+                {% if redemptions %}
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Reward</th>
+                                        <th>Description</th>
+                                        <th>Points Used</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for redemption in redemptions %}
+                                    <tr>
+                                        <td>{{ redemption.reward_option.name }}</td>
+                                        <td>{{ redemption.reward_option.description }}</td>
+                                        <td>{{ redemption.reward_option.points_required }}</td>
+                                        <td>{{ redemption.created_at|date:"M d, Y" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card-body">
+                        <p class="text-center mb-0">You haven't redeemed any rewards yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Dashboard -->
+    <div class="row mt-4">
+        <div class="col text-center">
+            <a href="{% url 'referral_rewards' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left mr-1"></i> Back to Referrals Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Confirmation for reward redemption
+    document.addEventListener('DOMContentLoaded', function() {
+        const redemptionForms = document.querySelectorAll('form[action="{% url "redeem_reward" %}"]');
+        
+        redemptionForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                if (!confirm('Are you sure you want to redeem this reward? This action cannot be undone.')) {
+                    e.preventDefault();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

@@ -33,6 +33,52 @@
         </div>
     </div>
     
+    <!-- Referrals & Rewards Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="fas fa-share-alt"></i> Referrals & Rewards</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Reward Points</h5>
+                            <p class="h3">{{ reward_points|default:"0" }}</p>
+                            {% if reward_points > 0 %}
+                                <a href="{% url 'reward_options' %}" class="btn btn-sm btn-light mt-3">View Available Rewards</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Successful Referrals</h5>
+                            <p class="h3">{{ referral_count|default:"0" }}</p>
+                            <p class="text-white-50">Each referral earns you 500 points</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <a href="{% url 'referral_rewards' %}" class="btn btn-primary">
+                    <i class="fas fa-gift"></i> View Referrals & Rewards
+                </a>
+                
+                {% if not referral_code %}
+                <a href="{% url 'generate_referral_code' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-plus-circle"></i> Generate Referral Code
+                </a>
+                {% else %}
+                <button class="btn btn-outline-primary" id="copyDashboardCode" data-code="{{ referral_code }}">
+                    <i class="fas fa-copy"></i> Copy My Code: {{ referral_code }}
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
     <!-- Add data visualization section with tabs -->
     <div class="visualizations-container">
         <h2>Repair Analytics</h2>
@@ -304,6 +350,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize with the first tab
     showTab(0);
+    
+    // Referral code copy button functionality
+    const copyBtn = document.getElementById('copyDashboardCode');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+            const code = this.getAttribute('data-code');
+            navigator.clipboard.writeText(code).then(() => {
+                // Show success message
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                this.classList.remove('btn-outline-primary');
+                this.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-outline-primary');
+                }, 2000);
+            });
+        });
+    }
 });
 </script>
 

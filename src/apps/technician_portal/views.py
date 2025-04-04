@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from .models import Technician, Repair, UnitRepairCount
+from .models import Technician, Repair, UnitRepairCount, TechnicianNotification
 from core.models import Customer
 from .forms import TechnicianForm, RepairForm, CustomerForm, TechnicianRegistrationForm
 from django.db.models import Count, F
@@ -17,6 +17,10 @@ def has_technician_access(user):
     """Helper function to check if a user has technician access through profile or admin privileges"""
     # Admin users always have access
     if user.is_staff:
+        return True
+    
+    # Check if user is in the Technicians group
+    if user.groups.filter(name='Technicians').exists():
         return True
     
     # Non-admin users need a technician profile
@@ -86,11 +90,37 @@ def technician_dashboard(request):
             technician=technician,
             queue_status='REQUESTED'
         ).order_by('-repair_date')
+        
+        # Get assigned reward redemptions for this technician
+        from apps.rewards_referrals.models import RewardRedemption
+        assigned_redemptions = RewardRedemption.objects.filter(
+            assigned_technician=technician,
+            status='PENDING'
+        ).order_by('-created_at')
+        
+        # Get all pending redemptions (visible to all technicians)
+        all_pending_redemptions = RewardRedemption.objects.filter(
+            status='PENDING'
+        ).exclude(
+            id__in=[r.id for r in assigned_redemptions]
+        ).order_by('-created_at')[:5]  # Limit to 5 most recent
+        
+        # Get unread notifications
+        unread_notifications = technician.notifications.filter(read=False).order_by('-created_at')
     else:
         # For admins without a technician profile, show all requested repairs
         customer_requested_repairs = Repair.objects.filter(
             queue_status='REQUESTED'
         ).order_by('-repair_date')
+        
+        # For admins, show all pending redemptions
+        from apps.rewards_referrals.models import RewardRedemption
+        assigned_redemptions = []
+        all_pending_redemptions = RewardRedemption.objects.filter(
+            status='PENDING'
+        ).order_by('-created_at')
+        
+        unread_notifications = None
     
     # Extra data for admin users
     is_admin = request.user.is_staff
@@ -103,11 +133,15 @@ def technician_dashboard(request):
             'pending_repairs': Repair.objects.filter(queue_status='PENDING').count(),
             'customers': Customer.objects.count(),
             'technicians': Technician.objects.count(),
+            'pending_redemptions': RewardRedemption.objects.filter(status='PENDING').count()
         }
     
     return render(request, 'technician_portal/dashboard.html', {
         'technician': technician,
         'customer_requested_repairs': customer_requested_repairs,
+        'assigned_redemptions': assigned_redemptions,
+        'all_pending_redemptions': all_pending_redemptions,
+        'unread_notifications': unread_notifications,
         'is_admin': is_admin,
         'admin_data': admin_data,
     })
@@ -420,7 +454,7 @@ def mark_unit_replaced(request, customer_id, unit_number):
     unit_repair_count.repair_count = 0
     unit_repair_count.save()
     messages.success(request, f"Unit #{unit_number} for {customer.name} has been marked as replaced. Repair count reset to 0.")
-    return redirect('customer_details', customer_id=customer_id)
+    return redirect('customer_detail', customer_id=customer_id)
 
 from django.http import JsonResponse
 
@@ -442,3 +476,146 @@ def check_existing_repair(request):
             'warning_message': f"There is already a {existing_repair.get_queue_status_display()} repair for this unit."
         })
     return JsonResponse({'existing_repair': False})
+
+@technician_required
+def reward_fulfillment_detail(request, redemption_id):
+    """View details of a reward redemption and mark as fulfilled"""
+    # Get the technician
+    technician = get_object_or_404(Technician, user=request.user)
+    
+    # Get the redemption
+    from apps.rewards_referrals.models import RewardRedemption
+    
+    # For regular technicians, only show their assigned redemptions
+    if not request.user.is_staff:
+        redemption = get_object_or_404(
+            RewardRedemption,
+            id=redemption_id,
+            assigned_technician=technician
+        )
+    else:
+        # Admins can view any redemption
+        redemption = get_object_or_404(RewardRedemption, id=redemption_id)
+    
+    # Get customer repairs for applying reward
+    customer_repairs = []
+    if redemption.reward and redemption.reward.customer_user and redemption.reward.customer_user.user:
+        customer_email = redemption.reward.customer_user.user.email
+        try:
+            customer = Customer.objects.get(email=customer_email)
+            customer_repairs = Repair.objects.filter(
+                customer=customer,
+                queue_status__in=['APPROVED', 'IN_PROGRESS']
+            ).order_by('-repair_date')
+        except Customer.DoesNotExist:
+            pass
+    
+    if request.method == 'POST':
+        # Process fulfillment
+        notes = request.POST.get('notes', '')
+        
+        # Check if a repair was selected to apply the reward to
+        repair_id = request.POST.get('apply_to_repair')
+        if repair_id:
+            try:
+                repair = Repair.objects.get(id=repair_id)
+                redemption.applied_to_repair = repair
+            except Repair.DoesNotExist:
+                pass
+        
+        from apps.rewards_referrals.services import RewardFulfillmentService
+        RewardFulfillmentService.mark_as_fulfilled(redemption, technician, notes)
+        
+        messages.success(request, f'Reward {redemption.reward_option.name} has been marked as fulfilled.')
+        return redirect('technician_dashboard')
+    
+    return render(request, 'technician_portal/reward_fulfillment.html', {
+        'redemption': redemption,
+        'customer_repairs': customer_repairs,
+    })
+
+@technician_required
+def mark_notification_read(request, notification_id):
+    """Mark a notification as read"""
+    notification = get_object_or_404(TechnicianNotification, id=notification_id)
+    
+    # Ensure the notification belongs to this technician
+    if notification.technician.user != request.user and not request.user.is_staff:
+        messages.error(request, "You don't have permission to access this notification.")
+        return redirect('technician_dashboard')
+    
+    notification.read = True
+    notification.save()
+    
+    # If notification is for a redemption, redirect to the redemption
+    if notification.redemption:
+        return redirect('reward_fulfillment_detail', redemption_id=notification.redemption.id)
+    
+    return redirect('technician_dashboard')
+
+@technician_required
+def apply_reward_to_repair(request, repair_id):
+    """Apply a reward redemption to a specific repair"""
+    # Get the repair
+    if request.user.is_staff:
+        repair = get_object_or_404(Repair, id=repair_id)
+    else:
+        # Non-admin technicians can only access their own repairs
+        if not hasattr(request.user, 'technician'):
+            messages.error(request, "You don't have a technician profile.")
+            return redirect('technician_dashboard')
+        repair = get_object_or_404(Repair, id=repair_id, technician=request.user.technician)
+    
+    if request.method == 'POST':
+        redemption_id = request.POST.get('redemption_id')
+        auto_fulfill = request.POST.get('auto_fulfill') == 'on'
+        
+        if not redemption_id:
+            messages.error(request, "No reward selected")
+            return redirect('repair_detail', repair_id=repair.id)
+        
+        # Get the redemption
+        from apps.rewards_referrals.models import RewardRedemption
+        redemption = get_object_or_404(RewardRedemption, id=redemption_id)
+        
+        # Validate that the reward belongs to the customer of this repair
+        from apps.customer_portal.models import CustomerUser
+        customer_users = CustomerUser.objects.filter(customer=repair.customer)
+        reward_customer_user = redemption.reward.customer_user
+        
+        if not customer_users.filter(id=reward_customer_user.id).exists():
+            messages.error(request, "This reward belongs to a different customer and cannot be applied to this repair.")
+            return redirect('repair_detail', repair_id=repair.id)
+        
+        # Apply the reward to the repair
+        success, message = repair.apply_reward(
+            redemption,
+            technician=getattr(request.user, 'technician', None),
+            auto_fulfill=auto_fulfill
+        )
+        
+        if success:
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+        
+        return redirect('repair_detail', repair_id=repair.id)
+    
+    # GET request - show available rewards for this customer
+    from apps.rewards_referrals.models import RewardRedemption
+    from apps.customer_portal.models import CustomerUser
+    
+    # Find CustomerUser records for this customer
+    customer_users = CustomerUser.objects.filter(customer=repair.customer)
+    
+    # Get all pending rewards for these customer users
+    available_redemptions = RewardRedemption.objects.filter(
+        reward__customer_user__in=customer_users,
+        status='PENDING',
+        applied_to_repair__isnull=True  # Not already applied
+    ).select_related('reward_option', 'reward_option__reward_type')
+    
+    return render(request, 'technician_portal/apply_reward.html', {
+        'repair': repair,
+        'available_redemptions': available_redemptions,
+    })

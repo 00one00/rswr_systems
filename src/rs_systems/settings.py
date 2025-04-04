@@ -68,7 +68,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'apps.technician_portal',
     'apps.customer_portal',
-    'apps.jobs_mvp',
+    'apps.rewards_referrals',
     'core',
     'drf_spectacular',
 ]

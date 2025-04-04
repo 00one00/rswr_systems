@@ -8,6 +8,24 @@ from apps.technician_portal.forms import TechnicianRegistrationForm
 from django.contrib import messages
 
 def home(request):
+    if request.user.is_authenticated:
+        # Check if the user is a customer or technician
+        from apps.customer_portal.models import CustomerUser
+        from apps.technician_portal.models import Technician
+        
+        # Try to get customer user record
+        try:
+            customer_user = CustomerUser.objects.get(user=request.user)
+            return redirect('customer_dashboard')
+        except CustomerUser.DoesNotExist:
+            # If not a customer, check if technician
+            try:
+                technician = Technician.objects.get(user=request.user)
+                return redirect('technician_dashboard')
+            except Technician.DoesNotExist:
+                # If neither, show a warning
+                messages.warning(request, "Your account is not linked to a customer or technician profile.")
+    
     return render(request, 'home.html')
 
 def login_view(request):

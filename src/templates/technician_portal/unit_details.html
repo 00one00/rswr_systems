@@ -20,7 +20,7 @@
 
 <div class="action-buttons">
     <a href="{% url 'create_repair' %}" class="btn btn-success">Create New Repair</a>
-    <a href="{% url 'customer_details' customer.id %}" class="btn btn-secondary">Back to Customer Details</a>
+    <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">Back to Customer Details</a>
     <a href="{% url 'mark_unit_replaced' customer.id unit_number %}" class="btn btn-warning">Mark Unit as Replaced</a>
 </div>
 

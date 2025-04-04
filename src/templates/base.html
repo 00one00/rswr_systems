@@ -9,15 +9,34 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_css %}{% endblock %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .logo .logo-image {
+            height: 100px !important;
+            width: auto !important;
+            margin-right: 10px;
+            vertical-align: middle;
+            object-fit: contain;
+        }
+        .logo a {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo span {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
     <header>
         <div class="container">
             <div class="navbar">
                 <div class="logo">
-                    <a href="{% block logo_url %}{% if request.user.is_superuser or request.user.groups.all.0.name == 'Technicians' %}{% url 'technician_dashboard' %}{% else %}{% url 'customer_dashboard' %}{% endif %}{% endblock %}">
-                        <i class="fas fa-tools"></i> 
-                        <span>{% block portal_name %}{% if request.user.is_superuser or request.user.groups.all.0.name == 'Technicians' %}RS Systems - Technician Portal{% else %}RS Systems - Customer Portal{% endif %}{% endblock %}</span>
+                    <a href="{% block logo_url %}{% if request.user.is_superuser or 'Technicians' in request.user.groups.all|stringformat:'s' %}{% url 'technician_dashboard' %}{% else %}{% url 'customer_dashboard' %}{% endif %}{% endblock %}">
+                        <img src="{% static 'images/rs_logo.svg' %}" alt="RS Systems Logo" class="logo-image">
+                        <span>{% block portal_name %}{% if request.user.is_superuser or 'Technicians' in request.user.groups.all|stringformat:'s' %}RS Systems - Technician Portal{% else %}RS Systems - Customer Portal{% endif %}{% endblock %}</span>
                     </a>
                 </div>
                 
@@ -28,7 +47,7 @@
                 <nav>
                     <ul id="navMenu">
                         {% block nav_items %}
-                        {% if request.user.is_superuser or request.user.groups.all.0.name == 'Technicians' %}
+                        {% if request.user.is_superuser or 'Technicians' in request.user.groups.all|stringformat:'s' %}
                         <!-- Technician Navigation -->
                         <li><a href="{% url 'technician_dashboard' %}" class="{% if request.resolver_match.url_name == 'technician_dashboard' %}active{% endif %}">Dashboard</a></li>
                         <li><a href="{% url 'assigned_repairs' %}" class="{% if request.resolver_match.url_name == 'assigned_repairs' %}active{% endif %}">My Repairs</a></li>
@@ -53,7 +72,7 @@
                             <i class="fas fa-chevron-down"></i>
                         </button>
                         <div class="dropdown-menu">
-                            {% if request.user.is_superuser or request.user.groups.all.0.name == 'Technicians' %}
+                            {% if request.user.is_superuser or 'Technicians' in request.user.groups.all|stringformat:'s' %}
                             <a href="{% url 'technician_profile' %}">
                                 <i class="fas fa-cog me-2"></i> Profile Settings
                             </a>

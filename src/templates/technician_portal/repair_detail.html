@@ -26,9 +26,21 @@
                     <p><strong>Date:</strong> {{ repair.repair_date|date:"F j, Y, g:i a" }} ({{ TIME_ZONE }})</p>
                     <p><strong>Damage Type:</strong> {{ repair.damage_type }}</p>
                     <p><strong>Technician:</strong> {{ repair.technician.user.get_full_name }}</p>
-                    {% if repair.cost > 0 %}
+                </div>
+                <div class="col-md-6">
+                    <h4>Cost Information</h4>
+                    {% with cost_info=repair.get_discounted_cost %}
+                    {% if cost_info.discount_applied %}
+                    <div class="price-container">
+                        <p><strong>Original Cost:</strong> <span class="original-price">${{ cost_info.original_cost }}</span></p>
+                        <p><strong>Discount:</strong> <span class="text-success">{{ cost_info.discount_description }}</span></p>
+                        <p><strong>Final Cost:</strong> <span class="text-primary fw-bold">${{ cost_info.final_cost }}</span></p>
+                        <p><strong>Savings:</strong> <span class="text-success">${{ cost_info.savings }}</span></p>
+                    </div>
+                    {% else %}
                     <p><strong>Cost:</strong> ${{ repair.cost }}</p>
                     {% endif %}
+                    {% endwith %}
                 </div>
             </div>
             
@@ -75,6 +87,47 @@
                 </div>
             </div>
             {% endif %}
+            
+            <!-- Applied Rewards (if any) -->
+            {% if repair.applied_rewards.exists %}
+            <div class="row mb-4">
+                <div class="col">
+                    <h5 class="border-bottom pb-2">Applied Rewards</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Reward</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Applied On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for redemption in repair.applied_rewards.all %}
+                                <tr>
+                                    <td>{{ redemption.reward_option.name }}</td>
+                                    <td>
+                                        {% if redemption.reward_option.reward_type %}
+                                            {{ redemption.reward_option.reward_type }}
+                                        {% else %}
+                                            Standard Reward
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ redemption.status|lower }}">
+                                            {{ redemption.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ redemption.processed_at|date:"M d, Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
         <div class="card-footer">
             <div class="repair-actions">
@@ -103,6 +156,11 @@
                     <button type="submit" class="btn btn-success">Mark as Completed</button>
                 </form>
                 {% endif %}
+
+                <!-- Apply Reward Button (always visible) -->
+                <a href="{% url 'apply_reward_to_repair' repair.id %}" class="btn btn-warning">
+                    <i class="fas fa-gift"></i> Apply Reward
+                </a>
                 
                 <a href="{% url 'repair_list' %}" class="btn btn-secondary">Back to Repairs</a>
                 

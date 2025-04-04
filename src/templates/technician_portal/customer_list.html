@@ -44,7 +44,7 @@
                                 </span>
                             </td>
                             <td>
-                                <a href="{% url 'customer_details' customer.id %}" class="btn btn-sm btn-outline-primary">View Details</a>
+                                <a href="{% url 'customer_detail' customer.id %}" class="btn btn-sm btn-outline-primary">View Details</a>
                                 {% if is_admin %}
                                 <a href="{% url 'create_repair' %}?customer={{ customer.id }}" class="btn btn-sm btn-outline-success">Create Repair</a>
                                 {% endif %}

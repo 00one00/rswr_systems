@@ -43,11 +43,138 @@
                 </div>
             </div>
         </div>
-        <div class="admin-actions mt-3">
-            <h5>Admin Actions:</h5>
-            <a href="{% url 'create_customer' %}" class="btn btn-success">Create New Customer</a>
-            <a href="{% url 'admin:index' %}" class="btn btn-primary">Go to Admin Panel</a>
-            <a href="{% url 'repair_list' %}" class="btn btn-info">View All Repairs</a>
+        
+        <div class="row mt-3">
+            <div class="col-md-3 mb-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h4>{{ admin_data.pending_redemptions }}</h4>
+                        <p class="mb-0">Pending Rewards</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Notifications Section -->
+{% if unread_notifications %}
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h3 class="mb-0">Unread Notifications</h3>
+    </div>
+    <div class="card-body">
+        <div class="list-group">
+            {% for notification in unread_notifications %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ notification.created_at|date:"M d, Y" }}</h5>
+                    <a href="{% url 'mark_notification_read' notification.id %}" class="btn btn-sm btn-outline-secondary">Mark as Read</a>
+                </div>
+                <p class="mb-1">{{ notification.message }}</p>
+                {% if notification.redemption %}
+                <a href="{% url 'reward_fulfillment_detail' notification.redemption.id %}" class="btn btn-sm btn-primary mt-2">View Details</a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Reward Redemption Section -->
+{% if assigned_redemptions %}
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <h3 class="mb-0">Reward Fulfillments Assigned to You</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Reward</th>
+                        <th>Requested</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for redemption in assigned_redemptions %}
+                    <tr>
+                        <td>{{ redemption.reward.customer_user.user.email }}</td>
+                        <td>{{ redemption.reward_option.name }}</td>
+                        <td>{{ redemption.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <span class="badge bg-{{ redemption.status|lower }}">
+                                {{ redemption.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'reward_fulfillment_detail' redemption.id %}" class="btn btn-sm btn-primary">
+                                View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- All Pending Rewards Section -->
+{% if all_pending_redemptions %}
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h3 class="mb-0">All Pending Rewards</h3>
+    </div>
+    <div class="card-body">
+        <p>These rewards are available for any technician to fulfill:</p>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Reward</th>
+                        <th>Requested</th>
+                        <th>Type</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for redemption in all_pending_redemptions %}
+                    <tr>
+                        <td>{{ redemption.reward.customer_user.user.email }}</td>
+                        <td>{{ redemption.reward_option.name }}</td>
+                        <td>{{ redemption.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            {% if redemption.reward_option.reward_type %}
+                                {% if redemption.reward_option.reward_type.discount_type == 'PERCENTAGE' %}
+                                    {{ redemption.reward_option.reward_type.discount_value }}% off
+                                {% elif redemption.reward_option.reward_type.discount_type == 'FIXED_AMOUNT' %}
+                                    ${{ redemption.reward_option.reward_type.discount_value }} off
+                                {% elif redemption.reward_option.reward_type.discount_type == 'FREE' %}
+                                    Free (100% off)
+                                {% else %}
+                                    {{ redemption.reward_option.reward_type.name }}
+                                {% endif %}
+                            {% else %}
+                                Standard
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'reward_fulfillment_detail' redemption.id %}" class="btn btn-sm btn-primary">
+                                View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
