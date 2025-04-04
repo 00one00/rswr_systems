@@ -6,6 +6,7 @@ rs_systems/db.sqlite3-wal
 rs_systems/static/
 rs_systems/settings.py 
 staticfiles/admin/
+DS_Store
 
 # Python
 __pycache__/
