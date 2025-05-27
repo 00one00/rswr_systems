@@ -1,83 +1,22 @@
-"""
-AWS Production settings for rs_systems project.
-"""
-
-from .settings import *
 import os
-
-# Override for AWS production environment
-ENVIRONMENT = 'production'
-DEBUG = False
-
-# AWS-specific allowed hosts
-ALLOWED_HOSTS = [
-    '*',  # Allow all hosts for AWS load balancer
-    '.elasticbeanstalk.com',
-    '.amazonaws.com',
-]
-
-# AWS RDS Database configuration
-if 'RDS_HOSTNAME' in os.environ:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('RDS_DB_NAME', 'rs_systems'),
-            'USER': os.environ.get('RDS_USERNAME'),
-            'PASSWORD': os.environ.get('RDS_PASSWORD'),
-            'HOST': os.environ.get('RDS_HOSTNAME'),
-            'PORT': os.environ.get('RDS_PORT', '5432'),
-        }
-    }
-
-# Static files configuration for AWS
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
-
-# Use standard static files storage for AWS (not compressed)
-STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
-
-# Security settings for production
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
-
-# Logging configuration for AWS
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': '/tmp/django.log',
-        },
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'rs_systems': {
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    },
-}
+from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-aws-deployment-key-change-in-production')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = False
+
+# Allow Elastic Beanstalk domains and common local testing domains
+ALLOWED_HOSTS = [
+    '.elasticbeanstalk.com',  # For Elastic Beanstalk domains
+    '.amazonaws.com',         # For AWS domains
+    'localhost',
+    '127.0.0.1',
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -131,6 +70,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'rs_systems.wsgi.application'
 
+# Database settings for AWS RDS PostgreSQL
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME', 'rswr_db'),
+        'USER': os.environ.get('DB_USER', 'rswradmin'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),  # Set via environment variable for security
+        'HOST': os.environ.get('DB_HOST', 'rswr-db-1.c49gy002i2n5.us-east-1.rds.amazonaws.com'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
+    }
+}
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -152,6 +103,16 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
+
+# Static files configuration
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+# Use whitenoise for static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Security settings for deploying behind a proxy/load balancer
 USE_X_FORWARDED_HOST = True

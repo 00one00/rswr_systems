@@ -1,1 +1,1 @@
-web: gunicorn application --bind=0.0.0.0:8000 
+web: gunicorn rs_systems.wsgi:application --bind=0.0.0.0:8000 
