@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Customer Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard_visualizations.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>Welcome, {{ request.user.first_name }}</h1>
+    </div>
+    
+    <!-- Quick Actions moved to the top -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Quick Actions</h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex gap-2">
+                <a href="{% url 'customer_repairs' %}" class="btn btn-primary">
+                    <i class="fa fa-list"></i> View All Repairs
+                </a>
+                <a href="{% url 'customer_request_repair' %}" class="btn btn-outline-primary">
+                    <i class="fa fa-wrench"></i> Request New Repair
+                </a>
+                <a href="{% url 'customer_account_settings' %}" class="btn btn-outline-secondary">
+                    <i class="fa fa-cog"></i> Account Settings
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Referrals & Rewards Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="fas fa-share-alt"></i> Referrals & Rewards</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Reward Points</h5>
+                            <p class="h3">{{ reward_points|default:"0" }}</p>
+                            {% if reward_points > 0 %}
+                                <a href="{% url 'reward_options' %}" class="btn btn-sm btn-light mt-3">View Available Rewards</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Successful Referrals</h5>
+                            <p class="h3">{{ referral_count|default:"0" }}</p>
+                            <p class="text-white-50">Each referral earns you 500 points</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <a href="{% url 'referral_rewards' %}" class="btn btn-primary">
+                    <i class="fas fa-gift"></i> View Referrals & Rewards
+                </a>
+                
+                {% if not referral_code %}
+                <a href="{% url 'generate_referral_code' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-plus-circle"></i> Generate Referral Code
+                </a>
+                {% else %}
+                <button class="btn btn-outline-primary" id="copyDashboardCode" data-code="{{ referral_code }}">
+                    <i class="fas fa-copy"></i> Copy My Code: {{ referral_code }}
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add data visualization section with tabs -->
+    <div class="visualizations-container">
+        <h2>Repair Analytics</h2>
+        
+        <!-- Tab Navigation -->
+        <div class="chart-tabs">
+            <button class="chart-tab active" data-chart="status-container">Status Distribution</button>
+            <button class="chart-tab" data-chart="unit-container">Repairs by Unit</button>
+            <button class="chart-tab" data-chart="frequency-container">Repair Frequency</button>
+        </div>
+        
+        <!-- Individual Chart Containers -->
+        <div id="status-container" class="chart-container active">
+            <h3>Repair Status Distribution</h3>
+            <div id="status-chart"></div>
+        </div>
+        
+        <div id="unit-container" class="chart-container">
+            <h3>Repairs by Unit</h3>
+            <div id="unit-chart"></div>
+        </div>
+        
+        <div id="frequency-container" class="chart-container">
+            <h3>Repair Frequency Over Time</h3>
+            <div id="cost-chart"></div>
+        </div>
+        
+        <!-- Navigation Controls -->
+        <div class="chart-controls">
+            <button id="prev-chart" class="chart-control-btn" disabled>
+                <i class="fa fa-arrow-left"></i> Previous
+            </button>
+            <button id="next-chart" class="chart-control-btn">
+                Next <i class="fa fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Stats summary cards section -->
+    <div class="stats-container">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card text-white bg-primary mb-4">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Active Repairs</h5>
+                        <p class="display-4">{{ active_repairs_count|default:"0" }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success mb-4">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Completed</h5>
+                        <p class="display-4">{{ completed_repairs_count|default:"0" }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-warning mb-4">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Awaiting Approval</h5>
+                        <p class="display-4">{{ pending_approval_count|default:"0" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Company Information -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Company Information</h5>
+                    <a href="{% url 'edit_company' %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1"><strong>Name:</strong> {{ customer.name|title }}</p>
+                    <p class="mb-1"><strong>Email:</strong> {{ customer.email }}</p>
+                    <p class="mb-1"><strong>Phone:</strong> {{ customer.phone }}</p>
+                    <p class="mb-1"><strong>Address:</strong> {{ customer.address }}</p>
+                    {% if customer.city or customer.state %}
+                    <p class="mb-1"><strong>Location:</strong> {{ customer.city|default:"" }}, {{ customer.state|default:"" }} {{ customer.zip_code|default:"" }}</p>
+                    {% endif %}
+                    <p class="mb-0">
+                        <strong>Primary Contact:</strong> {{ request.user.first_name }} {{ request.user.last_name }}
+                        {% if customer_user.is_primary_contact %}
+                        <span class="badge bg-primary">Primary Contact</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Quick Links removed from here as moved to top -->
+        </div>
+        
+        <!-- Recent Repairs and Notifications -->
+        <div class="col-md-8">
+            <!-- Recent Repairs -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Repairs</h5>
+                    <a href="{% url 'customer_repairs' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_repairs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for repair in recent_repairs %}
+                                <tr>
+                                    <td>{{ repair.id }}</td>
+                                    <td>{{ repair.repair_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        {{ repair.description|truncatechars:50 }}
+                                        {% if repair.customer_initiated %}
+                                        <span class="badge bg-info">Self-initiated</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if repair.queue_status == 'REQUESTED' %}bg-secondary
+                                            {% elif repair.queue_status == 'PENDING' %}bg-warning
+                                            {% elif repair.queue_status == 'APPROVED' %}bg-info
+                                            {% elif repair.queue_status == 'IN_PROGRESS' %}bg-primary
+                                            {% elif repair.queue_status == 'COMPLETED' %}bg-success
+                                            {% elif repair.queue_status == 'DENIED' %}bg-danger
+                                            {% endif %}">
+                                            {{ repair.get_queue_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'customer_repair_detail' repair.id %}" class="btn btn-sm btn-outline-primary">
+                                            View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state p-4 text-center">
+                        <div class="icon mb-3">
+                            <i class="fa fa-tools fa-3x text-muted"></i>
+                        </div>
+                        <h4>No repairs yet</h4>
+                        <p class="text-muted">You haven't submitted any repair requests yet.</p>
+                        <a href="{% url 'customer_request_repair' %}" class="btn btn-primary mt-2">
+                            Request a Repair
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Repairs Awaiting Approval -->
+            {% if pending_approval_repairs %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">Repairs Awaiting Your Approval</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group">
+                        {% for repair in pending_approval_repairs %}
+                        <a href="{% url 'customer_repair_detail' repair.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ repair.unit_number }} - {{ repair.description|truncatechars:40 }}</h5>
+                                <small>{{ repair.repair_date|date:"M d, Y" }}</small>
+                            </div>
+                            <p class="mb-1">{{ repair.issue_description|truncatechars:100 }}</p>
+                            <small>
+                                <span class="badge bg-warning text-dark">Awaiting Approval</span>
+                                <span class="ms-2">Cost Estimate: ${{ repair.cost|default:"0.00" }}</span>
+                            </small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Load D3.js library -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<!-- Load visualization scripts -->
+<script src="{% static 'js/repair_status_chart.js' %}"></script>
+<script src="{% static 'js/unit_repair_chart.js' %}"></script>
+<script src="{% static 'js/repair_frequency_chart.js' %}"></script>
+
+<!-- Tab navigation script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tab navigation functionality
+    const tabs = document.querySelectorAll('.chart-tab');
+    const chartContainers = document.querySelectorAll('.chart-container');
+    const prevButton = document.getElementById('prev-chart');
+    const nextButton = document.getElementById('next-chart');
+    let currentTabIndex = 0;
+    
+    // Function to show a specific tab
+    function showTab(index) {
+        // Hide all containers
+        chartContainers.forEach(container => {
+            container.classList.remove('active');
+            container.classList.remove('slide-in');
+        });
+        
+        // Remove active class from all tabs
+        tabs.forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Show the selected container and activate the tab
+        chartContainers[index].classList.add('active');
+        chartContainers[index].classList.add('slide-in');
+        tabs[index].classList.add('active');
+        
+        // Update current index
+        currentTabIndex = index;
+        
+        // Enable/disable navigation buttons
+        prevButton.disabled = currentTabIndex === 0;
+        nextButton.disabled = currentTabIndex === tabs.length - 1;
+    }
+    
+    // Add click event to tabs
+    tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => {
+            showTab(index);
+        });
+    });
+    
+    // Add click events to navigation buttons
+    prevButton.addEventListener('click', () => {
+        if (currentTabIndex > 0) {
+            showTab(currentTabIndex - 1);
+        }
+    });
+    
+    nextButton.addEventListener('click', () => {
+        if (currentTabIndex < tabs.length - 1) {
+            showTab(currentTabIndex + 1);
+        }
+    });
+    
+    // Support for keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft' && currentTabIndex > 0) {
+            showTab(currentTabIndex - 1);
+        } else if (e.key === 'ArrowRight' && currentTabIndex < tabs.length - 1) {
+            showTab(currentTabIndex + 1);
+        }
+    });
+    
+    // Initialize with the first tab
+    showTab(0);
+    
+    // Referral code copy button functionality
+    const copyBtn = document.getElementById('copyDashboardCode');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+            const code = this.getAttribute('data-code');
+            navigator.clipboard.writeText(code).then(() => {
+                // Show success message
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                this.classList.remove('btn-outline-primary');
+                this.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-outline-primary');
+                }, 2000);
+            });
+        });
+    }
+});
+</script>
+
+<!-- Hidden elements to hold stats data for the status chart -->
+<div style="display: none;">
+    <span id="stats-requested">{{ stats.repairs_requested|default:0 }}</span>
+    <span id="stats-pending">{{ stats.repairs_pending|default:0 }}</span>
+    <span id="stats-approved">{{ stats.repairs_approved|default:0 }}</span>
+    <span id="stats-in-progress">{{ stats.repairs_in_progress|default:0 }}</span>
+    <span id="stats-completed">{{ stats.repairs_completed|default:0 }}</span>
+    <span id="stats-denied">{{ stats.repairs_denied|default:0 }}</span>
+</div>
+{% endblock %}

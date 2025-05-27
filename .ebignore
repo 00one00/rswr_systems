@@ -1,0 +1,52 @@
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Local development files
+*.log
+.coverage
+.pytest_cache/
+
+# Database files (for development)
+*.sqlite3
+db.sqlite3
+
+# Backup files
+.ebextensions_backup/
+
+# Node modules (if any)
+node_modules/
+
+# Local settings
+local_settings.py
+.env
+
+# Static files (will be collected on server)
+staticfiles/
+static/
+
+# Media files (should be handled separately)
+media/ 

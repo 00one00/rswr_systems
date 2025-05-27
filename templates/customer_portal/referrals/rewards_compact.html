@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load reward_tags %}
+
+{% block title %}Referrals & Rewards Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rewards-container {
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .rewards-section {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .rewards-header {
+        background-color: #3b82f6;
+        color: white;
+        padding: 15px 20px;
+        font-weight: 600;
+    }
+    
+    .rewards-body {
+        padding: 20px;
+    }
+    
+    .reward-item {
+        margin-bottom: 15px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 15px;
+    }
+    
+    .reward-item:last-child {
+        margin-bottom: 0;
+        border-bottom: none;
+    }
+    
+    .reward-button {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+    }
+    
+    .reward-button:hover {
+        background-color: #2563eb;
+    }
+    
+    .reward-button:disabled {
+        background-color: #94a3b8;
+        cursor: not-allowed;
+    }
+    
+    .redemption-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .redemption-table th,
+    .redemption-table td {
+        text-align: left;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .redemption-table th {
+        font-weight: 600;
+        color: #4b5563;
+    }
+    
+    @media (max-width: 768px) {
+        .rewards-container {
+            padding: 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rewards-container">
+    <!-- Available Rewards -->
+    <div class="rewards-section">
+        <div class="rewards-header">
+            Available Rewards
+        </div>
+        <div class="rewards-body">
+            {% for option in reward_options %}
+            <div class="reward-item">
+                <h3>{{ option.name }}</h3>
+                <p>{{ option.description }}</p>
+                <p><strong>{{ option.points_required }} points</strong></p>
+                <form action="{% url 'redeem_reward' %}" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="option_id" value="{{ option.id }}">
+                    <button type="submit" class="reward-button" {% if points < option.points_required %}disabled{% endif %}>
+                        Redeem Reward
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Recent Redemptions -->
+    {% if redemptions %}
+    <div class="rewards-section">
+        <div class="rewards-header">
+            Recent Redemptions
+        </div>
+        <div class="rewards-body">
+            <table class="redemption-table">
+                <thead>
+                    <tr>
+                        <th>REWARD</th>
+                        <th>DATE</th>
+                        <th>POINTS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for redemption in redemptions %}
+                    <tr>
+                        <td>{{ redemption.reward_option.name }}</td>
+                        <td>{{ redemption.created_at|date:"M d, Y" }}</td>
+                        <td>{{ redemption.reward_option.points_required }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const redemptionForms = document.querySelectorAll('form[action="{% url "redeem_reward" %}"]');
+        
+        redemptionForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                if (!confirm('Are you sure you want to redeem this reward? This action cannot be undone.')) {
+                    e.preventDefault();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

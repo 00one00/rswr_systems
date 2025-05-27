@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">Request a New Repair</h3>
+                        <a href="{% url 'customer_dashboard' %}" class="btn btn-sm btn-outline-light">Back to Dashboard</a>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    {% if messages %}
+                    <div class="messages mb-4">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="alert alert-info mb-4">
+                        <h5 class="alert-heading">Request a Windshield Repair</h5>
+                        <p>Please provide the details about the windshield damage that needs repair.</p>
+                        <p class="mb-0">Once submitted, a technician will review your request and contact you with additional information.</p>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="unit_number" class="form-label">Unit/Vehicle Number*</label>
+                            <input type="text" class="form-control" id="unit_number" name="unit_number" required>
+                            <div class="form-text">Enter the identification number of the vehicle that needs repair.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="damage_type" class="form-label">Type of Damage*</label>
+                            <select class="form-select" id="damage_type" name="damage_type" required>
+                                <option value="">Select type of damage</option>
+                                <option value="Chip">Chip</option>
+                                <option value="Crack">Crack</option>
+                                <option value="Star Break">Star Break</option>
+                                <option value="Bull's Eye">Bull's Eye</option>
+                                <option value="Combination Break">Combination Break</option>
+                                <option value="Other">Other (describe in description)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description of Damage*</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                            <div class="form-text">Please provide details about the damage, including size, location on windshield, and any other relevant information.</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">Submit Repair Request</button>
+                            <a href="{% url 'customer_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

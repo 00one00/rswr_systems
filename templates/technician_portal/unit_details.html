@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>{{ customer.name }} - Unit #{{ unit_number }}</h1>
+
+<div class="repair-list">
+    {% for repair in repairs %}
+        <div class="repair-item {% if repair.queue_status == 'REQUESTED' %}bg-warning{% endif %}">
+            <a href="{% url 'repair_detail' repair.id %}">
+                {{ repair.damage_type }} - {{ repair.get_queue_status_display }} - {{ repair.repair_date|date:"Y-m-d" }}
+                {% if repair.queue_status == 'REQUESTED' %}
+                <span class="badge bg-danger">Customer Requested</span>
+                {% endif %}
+            </a>
+        </div>
+    {% empty %}
+        <p>No repairs found for this unit.</p>
+    {% endfor %}
+</div>
+
+<div class="action-buttons">
+    <a href="{% url 'create_repair' %}" class="btn btn-success">Create New Repair</a>
+    <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">Back to Customer Details</a>
+    <a href="{% url 'mark_unit_replaced' customer.id unit_number %}" class="btn btn-warning">Mark Unit as Replaced</a>
+</div>
+
+{% endblock %}

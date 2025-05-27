@@ -1,0 +1,168 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}RS Systems{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .logo .logo-image {
+            height: 100px !important;
+            width: auto !important;
+            margin-right: 10px;
+            vertical-align: middle;
+            object-fit: contain;
+        }
+        .logo a {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo span {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="navbar">
+                <div class="logo">
+                    <a href="{% block logo_url %}{% if request.user.is_superuser or 'Technicians' in request.user.groups.all|stringformat:'s' %}{% url 'technician_dashboard' %}{% else %}{% url 'customer_dashboard' %}{% endif %}{% endblock %}">
+                        <img src="{% static 'images/rs_logo.svg' %}" alt="RS Systems Logo" class="logo-image">
+                        <span>{% block portal_name %}{% if request.user.is_superuser or 'Technicians' in request.user.groups.all|stringformat:'s' %}RS Systems - Technician Portal{% else %}RS Systems - Customer Portal{% endif %}{% endblock %}</span>
+                    </a>
+                </div>
+                
+                {% if not request.path|slice:"-17:" == 'referral-rewards/' %}
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+
+                <nav>
+                    <ul id="navMenu">
+                        {% block nav_items %}
+                        {% if request.user.is_superuser or 'Technicians' in request.user.groups.all|stringformat:'s' %}
+                        <!-- Technician Navigation -->
+                        <li><a href="{% url 'technician_dashboard' %}" class="{% if request.resolver_match.url_name == 'technician_dashboard' %}active{% endif %}">Dashboard</a></li>
+                        <li><a href="{% url 'assigned_repairs' %}" class="{% if request.resolver_match.url_name == 'assigned_repairs' %}active{% endif %}">My Repairs</a></li>
+                        <li><a href="{% url 'technician_customers' %}" class="{% if request.resolver_match.url_name == 'technician_customers' %}active{% endif %}">Customers</a></li>
+                        {% else %}
+                        <!-- Customer Navigation -->
+                        <li><a href="{% url 'customer_dashboard' %}" class="{% if request.resolver_match.url_name == 'customer_dashboard' %}active{% endif %}">Dashboard</a></li>
+                        <li><a href="{% url 'customer_repairs' %}" class="{% if request.resolver_match.url_name == 'customer_repairs' %}active{% endif %}">My Repairs</a></li>
+                        <li><a href="{% url 'customer_request_repair' %}" class="{% if request.resolver_match.url_name == 'customer_request_repair' %}active{% endif %}">Request Repair</a></li>
+                        {% endif %}
+                        {% endblock %}
+                    </ul>
+                </nav>
+                
+                <div class="user-menu">
+                    <div class="dropdown">
+                        <button class="dropdown-toggle">
+                            <div class="avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <span>{{ request.user.username }}</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            {% if request.user.is_superuser or 'Technicians' in request.user.groups.all|stringformat:'s' %}
+                            <a href="{% url 'technician_profile' %}">
+                                <i class="fas fa-cog me-2"></i> Profile Settings
+                            </a>
+                            {% else %}
+                            <a href="{% url 'customer_account_settings' %}">
+                                <i class="fas fa-cog me-2"></i> Account Settings
+                            </a>
+                            {% endif %}
+                            <div class="dropdown-divider"></div>
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">
+                                    <i class="fas fa-sign-out-alt me-2"></i> Logout
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+    
+    <main class="{% if request.path|slice:"-17:" == 'referral-rewards/' %}px-0 py-0{% else %}container{% endif %}">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+                        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i>
+                        {{ message }}
+                        <button class="close-alert">&times;</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </main>
+    
+    {% if request.path|slice:"-17:" != 'referral-rewards/' %}
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <i class="fas fa-tools"></i>
+                    <span>RS Systems</span>
+                </div>
+                <div class="footer-text">
+                    &copy; {% now "Y" %} RS Systems. All rights reserved.
+                </div>
+            </div>
+        </div>
+    </footer>
+    {% endif %}
+    
+    <script>
+        // Mobile navigation toggle
+        document.getElementById('mobileMenuBtn').addEventListener('click', function() {
+            document.getElementById('navMenu').classList.toggle('open');
+        });
+        
+        // Dropdown toggle
+        const dropdownToggle = document.querySelector('.dropdown-toggle');
+        if (dropdownToggle) {
+            dropdownToggle.addEventListener('click', function() {
+                this.nextElementSibling.classList.toggle('show');
+            });
+        }
+        
+        // Close dropdown when clicking outside
+        window.addEventListener('click', function(e) {
+            if (!e.target.matches('.dropdown-toggle') && !e.target.closest('.dropdown-toggle')) {
+                const dropdowns = document.querySelectorAll('.dropdown-menu');
+                dropdowns.forEach(dropdown => {
+                    if (dropdown.classList.contains('show')) {
+                        dropdown.classList.remove('show');
+                    }
+                });
+            }
+        });
+        
+        // Close alerts
+        document.addEventListener('click', function(e) {
+            if (e.target.matches('.close-alert')) {
+                e.target.parentElement.remove();
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

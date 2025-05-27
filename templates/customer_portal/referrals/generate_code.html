@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Generate Referral Code{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2 mb-0">Generate Referral Code</h1>
+            <p class="text-muted">Create a unique referral code to share with friends</p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Referral Code</h5>
+                </div>
+                <div class="card-body">
+                    {% if existing_code %}
+                        <div class="alert alert-warning">
+                            <strong>Note:</strong> You already have an existing referral code.
+                        </div>
+                        
+                        <div class="mb-4 text-center">
+                            <h3 class="mb-3 p-3 bg-light rounded">{{ existing_code }}</h3>
+                            <button class="btn btn-primary" id="copyCode" data-code="{{ existing_code }}">
+                                <i class="fas fa-copy mr-1"></i> Copy Code
+                            </button>
+                        </div>
+                        
+                        <p class="text-center">
+                            <a href="{% url 'referral_rewards' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-arrow-left mr-1"></i> Back to Referrals Dashboard
+                            </a>
+                        </p>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <p>
+                                <strong>How referrals work:</strong>
+                            </p>
+                            <ol class="mb-0">
+                                <li>Generate your unique referral code</li>
+                                <li>Share your code with friends and family</li>
+                                <li>When they sign up using your code, you'll earn 500 reward points!</li>
+                                <li>They'll also receive 100 bonus points as a welcome gift</li>
+                            </ol>
+                        </div>
+                        
+                        <form action="{% url 'generate_referral_code' %}" method="post" class="text-center">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-ticket-alt mr-1"></i> Generate My Referral Code
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Copy referral code to clipboard
+        const copyBtn = document.getElementById('copyCode');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const code = this.getAttribute('data-code');
+                navigator.clipboard.writeText(code).then(() => {
+                    // Show success message
+                    const originalText = this.innerHTML;
+                    this.innerHTML = '<i class="fas fa-check mr-1"></i> Copied!';
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-success');
+                    
+                    setTimeout(() => {
+                        this.innerHTML = originalText;
+                        this.classList.remove('btn-success');
+                        this.classList.add('btn-primary');
+                    }, 2000);
+                });
+            });
+        }
+    });
+</script>
+{% endblock %} 

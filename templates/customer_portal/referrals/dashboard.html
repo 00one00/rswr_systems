@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load reward_tags %}
+
+{% block title %}Referrals & Rewards Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Mobile-specific styles */
+    @media (max-width: 768px) {
+        .reward-card {
+            margin-bottom: 1.5rem;
+        }
+        .share-buttons {
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .share-buttons .btn {
+            width: 100%;
+            margin: 0 0 0.5rem 0 !important;
+        }
+        .referral-code {
+            font-size: 1.5rem;
+            word-break: break-all;
+        }
+        .table th, .table td {
+            padding: 0.5rem;
+            font-size: 0.85rem;
+        }
+        .display-4 {
+            font-size: 1.8rem !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2 mb-0">Referrals & Rewards Dashboard</h1>
+            <p class="text-muted">Invite friends and earn rewards</p>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3 mb-md-0">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Your Reward Points</h5>
+                    <p class="display-4 mb-0">{{ points }}</p>
+                    {% if reward_options %}
+                        <a href="#rewards-section" class="btn btn-sm btn-primary mt-3">Redeem Points</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Successful Referrals</h5>
+                    <p class="display-4 mb-0">{{ referral_count }}</p>
+                    <p class="text-muted">Each referral earns you 500 points</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referral Code Section -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Your Referral Code</h5>
+                </div>
+                <div class="card-body">
+                    {% if referral_code %}
+                        <div class="mb-4">
+                            <h3 class="text-center mb-3 p-3 bg-light rounded referral-code">{{ referral_code }}</h3>
+                            <div class="d-flex justify-content-center share-buttons">
+                                <button class="btn btn-primary mr-2" id="copyCode" data-code="{{ referral_code }}">
+                                    <i class="fas fa-copy mr-1"></i> Copy Code
+                                </button>
+                                <a href="#" class="btn btn-outline-primary mx-2" id="shareEmail">
+                                    <i class="fas fa-envelope mr-1"></i> Share via Email
+                                </a>
+                                <a href="https://twitter.com/intent/tweet?text=Use%20my%20referral%20code%20{{ referral_code }}%20to%20join!" 
+                                   class="btn btn-outline-primary mx-2" target="_blank">
+                                    <i class="fab fa-twitter mr-1"></i> Tweet
+                                </a>
+                            </div>
+                        </div>
+                        <div class="alert alert-info">
+                            <strong>How it works:</strong> Share your referral code with friends. When they sign up using your code, you'll earn 500 points and they'll receive 100 bonus points!
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <p>You don't have a referral code yet.</p>
+                            <form action="{% url 'generate_referral_code' %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-primary">Generate Referral Code</button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Referrals -->
+    {% if referrals %}
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Recent Referrals</h5>
+                    <a href="{% url 'referral_history' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Date</th>
+                                    <th>Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for referral in referrals %}
+                                <tr>
+                                    <td>{{ referral.customer_user.user.email }}</td>
+                                    <td>{{ referral.created_at|date:"M d, Y" }}</td>
+                                    <td>500</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Rewards Section -->
+    <div class="row mb-4" id="rewards-section">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Available Rewards</h5>
+                </div>
+                <div class="card-body">
+                    {% if reward_options %}
+                        <div class="row">
+                            {% for option in reward_options %}
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100 reward-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ option.name }}</h5>
+                                        <p class="card-text">{{ option.description }}</p>
+                                        <p class="text-primary font-weight-bold">{{ option.points_required }} points</p>
+                                    </div>
+                                    <div class="card-footer bg-white border-top-0">
+                                        <form action="{% url 'redeem_reward' %}" method="post">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="option_id" value="{{ option.id }}">
+                                            <button type="submit" class="btn btn-primary btn-block" 
+                                                    {% if points < option.points_required %}disabled{% endif %}>
+                                                {% if points >= option.points_required %}
+                                                    Redeem Reward
+                                                {% else %}
+                                                    Need {{ option.points_required|sub:points }} more points
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <p>No reward options available at this time.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Redemption History -->
+    {% if redemptions %}
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Recent Redemptions</h5>
+                    <a href="{% url 'reward_history' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Reward</th>
+                                    <th>Date</th>
+                                    <th>Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for redemption in redemptions %}
+                                <tr>
+                                    <td>{{ redemption.reward_option.name }}</td>
+                                    <td>{{ redemption.created_at|date:"M d, Y" }}</td>
+                                    <td>{{ redemption.reward_option.points_required }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Copy referral code to clipboard
+        const copyBtn = document.getElementById('copyCode');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const code = this.getAttribute('data-code');
+                navigator.clipboard.writeText(code).then(() => {
+                    // Show success message
+                    const originalText = this.innerHTML;
+                    this.innerHTML = '<i class="fas fa-check mr-1"></i> Copied!';
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-success');
+                    
+                    setTimeout(() => {
+                        this.innerHTML = originalText;
+                        this.classList.remove('btn-success');
+                        this.classList.add('btn-primary');
+                    }, 2000);
+                });
+            });
+        }
+        
+        // Email sharing
+        const shareEmailBtn = document.getElementById('shareEmail');
+        if (shareEmailBtn) {
+            shareEmailBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const code = document.getElementById('copyCode').getAttribute('data-code');
+                const subject = 'Join using my referral code!';
+                const body = `I think you'll like this service. Use my referral code ${code} when you sign up!`;
+                window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            });
+        }
+    });
+</script>
+{% endblock %} 

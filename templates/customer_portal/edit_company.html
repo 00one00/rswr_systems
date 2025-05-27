@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">Edit Company Information</h3>
+                        <a href="{% url 'customer_dashboard' %}" class="btn btn-sm btn-outline-light">Back to Dashboard</a>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    {% if messages %}
+                    <div class="messages mb-4">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ customer.name|title }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ customer.email }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="phone" name="phone" value="{{ customer.phone }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="address" class="form-label">Address</label>
+                            <textarea class="form-control" id="address" name="address" rows="2">{{ customer.address }}</textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-5 mb-3">
+                                <label for="city" class="form-label">City</label>
+                                <input type="text" class="form-control" id="city" name="city" value="{{ customer.city }}">
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <label for="state" class="form-label">State</label>
+                                <input type="text" class="form-control" id="state" name="state" value="{{ customer.state }}">
+                            </div>
+                            
+                            <div class="col-md-3 mb-3">
+                                <label for="zip_code" class="form-label">ZIP Code</label>
+                                <input type="text" class="form-control" id="zip_code" name="zip_code" value="{{ customer.zip_code }}">
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <a href="{% url 'customer_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
