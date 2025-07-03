@@ -60,22 +60,12 @@ CORS_ALLOW_CREDENTIALS = os.environ.get('CORS_ALLOW_CREDENTIALS', 'True').lower(
 
 STATIC_URL = os.environ.get('STATIC_URL', '/static/')
 STATIC_ROOT = os.environ.get('STATIC_ROOT', os.path.join(BASE_DIR, 'staticfiles'))
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
-# Only include static directory if it exists and we're not in production
-if os.path.exists(os.path.join(BASE_DIR, 'static')):
-    STATICFILES_DIRS = [
-        os.path.join(BASE_DIR, 'static'),
-    ]
-else:
-    STATICFILES_DIRS = []
-
-# Use different static file storage based on environment
-if ENVIRONMENT == 'production':
-    # For AWS Elastic Beanstalk, use default storage
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
-else:
-    # For development, use whitenoise
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Ensure whitenoise is installed for static file serving in production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # =========================================
 # SECURITY CONFIGURATION

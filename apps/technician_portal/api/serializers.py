@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from apps.technician_portal.models import Technician, Repair
-from core.models import Customer
+from apps.technician_portal.models import Technician, Repair, Customer
 
 class TechnicianSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,7 +9,7 @@ class TechnicianSerializer(serializers.ModelSerializer):
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = ['id', 'name', 'email', 'phone', 'address', 'city', 'state', 'zip_code']
+        fields = ['id', 'name', 'contact_info']
 
 class RepairSerializer(serializers.ModelSerializer):
     class Meta:

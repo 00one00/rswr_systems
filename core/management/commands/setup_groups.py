@@ -75,7 +75,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS('Created missing technician profile'))
 
         # Create a test technician user
-        if not User.objects.filter(username='jdoe').exists():
+        if not User.objects.filter(username='janedoe').exists():
             tech_user = User.objects.create_user(
                 username='jdoe',
                 password='123',
