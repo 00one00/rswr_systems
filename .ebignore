@@ -30,9 +30,9 @@ Thumbs.db
 .coverage
 .pytest_cache/
 
-# Database files (for development)
-*.sqlite3
-db.sqlite3
+# Database files (for development) - temporarily allow sqlite for deployment
+# *.sqlite3
+# db.sqlite3
 
 # Backup files
 .ebextensions_backup/
@@ -44,9 +44,9 @@ node_modules/
 local_settings.py
 .env
 
-# Static files (will be collected on server)
-staticfiles/
-static/
+# Static files - allow deployment for now
+# staticfiles/  # Commented out to allow static file deployment
+# static/       # Commented out to allow static file deployment
 
 # Media files (should be handled separately)
 media/ 

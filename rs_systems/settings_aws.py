@@ -10,12 +10,18 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-aws-deployment-key-ch
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Allow Elastic Beanstalk domains and common local testing domains
+# Allow Elastic Beanstalk domains and your custom domain
 ALLOWED_HOSTS = [
     '.elasticbeanstalk.com',  # For Elastic Beanstalk domains
     '.amazonaws.com',         # For AWS domains
+    'rockstarwindshield.repair',
+    'app.rockstarwindshield.repair',
+    'www.rockstarwindshield.repair',
     'localhost',
     '127.0.0.1',
+    '34.239.53.155',          # Current EB instance IP
+    '172.31.38.146',          # Internal instance IP
+    '*',                      # Allow all for now - consider restricting later
 ]
 
 # Application definition
@@ -70,15 +76,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'rs_systems.wsgi.application'
 
-# Database settings for AWS RDS PostgreSQL
+# Database - Use SQLite for now
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'rswr_db'),
-        'USER': os.environ.get('DB_USER', 'rswradmin'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),  # Set via environment variable for security
-        'HOST': os.environ.get('DB_HOST', 'rswr-db-1.c49gy002i2n5.us-east-1.rds.amazonaws.com'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
