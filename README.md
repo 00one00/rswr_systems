@@ -312,8 +312,6 @@ For technical support or questions about the RS Systems platform:
 
 - **Documentation**: Refer to the `/docs` directory for detailed guides
 - **Issues**: Report bugs and feature requests through the project repository
-- **Development**: See `CLAUDE.md` for development environment setup
-
 ---
 
 *Built with Django, designed for efficiency, and optimized for growth.*

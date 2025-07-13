@@ -50,3 +50,6 @@ local_settings.py
 
 # Media files (should be handled separately)
 media/ 
+
+# misc.
+CLAUDE.md
