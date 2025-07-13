@@ -30,6 +30,14 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.staging
+*.secret
+*_secret.py
+
 # Virtual Environment
 venv/
 ENV/
@@ -59,4 +67,5 @@ Thumbs.db
 
 
 # Misc.
-CLAUDE.md/
+# CLAUDE.md is now public documentation
+next_steps.md

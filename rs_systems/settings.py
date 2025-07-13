@@ -73,13 +73,13 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Determine if we should use HTTPS
 USE_HTTPS = os.environ.get('USE_HTTPS', 'False').lower() == 'true'
-IS_RAILWAY = any(host.endswith('.railway.app') for host in ALLOWED_HOSTS)
+IS_CLOUD_DEPLOYMENT = any(host.endswith(('.railway.app', '.herokuapp.com', '.vercel.app')) for host in ALLOWED_HOSTS)
 
-# On Railway, we need specific security settings
-if IS_RAILWAY:
-    print("Railway deployment detected")
+# On cloud deployments, we need specific security settings
+if IS_CLOUD_DEPLOYMENT:
+    print("Cloud deployment detected")
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = False  # Railway handles SSL termination
+    SECURE_SSL_REDIRECT = False  # Cloud providers handle SSL termination
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     # HSTS settings

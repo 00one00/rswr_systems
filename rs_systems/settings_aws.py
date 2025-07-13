@@ -5,24 +5,22 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-aws-deployment-key-change-in-production')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is required for AWS deployment")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Allow Elastic Beanstalk domains and your custom domain
-ALLOWED_HOSTS = [
-    '.elasticbeanstalk.com',  # For Elastic Beanstalk domains
-    '.amazonaws.com',         # For AWS domains
-    'rockstarwindshield.repair',
-    'app.rockstarwindshield.repair',
-    'www.rockstarwindshield.repair',
-    'localhost',
-    '127.0.0.1',
-    '34.239.53.155',          # Current EB instance IP
-    '172.31.38.146',          # Internal instance IP
-    '*',                      # Allow all for now - consider restricting later
-]
+# Configure allowed hosts via environment variable
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+# Add common AWS domains if not specified
+if os.environ.get('AWS_DEPLOYMENT', 'False').lower() == 'true':
+    ALLOWED_HOSTS.extend([
+        '.elasticbeanstalk.com',  # For Elastic Beanstalk domains
+        '.amazonaws.com',         # For AWS domains
+    ])
 
 # Application definition
 INSTALLED_APPS = [

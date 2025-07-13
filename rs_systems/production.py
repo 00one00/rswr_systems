@@ -1,5 +1,5 @@
 """
-Production settings for Railway deployment
+Production settings for cloud deployment
 """
 
 import os
@@ -18,8 +18,8 @@ ENVIRONMENT = 'production'
 IS_PRODUCTION = True
 DEBUG = False
 
-# Force Railway DB in production
-USE_RAILWAY_DB = True
+# Use production database
+USE_RAILWAY_DB = True  # This flag will be renamed in future refactor
 
 # Security settings - already defined in base settings.py but enforced here
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -30,24 +30,22 @@ SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-# Configure allowed hosts for Railway
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '.railway.app').split(',')
+# Configure allowed hosts for production deployment
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
 
-# CSRF trusted origins for Railway
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://*.railway.app').split(',')
+# CSRF trusted origins for production deployment  
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://your-domain.com').split(',')
 
 # Ensure essential environment variables are set in production
-required_env_vars = ['SECRET_KEY', 'RAILWAY_DATABASE_URL']
+required_env_vars = ['SECRET_KEY', 'DATABASE_URL']
 missing_vars = [var for var in required_env_vars if var not in os.environ]
 
 if missing_vars:
     raise Exception(f"The following required environment variables are missing: {', '.join(missing_vars)}")
 
-# Override database with railway URL directly as fallback
-if not os.environ.get('RAILWAY_DATABASE_URL') and os.environ.get('DATABASE_URL'):
-    # For backward compatibility, use DATABASE_URL if RAILWAY_DATABASE_URL is not set
-    print("Using DATABASE_URL as RAILWAY_DATABASE_URL")
-    os.environ['RAILWAY_DATABASE_URL'] = os.environ.get('DATABASE_URL')
+# Override database with production DATABASE_URL
+if not os.environ.get('DATABASE_URL'):
+    raise Exception("DATABASE_URL environment variable is required in production")
 
 LOGGING = {
     'version': 1,

@@ -3,6 +3,7 @@ from django.core.management import call_command
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.utils import OperationalError
+import os
 
 class Command(BaseCommand):
     help = 'Set up database with migrations and create superuser'
@@ -46,15 +47,24 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.WARNING(f'Warning collecting static files: {e}'))
         
-        # Create superuser
+        # Create superuser using environment variables
         User = get_user_model()
         try:
             if not User.objects.filter(username='admin').exists():
                 self.stdout.write('Creating superuser...')
+                # Use environment variables for secure credential management
+                admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+                admin_email = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+                admin_password = os.environ.get('ADMIN_PASSWORD')
+                
+                if not admin_password:
+                    self.stdout.write(self.style.ERROR('ADMIN_PASSWORD environment variable is required for superuser creation'))
+                    return
+                
                 User.objects.create_superuser(
-                    username='admin',
-                    email='admin@example.com',
-                    password='admin123'
+                    username=admin_username,
+                    email=admin_email,
+                    password=admin_password
                 )
                 self.stdout.write(self.style.SUCCESS('Superuser created successfully'))
             else:
