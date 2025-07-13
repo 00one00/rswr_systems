@@ -66,6 +66,13 @@ Thumbs.db
 !.elasticbeanstalk/*.global.yml
 
 
+# Deployment guides with sensitive information
+AWS_DEPLOYMENT_GUIDE.md
+SECURITY_DEPLOYMENT_GUIDE.md
+DEPLOYMENT_GUIDE.md
+DOMAIN_SSL_SETUP.md
+HTTPS_SETUP_GUIDE.md
+
 # Misc.
 # CLAUDE.md is now public documentation
 next_steps.md
