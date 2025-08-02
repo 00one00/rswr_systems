@@ -156,6 +156,10 @@ INSTALLED_APPS = [
     'apps.technician_portal',
     'apps.customer_portal',
     'apps.rewards_referrals',
+    'apps.photo_storage',
+    'apps.queue_management',
+    'apps.scheduling',
+    'apps.security',
     'core',
     'drf_spectacular',
 ]

@@ -10,6 +10,11 @@ class Customer(models.Model):
     state = models.CharField(max_length=100, null=True, blank=True)
     zip_code = models.CharField(max_length=100, null=True, blank=True)
     
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Customer'
+        verbose_name_plural = 'Customers'
+    
     def __str__(self):
         return self.name
 

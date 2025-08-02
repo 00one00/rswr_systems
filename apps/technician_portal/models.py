@@ -26,6 +26,10 @@ class UnitRepairCount(models.Model):
 
     class Meta:
         unique_together = ['customer', 'unit_number']
+        indexes = [
+            models.Index(fields=['customer', 'unit_number']),
+            models.Index(fields=['repair_count']),
+        ]
 
     def __str__(self):
         return f"{self.customer.name} - Unit #{self.unit_number} - Repairs: {self.repair_count}"
@@ -195,6 +199,15 @@ class Repair(models.Model):
             'discount_description': discount_description,
             'savings': base_cost - final_cost
         }
+
+    class Meta:
+        ordering = ['-repair_date']
+        indexes = [
+            models.Index(fields=['queue_status']),
+            models.Index(fields=['customer', 'unit_number']),
+            models.Index(fields=['technician']),
+            models.Index(fields=['repair_date']),
+        ]
 
     def __str__(self):
         return f"Repair {self.id} - {self.customer.name} - Unit #{self.unit_number} - {self.repair_date.strftime('%Y-%m-%d')} - {self.queue_status}"
