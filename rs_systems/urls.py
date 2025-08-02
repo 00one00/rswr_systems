@@ -17,9 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from . import views 
-from django.contrib.auth.views import LogoutView  
-from rs_systems.views import logout_view, home
+from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),  
@@ -37,14 +35,22 @@ urlpatterns = [
     path('admin/register-technician/', views.register_technician, name='register_technician'),
     path('admin/', admin.site.urls),
     
-    # App URLs
-    path('technician/', include('apps.technician_portal.urls')),
-    path('customer/', include('apps.customer_portal.urls')),
+    # Customer portal (primary users)
+    path('app/', include('apps.customer_portal.urls')),
+    path('app/login/', views.customer_login_view, name='customer_login'),
+    path('app/logout/', views.logout_view, name='customer_logout'),
+    
+    # Technician portal
+    path('tech/', include('apps.technician_portal.urls')),
+    path('tech/login/', views.technician_login_view, name='technician_login'),
+    path('tech/logout/', views.logout_view, name='technician_logout'),
+    
+    # Rewards/referrals (accessible from both portals)
     path('referrals/', include('apps.rewards_referrals.urls')),
     
-    # Authentication URLs
-    path('accounts/login/', views.login_view, name='login'),
-    path('login/', views.login_view, name='login'),
+    # Legacy authentication URLs (redirect to appropriate portal)
+    path('accounts/login/', views.login_router, name='login'),
+    path('login/', views.login_router, name='login_legacy'),
     path('logout/', views.logout_view, name='logout'),
     # path('api-token-auth/', views.obtain_auth_token, name='api_token_auth'),
 ]

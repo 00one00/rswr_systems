@@ -130,21 +130,28 @@ The system is built with a modular architecture featuring three main application
    ADMIN_PASSWORD=secure-admin-password
    ```
 
-5. **Initialize database**
+5. **Initialize database and create test data**
    ```bash
    python manage.py setup_db
    python manage.py setup_groups
+   python manage.py create_test_data
    ```
 
-6. **Start development server**
+6. **Verify installation**
+   ```bash
+   python manage.py test_system_flow --verbose
+   ```
+
+7. **Start development server**
    ```bash
    python manage.py runserver
    ```
 
-7. **Access the application**
-   - Main application: http://localhost:8000
-   - Admin interface: http://localhost:8000/admin
-   - API documentation: http://localhost:8000/api/schema/swagger-ui/
+8. **Access the application**
+   - **Customer Portal**: http://localhost:8000/app/login/ (`democustomer` / `demo123`)
+   - **Technician Portal**: http://localhost:8000/tech/login/ (`tech1` / `demo123`)
+   - **Admin Interface**: http://localhost:8000/admin/ (`demoadmin` / `demo123`)
+   - **API Documentation**: http://localhost:8000/api/schema/swagger-ui/
 
 ## 📋 Usage Guide
 
@@ -170,6 +177,39 @@ Customers can register through the customer portal with optional referral codes 
 - **Redemption Options**: Percentage discounts, fixed amounts, free services
 - **Automatic Application**: Rewards applied to repairs when completed
 
+## 🧪 Testing
+
+The system includes comprehensive testing infrastructure to ensure reliability and functionality.
+
+### Quick Testing
+```bash
+# Run automated end-to-end test
+python manage.py test_system_flow --verbose
+
+# Create fresh test data
+python manage.py create_test_data --clean
+
+# Run unit tests
+python manage.py test
+```
+
+### Manual Testing Workflow
+1. **Test Customer Repair Request**:
+   - Login: http://localhost:8000/app/login/ (`democustomer` / `demo123`)
+   - Submit repair request for unit "TEST001"
+   - Verify success message and dashboard update
+
+2. **Test Technician Assignment**:
+   - Login: http://localhost:8000/tech/login/ (`tech1` / `demo123`)
+   - Verify repair appears in "Customer Requested Repairs"
+   - Test with multiple technicians to verify visibility
+
+3. **Test Repair Progression**:
+   - Accept repair and progress through: Approved → In Progress → Completed
+   - Verify cost calculation ($50 for first repair)
+
+For detailed testing procedures, see [`docs/TESTING.md`](docs/TESTING.md).
+
 ## 🔧 Development
 
 ### Database Management
@@ -191,6 +231,9 @@ python manage.py test
 
 # Test specific app
 python manage.py test apps.technician_portal
+
+# System verification
+python manage.py test_system_flow
 ```
 
 ### Static Files
@@ -258,6 +301,28 @@ ADMIN_PASSWORD=secure-password
 - **Repair Frequency Pricing**: Automatic cost reduction for repeat repairs
 - **Reward Integration**: Seamless point earning and redemption
 - **Status Workflow**: Structured repair process management
+- **Load-Balanced Assignment**: Fair distribution of repairs among technicians
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the `/docs` directory:
+
+- **[Testing Guide](docs/TESTING.md)**: Complete testing procedures and automation
+- **[Developer Guide](docs/DEVELOPER_GUIDE.md)**: Technical implementation and architecture
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)**: Common issues and solutions
+- **[Changelog](docs/CHANGELOG.md)**: Version history and recent improvements
+
+### Recent Improvements (v1.2.0)
+
+#### 🔧 Critical Repair Flow Fixes
+- **Issue Resolved**: Customer repair requests now properly visible to all technicians
+- **Load Balancing**: Intelligent assignment based on technician workload
+- **Enhanced Visibility**: All REQUESTED repairs shown to all technicians
+
+#### 🧪 Testing Infrastructure
+- **Automated Testing**: Complete end-to-end system verification
+- **Test Data Management**: Consistent demo accounts and scenarios
+- **Regression Testing**: Prevent future workflow issues
 
 ## 🔒 Security
 

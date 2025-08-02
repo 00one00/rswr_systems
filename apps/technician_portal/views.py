@@ -85,11 +85,15 @@ def technician_dashboard(request):
     
     # Get customer-requested repairs
     if technician:
-        # For regular technicians, only show their assigned repairs
+        # For regular technicians, show all REQUESTED repairs (unassigned queue)
+        # but highlight their specifically assigned ones
         customer_requested_repairs = Repair.objects.filter(
-            technician=technician,
             queue_status='REQUESTED'
         ).order_by('-repair_date')
+        
+        # Add a flag to mark which repairs are assigned to this technician
+        for repair in customer_requested_repairs:
+            repair.assigned_to_me = repair.technician == technician
         
         # Get assigned reward redemptions for this technician
         from apps.rewards_referrals.models import RewardRedemption
@@ -112,6 +116,10 @@ def technician_dashboard(request):
         customer_requested_repairs = Repair.objects.filter(
             queue_status='REQUESTED'
         ).order_by('-repair_date')
+        
+        # For admins, show technician assignment info
+        for repair in customer_requested_repairs:
+            repair.assigned_to_me = False  # Admins don't have assignments
         
         # For admins, show all pending redemptions
         from apps.rewards_referrals.models import RewardRedemption

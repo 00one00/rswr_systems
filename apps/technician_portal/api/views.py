@@ -1,7 +1,8 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from apps.technician_portal.models import Technician, Repair, Customer
+from apps.technician_portal.models import Technician, Repair
+from core.models import Customer
 from .serializers import TechnicianSerializer, RepairSerializer, CustomerSerializer
 
 

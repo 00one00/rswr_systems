@@ -16,8 +16,9 @@ The Technician Portal is a Django web application that provides RSWR Systems rep
 - **Repair Queue**: View all assigned and available repairs in filterable list
 - **Status Updates**: Move repairs through the workflow with status tracking
 - **Filter System**: Sort repairs by status, customer, or other attributes
-- **Customer Requested Repairs**: Special handling for direct customer requests
-- **Claim System**: Assign repairs to specific technicians
+- **Customer Requested Repairs**: ✨ **Enhanced** - All REQUESTED repairs visible to all technicians
+- **Load-Balanced Assignment**: ✨ **New** - Intelligent assignment based on technician workload
+- **Assignment Indicators**: Visual cues showing which repairs are assigned to current technician
 
 ### Technical Documentation
 - **Repair Details**: Comprehensive data collection for each repair
@@ -131,6 +132,43 @@ The technician portal manages repairs through six distinct stages:
 5. **COMPLETED**: Repair successfully finished
 6. **DENIED**: Repair request denied by customer
 
+## Recent Improvements (v1.2.0)
+
+### 🔧 Critical Repair Visibility Fix
+
+**Issue Resolved**: Previously, technicians could only see repairs specifically assigned to them, causing customer repair requests to be invisible to most technicians.
+
+**Solution Implemented**:
+- **Enhanced Dashboard Logic** (`views.py:88-96`): All REQUESTED repairs now visible to all technicians
+- **Assignment Indicators**: Added `assigned_to_me` flag to distinguish personal assignments
+- **Improved Collaboration**: Technicians can now see system-wide repair queue
+
+### ⚖️ Load-Balanced Assignment
+
+**New Feature**: Intelligent technician assignment based on current workload.
+
+**Implementation** (`apps/customer_portal/views.py:500-514`):
+```python
+# Assigns to technician with least active repairs
+technicians = Technician.objects.annotate(
+    active_repairs=Count('repair', filter=Q(repair__queue_status__in=[
+        'REQUESTED', 'PENDING', 'APPROVED', 'IN_PROGRESS'
+    ]))
+).order_by('active_repairs', 'id')
+```
+
+**Benefits**:
+- Fair distribution of workload among technicians
+- Prevents bottlenecks when specific technicians are busy
+- Improved system efficiency and resource utilization
+
+### 🧪 Testing Infrastructure
+
+**New Testing Capabilities**:
+- **Automated System Testing**: `python manage.py test_system_flow`
+- **Test Data Management**: `python manage.py create_test_data`
+- **End-to-End Verification**: Complete repair workflow testing
+
 ## Integration with Customer Portal
 
 The Technician Portal integrates with the Customer Portal in several ways:
@@ -139,6 +177,7 @@ The Technician Portal integrates with the Customer Portal in several ways:
 2. **Approval Workflow**: Customer approvals in the Customer Portal affect repair availability in the Technician Portal
 3. **Status Synchronization**: Status changes made by technicians are immediately visible to customers
 4. **Unit Tracking**: The UnitRepairCount model is updated when repairs are completed
+5. **Load-Balanced Assignment**: ✨ **New** - Customer requests automatically assigned using workload balancing
 
 ## API Features (Planned)
 

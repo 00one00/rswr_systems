@@ -497,14 +497,20 @@ def request_repair(request):
                 messages.error(request, "Please fill out all required fields.")
                 return render(request, 'customer_portal/request_repair.html')
             
-            # Find an available technician (for demo purposes, just get the first one)
+            # Find an available technician using round-robin assignment
             from apps.technician_portal.models import Technician
-            technicians = Technician.objects.all()
+            from django.db.models import Count
+            
+            # Get technicians ordered by their current repair load (ascending)
+            technicians = Technician.objects.annotate(
+                active_repairs=Count('repair', filter=Q(repair__queue_status__in=['REQUESTED', 'PENDING', 'APPROVED', 'IN_PROGRESS']))
+            ).order_by('active_repairs', 'id')
             
             if not technicians.exists():
                 messages.error(request, "No technicians available. Please try again later.")
                 return render(request, 'customer_portal/request_repair.html')
             
+            # Assign to the technician with the least active repairs
             technician = technicians.first()
             
             # Create the repair with a special "REQUESTED" status

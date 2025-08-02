@@ -14,27 +14,15 @@ import io
 import sys
 
 def home(request):
-    if request.user.is_authenticated:
-        # Check if the user is a customer or technician
-        from apps.customer_portal.models import CustomerUser
-        from apps.technician_portal.models import Technician
-        
-        # Try to get customer user record
-        try:
-            customer_user = CustomerUser.objects.get(user=request.user)
-            return redirect('customer_dashboard')
-        except CustomerUser.DoesNotExist:
-            # If not a customer, check if technician
-            try:
-                technician = Technician.objects.get(user=request.user)
-                return redirect('technician_dashboard')
-            except Technician.DoesNotExist:
-                # If neither, show a warning
-                messages.warning(request, "Your account is not linked to a customer or technician profile.")
-    
-    return render(request, 'home.html')
+    # The root page is now a marketing landing page
+    # No automatic redirects for authenticated users
+    return render(request, 'landing.html')
 
-def login_view(request):
+def customer_login_view(request):
+    """Login view specifically for customers"""
+    if request.user.is_authenticated:
+        return redirect('customer_dashboard')
+        
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
@@ -42,28 +30,70 @@ def login_view(request):
             password = form.cleaned_data.get('password')
             user = authenticate(username=username, password=password)
             if user is not None:
-                login(request, user)
-                
-                # Check if the user is a customer or technician
+                # Verify user is a customer
                 from apps.customer_portal.models import CustomerUser
-                from apps.technician_portal.models import Technician
-                
-                # Try to get customer user record
                 try:
                     customer_user = CustomerUser.objects.get(user=user)
-                    return redirect('customer_dashboard')
+                    login(request, user)
+                    next_url = request.GET.get('next', 'customer_dashboard')
+                    return redirect(next_url)
                 except CustomerUser.DoesNotExist:
-                    # If not a customer, check if technician
-                    try:
-                        technician = Technician.objects.get(user=user)
-                        return redirect('technician_dashboard')
-                    except Technician.DoesNotExist:
-                        # If neither, redirect to a default page
-                        messages.warning(request, "Your account is not linked to a customer or technician profile.")
-                        return redirect('home')
+                    messages.error(request, "This account is not authorized for customer access.")
     else:
         form = AuthenticationForm()
-    return render(request, 'login.html', {'form': form})
+    
+    return render(request, 'customer_login.html', {'form': form, 'portal_type': 'customer'})
+
+def technician_login_view(request):
+    """Login view specifically for technicians"""
+    if request.user.is_authenticated:
+        from apps.technician_portal.models import Technician
+        try:
+            technician = Technician.objects.get(user=request.user)
+            return redirect('technician_dashboard')
+        except Technician.DoesNotExist:
+            pass
+    
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                # Verify user is a technician
+                from apps.technician_portal.models import Technician
+                try:
+                    technician = Technician.objects.get(user=user)
+                    login(request, user)
+                    next_url = request.GET.get('next', 'technician_dashboard')
+                    return redirect(next_url)
+                except Technician.DoesNotExist:
+                    messages.error(request, "This account is not authorized for technician access.")
+    else:
+        form = AuthenticationForm()
+    
+    return render(request, 'technician_login.html', {'form': form, 'portal_type': 'technician'})
+
+def login_router(request):
+    """Legacy login URL that redirects to appropriate portal"""
+    # Check if user is already authenticated
+    if request.user.is_authenticated:
+        from apps.customer_portal.models import CustomerUser
+        from apps.technician_portal.models import Technician
+        
+        try:
+            customer_user = CustomerUser.objects.get(user=request.user)
+            return redirect('customer_dashboard')
+        except CustomerUser.DoesNotExist:
+            try:
+                technician = Technician.objects.get(user=request.user)
+                return redirect('technician_dashboard')
+            except Technician.DoesNotExist:
+                pass
+    
+    # For unauthenticated users, show portal selection
+    return render(request, 'login_router.html')
 
 @require_POST
 def logout_view(request):
