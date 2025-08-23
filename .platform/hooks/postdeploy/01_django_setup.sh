@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Django post-deployment setup
+echo "Running Django migrations..."
+source /var/app/venv/*/bin/activate
+cd /var/app/current
+
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+
+echo "Django setup completed"
