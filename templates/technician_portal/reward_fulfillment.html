@@ -1,136 +1,296 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block extra_css %}
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    green: {
+                        50: '#f0fdf4',
+                        100: '#dcfce7',
+                        200: '#bbf7d0',
+                        300: '#86efac',
+                        400: '#4ade80',
+                        500: '#22c55e',
+                        600: '#16a34a',
+                        700: '#15803d',
+                        800: '#166534',
+                        900: '#14532d',
+                    }
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}
+
 {% block content %}
-<div class="container py-4">
-    <div class="row mb-4">
-        <div class="col">
-            <h1 class="h2 mb-0">Reward Fulfillment Details</h1>
-            <p class="text-muted">Process customer reward redemption</p>
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Reward Fulfillment Details</h1>
+            <p class="text-gray-600 mt-2">Process customer reward redemption</p>
         </div>
-    </div>
 
-    <div class="row">
-        <div class="col-lg-8">
-            <!-- Reward Details Card -->
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="mb-0">Reward Information</h3>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong>Customer:</strong> {{ redemption.reward.customer_user.user.email }}</p>
-                            <p><strong>Customer Name:</strong> {{ redemption.reward.customer_user.user.get_full_name }}</p>
-                            <p><strong>Reward Option:</strong> {{ redemption.reward_option.name }}</p>
-                            <p><strong>Points Used:</strong> {{ redemption.reward_option.points_required }}</p>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Main Content Column -->
+            <div class="lg:col-span-2">
+                <!-- Reward Information Card -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+                    <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
+                        <h2 class="text-xl font-semibold">Reward Information</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <div class="space-y-3">
+                                    <div>
+                                        <p class="text-sm text-gray-500">Customer</p>
+                                        <p class="font-medium text-gray-900">{{ redemption.reward.customer_user.user.email }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Customer Name</p>
+                                        <p class="font-medium text-gray-900">{{ redemption.reward.customer_user.user.get_full_name|default:"N/A" }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Reward Option</p>
+                                        <p class="font-medium text-gray-900">{{ redemption.reward_option.name }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Points Used</p>
+                                        <p class="font-medium text-gray-900">{{ redemption.reward_option.points_required }} points</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="space-y-3">
+                                    <div>
+                                        <p class="text-sm text-gray-500">Redemption Date</p>
+                                        <p class="font-medium text-gray-900">{{ redemption.created_at|date:"M d, Y" }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Status</p>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if redemption.status == 'PENDING' %}bg-yellow-100 text-yellow-800{% elif redemption.status == 'FULFILLED' %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ redemption.get_status_display }}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Assigned Technician</p>
+                                        <div class="flex items-center gap-2">
+                                            {% if redemption.assigned_technician %}
+                                                <span class="font-medium text-gray-900">{{ redemption.assigned_technician.user.get_full_name }}</span>
+                                                {% if is_assigned_technician %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">You are assigned</span>
+                                                {% elif is_admin %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Admin access</span>
+                                                {% else %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Assigned to another</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-gray-500">Not assigned</span>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Available to claim</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <p><strong>Redemption Date:</strong> {{ redemption.created_at|date:"M d, Y" }}</p>
-                            <p><strong>Status:</strong> <span class="badge bg-{{ redemption.status|lower }}">{{ redemption.get_status_display }}</span></p>
-                            <p><strong>Assigned Technician:</strong> 
-                                {% if redemption.assigned_technician %}
-                                {{ redemption.assigned_technician.user.get_full_name }}
-                                {% else %}
-                                Not assigned
-                                {% endif %}
-                            </p>
-                        </div>
-                    </div>
 
-                    <div class="mt-3">
-                        <h5>Reward Description:</h5>
-                        <p>{{ redemption.reward_option.description }}</p>
-                    </div>
-
-                    {% if redemption.notes %}
-                    <div class="mt-3">
-                        <h5>Notes:</h5>
-                        <p>{{ redemption.notes }}</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Fulfillment Form -->
-            {% if redemption.status == 'PENDING' %}
-            <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                    <h3 class="mb-0">Mark as Fulfilled</h3>
-                </div>
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        
-                        {% if customer_repairs %}
-                        <div class="form-group mb-3">
-                            <label for="apply_to_repair">Apply to Repair (Optional)</label>
-                            <select name="apply_to_repair" id="apply_to_repair" class="form-control">
-                                <option value="">-- Do not apply to any repair --</option>
-                                {% for repair in customer_repairs %}
-                                <option value="{{ repair.id }}">
-                                    Unit #{{ repair.unit_number }} - {{ repair.damage_type }} - ${{ repair.cost }} - {{ repair.get_queue_status_display }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <small class="form-text text-muted">
-                                {% if redemption.reward_option.reward_type %}
-                                    This reward will apply: 
-                                    {% if redemption.reward_option.reward_type.discount_type == 'PERCENTAGE' %}
-                                        {{ redemption.reward_option.reward_type.discount_value }}% discount
-                                    {% elif redemption.reward_option.reward_type.discount_type == 'FIXED_AMOUNT' %}
-                                        ${{ redemption.reward_option.reward_type.discount_value }} discount
-                                    {% elif redemption.reward_option.reward_type.discount_type == 'FREE' %}
-                                        100% discount (free)
-                                    {% endif %}
-                                {% else %}
-                                    Select a repair to apply this reward to (if applicable).
-                                {% endif %}
-                            </small>
+                        {% if redemption.reward_option.description %}
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <h3 class="text-sm font-medium text-gray-900 mb-2">Reward Description</h3>
+                            <p class="text-gray-600">{{ redemption.reward_option.description }}</p>
                         </div>
                         {% endif %}
-                        
-                        <div class="form-group mb-3">
-                            <label for="notes">Fulfillment Notes</label>
-                            <textarea name="notes" id="notes" class="form-control" rows="3" placeholder="Enter any notes about the fulfillment process"></textarea>
+
+                        {% if redemption.notes %}
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <h3 class="text-sm font-medium text-gray-900 mb-2">Notes</h3>
+                            <p class="text-gray-600">{{ redemption.notes }}</p>
                         </div>
-                        <button type="submit" class="btn btn-success">Mark as Fulfilled</button>
-                    </form>
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
-            {% endif %}
-        </div>
 
-        <div class="col-lg-4">
-            <!-- Customer Information -->
-            <div class="card mb-4">
-                <div class="card-header bg-info text-white">
-                    <h3 class="mb-0">Customer Information</h3>
-                </div>
-                <div class="card-body">
-                    <p><strong>Email:</strong> {{ redemption.reward.customer_user.user.email }}</p>
-                    <p><strong>Name:</strong> {{ redemption.reward.customer_user.user.get_full_name }}</p>
-                    <p><strong>Reward Balance:</strong> {{ redemption.reward.points }} points remaining</p>
-                    
-                    {% if redemption.reward.customer_user.phone %}
-                    <p><strong>Phone:</strong> {{ redemption.reward.customer_user.phone }}</p>
+                <!-- Action Cards Based on Status -->
+                {% if redemption.status == 'PENDING' %}
+                    {% if not redemption.assigned_technician %}
+                        <!-- Claim Assignment Card -->
+                        <div class="bg-white rounded-lg shadow-sm border border-orange-200 mb-6">
+                            <div class="px-6 py-4 bg-orange-50 border-b border-orange-200">
+                                <h2 class="text-xl font-semibold text-orange-800">Claim This Reward</h2>
+                            </div>
+                            <div class="p-6">
+                                <p class="text-gray-600 mb-4">This reward is not assigned to any technician yet. You can claim it to fulfill.</p>
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="claim">
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        Claim This Reward
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% elif can_fulfill %}
+                        <!-- Fulfillment Form Card -->
+                        <div class="bg-white rounded-lg shadow-sm border border-green-200 mb-6">
+                            <div class="px-6 py-4 bg-green-50 border-b border-green-200">
+                                <h2 class="text-xl font-semibold text-green-800">Mark as Fulfilled</h2>
+                            </div>
+                            <div class="p-6">
+                                <form method="post">
+                                    {% csrf_token %}
+                                    
+                                    {% if customer_repairs %}
+                                    <div class="mb-6">
+                                        <label for="apply_to_repair" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Apply to Repair (Optional)
+                                        </label>
+                                        <select name="apply_to_repair" id="apply_to_repair" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                                            <option value="">-- Do not apply to any repair --</option>
+                                            {% for repair in customer_repairs %}
+                                            <option value="{{ repair.id }}">
+                                                Unit #{{ repair.unit_number }} - {{ repair.damage_type }} - ${{ repair.cost }} - {{ repair.get_queue_status_display }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <p class="mt-2 text-sm text-gray-500">
+                                            {% if redemption.reward_option.reward_type %}
+                                                This reward will apply: 
+                                                {% if redemption.reward_option.reward_type.discount_type == 'PERCENTAGE' %}
+                                                    {{ redemption.reward_option.reward_type.discount_value }}% discount
+                                                {% elif redemption.reward_option.reward_type.discount_type == 'FIXED_AMOUNT' %}
+                                                    ${{ redemption.reward_option.reward_type.discount_value }} discount
+                                                {% elif redemption.reward_option.reward_type.discount_type == 'FREE' %}
+                                                    100% discount (free)
+                                                {% endif %}
+                                            {% else %}
+                                                Select a repair to apply this reward to (if applicable).
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="mb-6">
+                                        <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+                                            Fulfillment Notes
+                                        </label>
+                                        <textarea name="notes" id="notes" rows="3" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm" placeholder="Enter any notes about the fulfillment process"></textarea>
+                                    </div>
+                                    
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        Mark as Fulfilled
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- View Only Access Card -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+                            <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                                <h2 class="text-xl font-semibold text-gray-700">View Only Access</h2>
+                            </div>
+                            <div class="p-6">
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <p class="text-gray-600">
+                                        This reward is assigned to {{ redemption.assigned_technician.user.get_full_name }}. 
+                                        Only the assigned technician or administrators can fulfill this reward.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     {% endif %}
-                </div>
+                {% else %}
+                    <!-- Already Processed Card -->
+                    <div class="bg-white rounded-lg shadow-sm border border-blue-200 mb-6">
+                        <div class="px-6 py-4 bg-blue-50 border-b border-blue-200">
+                            <h2 class="text-xl font-semibold text-blue-800">Reward Status</h2>
+                        </div>
+                        <div class="p-6">
+                            <p class="text-gray-600 mb-4">This reward has been {{ redemption.get_status_display|lower }}.</p>
+                            <div class="space-y-2">
+                                {% if redemption.processed_at %}
+                                <div class="flex items-center text-sm">
+                                    <span class="text-gray-500 w-24">Processed:</span>
+                                    <span class="text-gray-900">{{ redemption.processed_at|date:"M d, Y H:i" }}</span>
+                                </div>
+                                {% endif %}
+                                {% if redemption.processed_by %}
+                                <div class="flex items-center text-sm">
+                                    <span class="text-gray-500 w-24">Processed by:</span>
+                                    <span class="text-gray-900">{{ redemption.processed_by.get_full_name }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
 
-            <!-- Action Buttons -->
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h3 class="mb-0">Actions</h3>
+            <!-- Sidebar Column -->
+            <div class="lg:col-span-1">
+                <!-- Customer Information Card -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+                    <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-700">Customer Information</h3>
+                    </div>
+                    <div class="p-6 space-y-3">
+                        <div>
+                            <p class="text-sm text-gray-500">Email</p>
+                            <p class="font-medium text-gray-900">{{ redemption.reward.customer_user.user.email }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Name</p>
+                            <p class="font-medium text-gray-900">{{ redemption.reward.customer_user.user.get_full_name|default:"N/A" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Reward Balance</p>
+                            <p class="font-medium text-gray-900">{{ redemption.reward.points }} points remaining</p>
+                        </div>
+                        {% if redemption.reward.customer_user.phone %}
+                        <div>
+                            <p class="text-sm text-gray-500">Phone</p>
+                            <p class="font-medium text-gray-900">{{ redemption.reward.customer_user.phone }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="card-body">
-                    <a href="{% url 'technician_dashboard' %}" class="btn btn-outline-secondary mb-2 w-100">Back to Dashboard</a>
-                    
-                    {% if redemption.status == 'PENDING' %}
-                    <button type="button" class="btn btn-outline-primary mb-2 w-100" data-bs-toggle="modal" data-bs-target="#contactCustomerModal">
-                        Contact Customer
-                    </button>
-                    {% endif %}
+
+                <!-- Actions Card -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-700">Actions</h3>
+                    </div>
+                    <div class="p-6 space-y-3">
+                        <a href="{% url 'technician_dashboard' %}" class="block w-full text-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                            </svg>
+                            Back to Dashboard
+                        </a>
+                        
+                        {% if redemption.status == 'PENDING' %}
+                        <button onclick="openContactModal()" type="button" class="block w-full text-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                            Contact Customer
+                        </button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -138,52 +298,81 @@
 </div>
 
 <!-- Contact Customer Modal -->
-<div class="modal fade" id="contactCustomerModal" tabindex="-1" aria-labelledby="contactCustomerModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="contactCustomerModalLabel">Contact Customer</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<div id="contactModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-lg bg-white">
+        <div class="flex justify-between items-center pb-3 border-b">
+            <h3 class="text-xl font-semibold text-gray-900">Contact Customer</h3>
+            <button onclick="closeContactModal()" class="text-gray-400 hover:text-gray-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="mt-4 space-y-4">
+            <div>
+                <p class="text-sm text-gray-500">Customer</p>
+                <p class="font-medium text-gray-900">{{ redemption.reward.customer_user.user.get_full_name|default:"N/A" }}</p>
             </div>
-            <div class="modal-body">
-                <p><strong>Customer:</strong> {{ redemption.reward.customer_user.user.get_full_name }}</p>
-                <p><strong>Email:</strong> {{ redemption.reward.customer_user.user.email }}</p>
-                
-                {% if redemption.reward.customer_user.phone %}
-                <p><strong>Phone:</strong> {{ redemption.reward.customer_user.phone }}</p>
-                {% else %}
-                <p><em>No phone number available</em></p>
-                {% endif %}
-                
-                <hr>
-                
-                <div class="form-group">
-                    <label for="emailSubject">Email Subject</label>
-                    <input type="text" class="form-control" id="emailSubject" value="Regarding your reward redemption">
-                </div>
-                
-                <div class="form-group mt-3">
-                    <label for="emailMessage">Email Message</label>
-                    <textarea class="form-control" id="emailMessage" rows="5">Hello {{ redemption.reward.customer_user.user.first_name }},
+            
+            <div>
+                <p class="text-sm text-gray-500">Email</p>
+                <p class="font-medium text-gray-900">{{ redemption.reward.customer_user.user.email }}</p>
+            </div>
+            
+            {% if redemption.reward.customer_user.phone %}
+            <div>
+                <p class="text-sm text-gray-500">Phone</p>
+                <p class="font-medium text-gray-900">{{ redemption.reward.customer_user.phone }}</p>
+            </div>
+            {% else %}
+            <div>
+                <p class="text-sm text-gray-500">Phone</p>
+                <p class="text-gray-400 italic">No phone number available</p>
+            </div>
+            {% endif %}
+            
+            <hr class="my-4">
+            
+            <div>
+                <label for="emailSubject" class="block text-sm font-medium text-gray-700 mb-2">Email Subject</label>
+                <input type="text" id="emailSubject" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" value="Regarding your reward redemption">
+            </div>
+            
+            <div>
+                <label for="emailMessage" class="block text-sm font-medium text-gray-700 mb-2">Email Message</label>
+                <textarea id="emailMessage" rows="5" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">Hello {{ redemption.reward.customer_user.user.first_name }},
 
 I'm reaching out regarding your redemption of {{ redemption.reward_option.name }}. 
 
 Best regards,
-{{ redemption.assigned_technician.user.get_full_name }}
-                    </textarea>
-                </div>
+{% if redemption.assigned_technician %}{{ redemption.assigned_technician.user.get_full_name }}{% else %}{{ request.user.get_full_name }}{% endif %}</textarea>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <a href="mailto:{{ redemption.reward.customer_user.user.email }}?subject=Regarding your reward redemption" class="btn btn-primary" id="sendEmailBtn">Send Email</a>
-            </div>
+        </div>
+        
+        <div class="mt-6 flex space-x-3">
+            <button onclick="closeContactModal()" type="button" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                Cancel
+            </button>
+            <a href="mailto:{{ redemption.reward.customer_user.user.email }}?subject=Regarding your reward redemption" id="sendEmailBtn" class="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors text-center">
+                Send Email
+            </a>
         </div>
     </div>
 </div>
 
 <script>
+    // Modal functions
+    function openContactModal() {
+        document.getElementById('contactModal').classList.remove('hidden');
+    }
+    
+    function closeContactModal() {
+        document.getElementById('contactModal').classList.add('hidden');
+    }
+    
+    // Update email link when subject or message changes
     document.addEventListener('DOMContentLoaded', function() {
-        // Update the email link when subject or message changes
         const subjectInput = document.getElementById('emailSubject');
         const messageInput = document.getElementById('emailMessage');
         const emailBtn = document.getElementById('sendEmailBtn');
@@ -202,5 +391,13 @@ Best regards,
         // Initialize the link
         updateEmailLink();
     });
+    
+    // Close modal when clicking outside of it
+    window.onclick = function(event) {
+        const modal = document.getElementById('contactModal');
+        if (event.target == modal) {
+            closeContactModal();
+        }
+    }
 </script>
-{% endblock %} 
+{% endblock %}

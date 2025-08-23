@@ -68,18 +68,35 @@ class RepairForm(forms.ModelForm):
         widget=CustomDateTimeInput(),
         initial=timezone.now
     )
+    damage_type = forms.ChoiceField(
+        choices=[],  # Will be set in __init__
+        required=False,
+        help_text="Select the type of windshield damage"
+    )
 
     class Meta:
         model = Repair
-        fields = ['technician', 'customer', 'unit_number', 'repair_date', 'description', 'queue_status', 'damage_type', 'drilled_before_repair', 'windshield_temperature', 'resin_viscosity']
+        fields = ['technician', 'customer', 'unit_number', 'repair_date', 'queue_status', 'damage_type', 'drilled_before_repair', 'windshield_temperature', 'resin_viscosity', 'damage_photo_before', 'damage_photo_after', 'customer_notes', 'technician_notes']
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(RepairForm, self).__init__(*args, **kwargs)
         
+        # Set the damage type choices
+        self.fields['damage_type'].choices = Repair.DAMAGE_TYPE_CHOICES
+        
         # Hide technician field for non-admin users
         if self.user and not self.user.is_staff:
             self.fields['technician'].widget = forms.HiddenInput()
+        
+        # Make customer_notes read-only for technicians - they should not modify customer input
+        if 'customer_notes' in self.fields:
+            self.fields['customer_notes'].widget.attrs['readonly'] = True
+            self.fields['customer_notes'].help_text = "Notes provided by the customer (read-only)"
+        
+        # Add helpful labels for the note fields
+        if 'technician_notes' in self.fields:
+            self.fields['technician_notes'].help_text = "Add your internal notes about the repair process"
         
     def clean(self):
         cleaned_data = super().clean()
@@ -104,7 +121,7 @@ class RepairForm(forms.ModelForm):
                 if queue_status in ['PENDING', 'APPROVED', 'IN_PROGRESS']:
                     raise forms.ValidationError(
                         f"There is already a {existing_repair.get_queue_status_display()} repair for this unit. "
-                        f"<a href='/technician/repairs/{existing_repair.id}/'>View existing repair</a>",
+                        f"<a href='/tech/repairs/{existing_repair.id}/'>View existing repair</a>",
                         code='existing_repair'
                     )
 

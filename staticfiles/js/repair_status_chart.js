@@ -1,10 +1,34 @@
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Status Chart: Starting initialization');
+    
+    // Check if D3 is available
+    if (typeof d3 === 'undefined') {
+        console.error('Status Chart: D3.js not loaded');
+        return;
+    }
+    
+    // Check if container exists
+    const container = document.getElementById('status-container');
+    if (!container) {
+        console.error('Status Chart: Container not found');
+        return;
+    }
+    
+    // Check if chart container exists
+    const chartContainer = document.getElementById('status-chart');
+    if (!chartContainer) {
+        console.error('Status Chart: Chart container not found');
+        return;
+    }
+    
     // Constants and configuration
-    const containerWidth = document.getElementById('status-container').clientWidth;
+    const containerWidth = container.clientWidth || 600;
     const width = Math.min(600, containerWidth * 0.9);
     const height = 380;
     const margin = {top: 20, right: 170, bottom: 20, left: 20}; // Increased right margin for legend
     const radius = Math.min((width - margin.left - margin.right) / 2, (height - margin.top - margin.bottom) / 2); // Adjusted radius
+    
+    console.log('Status Chart: Container width:', containerWidth, 'Chart width:', width);
     
     // DOM setup
     const svg = d3.select('#status-chart')
@@ -30,25 +54,38 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Get repair status data from the page context
     // Format: [{status: "STATUS", count: X}, ...]
+    
     const repairStatusData = [
-        {status: 'REQUESTED', count: parseInt(document.getElementById('stats-requested').textContent)},
-        {status: 'PENDING', count: parseInt(document.getElementById('stats-pending').textContent)},
-        {status: 'APPROVED', count: parseInt(document.getElementById('stats-approved').textContent)},
-        {status: 'IN_PROGRESS', count: parseInt(document.getElementById('stats-in-progress').textContent)},
-        {status: 'COMPLETED', count: parseInt(document.getElementById('stats-completed').textContent)},
-        {status: 'DENIED', count: parseInt(document.getElementById('stats-denied').textContent)}
+        {status: 'REQUESTED', count: parseInt(document.getElementById('stats-requested')?.textContent || '0')},
+        {status: 'PENDING', count: parseInt(document.getElementById('stats-pending')?.textContent || '0')},
+        {status: 'APPROVED', count: parseInt(document.getElementById('stats-approved')?.textContent || '0')},
+        {status: 'IN_PROGRESS', count: parseInt(document.getElementById('stats-in-progress')?.textContent || '0')},
+        {status: 'COMPLETED', count: parseInt(document.getElementById('stats-completed')?.textContent || '0')},
+        {status: 'DENIED', count: parseInt(document.getElementById('stats-denied')?.textContent || '0')}
     ];
+    
+    console.log('Status Chart: Data loaded:', repairStatusData);
     
     // Filter out statuses with 0 count for the pie chart
     const filteredData = repairStatusData.filter(d => d.count > 0);
     
     // If no data, show a message
     if (filteredData.length === 0) {
+        console.log('Status Chart: No filtered data, showing fallback message');
         pieGroup.append('text')
             .attr('text-anchor', 'middle')
             .attr('dy', '0.35em')
             .style('font-size', '14px')
+            .style('fill', '#666')
             .text('No repair data available');
+        
+        // Also add a simple test circle to verify SVG is working
+        pieGroup.append('circle')
+            .attr('r', 20)
+            .attr('fill', '#ccc')
+            .attr('stroke', '#999')
+            .attr('stroke-width', 2);
+            
         return;
     }
     
@@ -170,4 +207,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .style('font-weight', 'bold')
         .style('fill', '#333')
         .text(totalCount);
+    
+    console.log('Status Chart: Chart creation completed successfully');
 }); 

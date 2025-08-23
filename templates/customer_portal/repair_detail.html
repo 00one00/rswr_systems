@@ -64,8 +64,86 @@
                     
                     {% if repair.cost %}
                     <div class="row mb-3">
+                        {% with cost_info=repair.get_discounted_cost %}
+                        {% if cost_info.discount_applied %}
+                        <div class="col-md-4 fw-bold">Cost Information:</div>
+                        <div class="col-md-8">
+                            <div class="mb-2"><strong>Original Cost:</strong> <span class="text-decoration-line-through text-muted">${{ cost_info.original_cost }}</span></div>
+                            <div class="mb-2"><strong>Discount:</strong> <span class="text-success">{{ cost_info.discount_description }}</span></div>
+                            <div class="mb-2"><strong>Final Cost:</strong> <span class="text-primary fw-bold">${{ cost_info.final_cost }}</span></div>
+                            <div><strong>Savings:</strong> <span class="text-success">${{ cost_info.savings }}</span></div>
+                        </div>
+                        {% else %}
                         <div class="col-md-4 fw-bold">Estimated Cost:</div>
                         <div class="col-md-8">${{ repair.cost }}</div>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Photo Documentation Section -->
+                    {% if repair.damage_photo_before or repair.damage_photo_after %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0">
+                                    <i class="fa fa-camera text-primary me-2"></i>Photo Documentation 
+                                    <span class="badge bg-secondary">{{ repair.get_photo_count }} photo{{ repair.get_photo_count|pluralize }}</span>
+                                </h6>
+                                <button type="button" 
+                                        id="photoToggleBtn" 
+                                        class="btn btn-sm btn-outline-secondary"
+                                        onclick="togglePhotoSection()">
+                                    <i id="photoToggleIcon" class="fa fa-chevron-down me-1"></i>
+                                    <span id="photoToggleText">Hide Photos</span>
+                                </button>
+                            </div>
+                            <div id="photoContent" class="row">
+                                {% if repair.damage_photo_before %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white text-center">
+                                            <small class="fw-bold">
+                                                <i class="fa fa-camera me-1"></i>Initial Photo
+                                            </small>
+                                        </div>
+                                        <div class="card-body text-center p-2">
+                                            <img src="{{ repair.damage_photo_before.url }}" 
+                                                 alt="Initial damage photo" 
+                                                 class="img-fluid rounded shadow-sm"
+                                                 style="max-height: 200px; cursor: pointer; transition: transform 0.2s;"
+                                                 onclick="openImageModal('{{ repair.damage_photo_before.url }}', 'Initial Damage Photo')"
+                                                 onmouseover="this.style.transform='scale(1.05)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                            <small class="text-muted d-block mt-2">Click to view full size</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if repair.damage_photo_after %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-success">
+                                        <div class="card-header bg-success text-white text-center">
+                                            <small class="fw-bold">
+                                                <i class="fa fa-check-circle me-1"></i>Completed Repair
+                                            </small>
+                                        </div>
+                                        <div class="card-body text-center p-2">
+                                            <img src="{{ repair.damage_photo_after.url }}" 
+                                                 alt="Completed repair photo" 
+                                                 class="img-fluid rounded shadow-sm"
+                                                 style="max-height: 200px; cursor: pointer; transition: transform 0.2s;"
+                                                 onclick="openImageModal('{{ repair.damage_photo_after.url }}', 'Completed Repair Photo')"
+                                                 onmouseover="this.style.transform='scale(1.05)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                            <small class="text-muted d-block mt-2">Click to view full size</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
                     
@@ -125,4 +203,64 @@
         </div>
     </div>
 </div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">Image Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" alt="" class="img-fluid">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openImageModal(imageUrl, title) {
+    document.getElementById('modalImage').src = imageUrl;
+    document.getElementById('imageModalLabel').textContent = title;
+    var imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+    imageModal.show();
+}
+
+// Photo section toggle functionality
+function togglePhotoSection() {
+    const photoContent = document.getElementById('photoContent');
+    const toggleIcon = document.getElementById('photoToggleIcon');
+    const toggleText = document.getElementById('photoToggleText');
+    
+    const isVisible = photoContent.style.display !== 'none';
+    
+    if (isVisible) {
+        // Hide photos
+        photoContent.style.display = 'none';
+        toggleIcon.className = 'fa fa-chevron-right me-1';
+        toggleText.textContent = 'Show Photos';
+        localStorage.setItem('photoSectionCollapsed', 'true');
+    } else {
+        // Show photos
+        photoContent.style.display = 'block';
+        toggleIcon.className = 'fa fa-chevron-down me-1';
+        toggleText.textContent = 'Hide Photos';
+        localStorage.setItem('photoSectionCollapsed', 'false');
+    }
+}
+
+// Initialize photo section state from localStorage
+document.addEventListener('DOMContentLoaded', function() {
+    const photoContent = document.getElementById('photoContent');
+    const toggleIcon = document.getElementById('photoToggleIcon');
+    const toggleText = document.getElementById('photoToggleText');
+    
+    if (photoContent && localStorage.getItem('photoSectionCollapsed') === 'true') {
+        photoContent.style.display = 'none';
+        toggleIcon.className = 'fa fa-chevron-right me-1';
+        toggleText.textContent = 'Show Photos';
+    }
+});
+</script>
 {% endblock %} 

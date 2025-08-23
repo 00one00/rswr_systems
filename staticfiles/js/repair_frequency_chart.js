@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadDataAndCreateChart() {
         console.log('Repair Frequency Chart: Fetching data from API...');
         
-        fetchDataWithRetry('/customer/api/repair-cost-data/')
+        fetchDataWithRetry('/app/api/repair-cost-data/')
             .then(data => {
                 // Remove loading indicator
                 loadingIndicator.remove();
@@ -352,6 +352,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
-    // Start loading data
-    loadDataAndCreateChart();
+    // Expose the loading function globally so it can be called when tab is shown
+    window.loadFrequencyChart = loadDataAndCreateChart;
+    
+    // Don't auto-load the chart - wait for the tab to be shown
+    console.log('Repair Frequency Chart: Initialized, waiting for tab activation');
 }); 

@@ -77,6 +77,7 @@
                         <li><a href="{% url 'customer_dashboard' %}" class="{% if request.resolver_match.url_name == 'customer_dashboard' %}active{% endif %}">Dashboard</a></li>
                         <li><a href="{% url 'customer_repairs' %}" class="{% if request.resolver_match.url_name == 'customer_repairs' %}active{% endif %}">My Repairs</a></li>
                         <li><a href="{% url 'customer_request_repair' %}" class="{% if request.resolver_match.url_name == 'customer_request_repair' %}active{% endif %}">Request Repair</a></li>
+                        <li><a href="{% url 'customer_rewards' %}" class="{% if request.resolver_match.url_name == 'referral_rewards' or 'referral' in request.resolver_match.url_name or 'reward' in request.resolver_match.url_name %}active{% endif %}">Rewards</a></li>
                         {% endif %}
                         {% endblock %}
                     </ul>

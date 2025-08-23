@@ -207,17 +207,26 @@ def repair_list(request):
 
 @technician_required
 def repair_detail(request, repair_id):
-    # For regular technicians, only show their repairs
+    # First get the repair to check its status
+    repair = get_object_or_404(Repair, id=repair_id)
+    
+    # For regular technicians
     if not request.user.is_staff:
         # Ensure user has a technician profile
         if not hasattr(request.user, 'technician'):
             messages.error(request, "You don't have a technician profile to view repairs.")
             return redirect('technician_dashboard')
-            
-        repair = get_object_or_404(Repair, id=repair_id, technician=request.user.technician)
-    else:
-        # Admins can view any repair
-        repair = get_object_or_404(Repair, id=repair_id)
+        
+        # Allow any technician to view customer-requested repairs (unassigned queue)
+        if repair.queue_status == 'REQUESTED':
+            # Any technician can view customer-requested repairs
+            pass
+        else:
+            # For all other statuses, only the assigned technician can view
+            if repair.technician != request.user.technician:
+                messages.error(request, "You don't have permission to view this repair.")
+                return redirect('technician_dashboard')
+    # else: Admins can view any repair (no additional check needed)
         
     return render(request, 'technician_portal/repair_detail.html', {
         'repair': repair,
@@ -228,15 +237,17 @@ def repair_detail(request, repair_id):
 @technician_required
 def create_repair(request):
     if request.method == 'POST':
-        form = RepairForm(request.POST, user=request.user)
+        form = RepairForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
-            repair = form.save(commit=False)
-            
             # For admin users, use the selected technician
             if request.user.is_staff:
                 if form.cleaned_data.get('technician'):
+                    # Set technician before saving
+                    repair = form.save(commit=False)
                     repair.technician = form.cleaned_data.get('technician')
                     repair.save()
+                    # Save the form to handle file uploads and many-to-many fields
+                    form.save_m2m()
                     messages.success(request, f"Repair has been created and assigned to {repair.technician.user.get_full_name()}")
                 else:
                     messages.error(request, "As an admin, you must select a technician to assign the repair to.")
@@ -247,8 +258,12 @@ def create_repair(request):
             else:
                 # Regular technicians create repairs assigned to themselves
                 try:
+                    # Set technician before saving
+                    repair = form.save(commit=False)
                     repair.technician = request.user.technician
                     repair.save()
+                    # Save the form to handle file uploads and many-to-many fields
+                    form.save_m2m()
                     messages.success(request, "Repair has been created successfully.")
                 except AttributeError:
                     messages.error(request, "You don't have a technician profile to create repairs.")
@@ -257,6 +272,10 @@ def create_repair(request):
             return redirect('repair_detail', repair_id=repair.id)
         else:
             logger.debug(f"Form errors: {form.errors}")
+            # Add form errors to messages so user can see them
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
     else:
         # Create a form with the current user
         form = RepairForm(user=request.user)
@@ -288,15 +307,19 @@ def update_repair(request, repair_id):
         repair = get_object_or_404(Repair, id=repair_id)
     
     if request.method == 'POST':
-        form = RepairForm(request.POST, instance=repair, user=request.user)
+        form = RepairForm(request.POST, request.FILES, instance=repair, user=request.user)
         if form.is_valid():
             updated_repair = form.save(commit=False)
             
             # For admin users, update the technician if changed
             if request.user.is_staff and form.cleaned_data.get('technician'):
                 updated_repair.technician = form.cleaned_data.get('technician')
-                
+            
+            # Save the repair with all form data including uploaded files
             updated_repair.save()
+            # Also save many-to-many fields if any exist
+            form.save_m2m()
+            
             messages.success(request, "Repair has been updated successfully.")
             return redirect('repair_detail', repair_id=repair.id)
     else:
@@ -310,17 +333,27 @@ def update_repair(request, repair_id):
 
 @technician_required
 def update_queue_status(request, repair_id):
-    # For regular technicians, only update their own repairs
+    # First get the repair to check its status
+    repair = get_object_or_404(Repair, id=repair_id)
+    
+    # For regular technicians
     if not request.user.is_staff:
         # Ensure user has a technician profile
         if not hasattr(request.user, 'technician'):
             messages.error(request, "You don't have a technician profile to update repairs.")
             return redirect('technician_dashboard')
-            
-        repair = get_object_or_404(Repair, id=repair_id, technician=request.user.technician)
-    else:
-        # Admins can update any repair
-        repair = get_object_or_404(Repair, id=repair_id)
+        
+        # Allow any technician to update customer-requested repairs
+        if repair.queue_status == 'REQUESTED':
+            # When accepting a customer request, assign it to this technician
+            if request.POST.get('status') == 'APPROVED':
+                repair.technician = request.user.technician
+        else:
+            # For all other statuses, only the assigned technician can update
+            if repair.technician != request.user.technician:
+                messages.error(request, "You don't have permission to update this repair.")
+                return redirect('technician_dashboard')
+    # else: Admins can update any repair (no additional check needed)
         
     old_status = repair.queue_status
     
@@ -355,6 +388,10 @@ def update_queue_status(request, repair_id):
                 messages.success(request, f"Repair request has been accepted and added to your schedule. The customer has been notified.")
             else:
                 repair.queue_status = new_status
+                # Auto-update repair date when marking as completed
+                if new_status == 'COMPLETED':
+                    from django.utils import timezone
+                    repair.repair_date = timezone.now()
                 repair.save()
                 messages.success(request, f"Repair status updated to {repair.get_queue_status_display()}")
                 
@@ -494,16 +531,13 @@ def reward_fulfillment_detail(request, redemption_id):
     # Get the redemption
     from apps.rewards_referrals.models import RewardRedemption
     
-    # For regular technicians, only show their assigned redemptions
-    if not request.user.is_staff:
-        redemption = get_object_or_404(
-            RewardRedemption,
-            id=redemption_id,
-            assigned_technician=technician
-        )
-    else:
-        # Admins can view any redemption
-        redemption = get_object_or_404(RewardRedemption, id=redemption_id)
+    # Any technician can view reward details, but actions depend on assignment
+    redemption = get_object_or_404(RewardRedemption, id=redemption_id)
+    
+    # Check if current technician is assigned to this redemption
+    is_assigned_technician = (redemption.assigned_technician == technician)
+    is_admin = request.user.is_staff
+    can_fulfill = is_assigned_technician or is_admin
     
     # Get customer repairs for applying reward
     customer_repairs = []
@@ -519,6 +553,19 @@ def reward_fulfillment_detail(request, redemption_id):
             pass
     
     if request.method == 'POST':
+        # Only assigned technicians or admins can fulfill rewards
+        if not can_fulfill:
+            messages.error(request, "You don't have permission to fulfill this reward. Only the assigned technician or administrators can fulfill rewards.")
+            return redirect('technician_dashboard')
+        
+        # Handle claim assignment action
+        action = request.POST.get('action')
+        if action == 'claim' and not redemption.assigned_technician:
+            redemption.assigned_technician = technician
+            redemption.save()
+            messages.success(request, f'You have claimed the reward: {redemption.reward_option.name}')
+            return redirect('reward_fulfillment_detail', redemption_id=redemption.id)
+        
         # Process fulfillment
         notes = request.POST.get('notes', '')
         
@@ -540,6 +587,10 @@ def reward_fulfillment_detail(request, redemption_id):
     return render(request, 'technician_portal/reward_fulfillment.html', {
         'redemption': redemption,
         'customer_repairs': customer_repairs,
+        'is_assigned_technician': is_assigned_technician,
+        'can_fulfill': can_fulfill,
+        'current_technician': technician,
+        'is_admin': is_admin,
     })
 
 @technician_required

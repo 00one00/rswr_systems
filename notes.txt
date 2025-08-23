@@ -1,0 +1,14 @@
+when you are in the technician portal and mark a repair as complete you have the option the apply a reward. when you click the apply reward button it 
+takes you to the customers available rewards. in this test case the customer had 2 rewards redeemed for 1) a pizza party and 2) 5 dozen donuts.
+when i chose to apply the reward to a repair it took the cost of the repair from $50 to $0. i assume this is because the reward is for free donuts/pizza
+however this reward is not for free repairs. this logic needs to be fixed.
+
+i wanted functionality to automatically apply the date and time to a repair in the tech portal when the tech is editing the repair. the date/time only is 
+automatically applied when the technician clicks the button 'complete repair' not when he opens the repair details form. if the repair detail form is open
+you must manually open the date field and apply it yourself. i like the option to change the date/time in case you are applying the data to the form before/after
+a repair is complete, and i like that the date is automatically added under the complete repair button, but when a repair ticket is created and the repair 
+is starting editing the date should be automatically applied then as well with the option to change later. 
+
+still haven't fixed the bug when a repair is still in pending (not complete) and you go to open a new ticket with the same unit number for the same customer
+a warning pops up at the top that states that there is already a repair in progress for that unit (this is supposed to happen. this is right) except when 
+the technician clicks the 'view repair' button at the top where the warning is, the page turns to an error

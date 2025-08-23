@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.core.validators import FileExtensionValidator
 from core.models import Customer
 
 class Technician(models.Model):
@@ -47,6 +48,16 @@ class Repair(models.Model):
         ('COMPLETED', 'Completed'),
         ('DENIED', 'Denied by Customer'),
     ]
+    
+    DAMAGE_TYPE_CHOICES = [
+        ('', 'Unknown / Not Sure'),
+        ('Chip', 'Chip'),
+        ('Crack', 'Crack'),
+        ('Star Break', 'Star Break'),
+        ('Bull\'s Eye', 'Bull\'s Eye'),
+        ('Combination Break', 'Combination Break'),
+        ('Other', 'Other'),
+    ]
 
     technician = models.ForeignKey(Technician, on_delete=models.CASCADE)
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True)
@@ -55,10 +66,41 @@ class Repair(models.Model):
     description = models.TextField(blank=True, null=True)
     cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, editable=False)
     queue_status = models.CharField(max_length=20, choices=QUEUE_CHOICES, default='PENDING')
-    damage_type = models.CharField(max_length=100)
+    damage_type = models.CharField(max_length=100, choices=DAMAGE_TYPE_CHOICES, default='')
     drilled_before_repair = models.BooleanField(default=False)
     windshield_temperature = models.FloatField(null=True, blank=True)
     resin_viscosity = models.CharField(max_length=50, blank=True)
+    
+    # Photo documentation fields
+    damage_photo_before = models.ImageField(
+        upload_to='repair_photos/before/', 
+        null=True, 
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])],
+        help_text="Photo of damage before repair"
+    )
+    damage_photo_after = models.ImageField(
+        upload_to='repair_photos/after/', 
+        null=True, 
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])],
+        help_text="Photo of repair after completion"
+    )
+    additional_photos = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text="Additional photos related to the repair (stored as list of URLs)"
+    )
+    
+    # Separate notes fields for better organization
+    customer_notes = models.TextField(
+        blank=True,
+        help_text="Notes provided by the customer during repair request or approval process"
+    )
+    technician_notes = models.TextField(
+        blank=True,
+        help_text="Internal notes added by technicians during repair process"
+    )
 
     def save(self, *args, **kwargs):
         # Ensure we have a customer before trying to access UnitRepairCount
@@ -80,6 +122,9 @@ class Repair(models.Model):
                 
                 # Check for available rewards to apply automatically
                 self.apply_available_rewards()
+                
+                # Award points to customer for completed repair
+                self.award_completion_points()
             else:
                 self.cost = 0
                 
@@ -93,7 +138,15 @@ class Repair(models.Model):
             super().save(*args, **kwargs)
 
     def apply_available_rewards(self):
-        """Automatically apply any available rewards to this repair"""
+        """
+        Automatically apply any available rewards to this repair.
+        
+        Searches for pending reward redemptions associated with the repair's customer
+        and automatically applies the oldest redemption to this repair. If the repair
+        is being completed, the reward is also automatically fulfilled.
+        
+        This method is called during the repair save process when status changes to COMPLETED.
+        """
         try:
             from apps.rewards_referrals.models import RewardRedemption
             from apps.customer_portal.models import CustomerUser
@@ -108,11 +161,17 @@ class Repair(models.Model):
             if not customer_users.exists():
                 return
                 
-            # Check for pending reward redemptions for this customer
+            # Check for pending reward redemptions that can be applied to repairs
+            # Only include rewards that are repair-related (not merchandise like donuts/pizza)
             pending_redemptions = RewardRedemption.objects.filter(
                 reward__customer_user__in=customer_users,
                 status='PENDING',
-                applied_to_repair__isnull=True  # Not already applied to another repair
+                applied_to_repair__isnull=True,  # Not already applied to another repair
+                reward_option__reward_type__category__in=[
+                    'REPAIR_DISCOUNT', 
+                    'REPLACEMENT_DISCOUNT', 
+                    'FREE_SERVICE'
+                ]  # Only auto-apply repair-related rewards
             ).order_by('created_at')
             
             # Apply the oldest pending redemption to this repair
@@ -137,6 +196,67 @@ class Repair(models.Model):
         except Exception as e:
             # Log the error but don't fail the save
             print(f"Error auto-applying rewards: {e}")
+    
+    def award_completion_points(self):
+        """
+        Award points to customer when repair is completed.
+        
+        Awards base points per repair plus milestone bonuses for multiple repairs.
+        Only awards points once per repair completion to prevent duplicate awards.
+        """
+        try:
+            from apps.rewards_referrals.models import Reward
+            from apps.customer_portal.models import CustomerUser
+            
+            # Skip if already awarded points for this repair (check if this is a status change to COMPLETED)
+            if hasattr(self, 'original_status') and self.original_status == 'COMPLETED':
+                return
+            
+            # Find the customer user associated with this repair
+            customer_users = CustomerUser.objects.filter(customer=self.customer)
+            
+            if not customer_users.exists():
+                return
+                
+            customer_user = customer_users.first()
+            
+            # Get or create reward record for this customer
+            reward, created = Reward.objects.get_or_create(
+                customer_user=customer_user,
+                defaults={'points': 0}
+            )
+            
+            # Base points per repair completion
+            base_points = 50
+            
+            # Calculate milestone bonus based on total completed repairs for this customer
+            completed_repairs_count = Repair.objects.filter(
+                customer=self.customer,
+                queue_status='COMPLETED'
+            ).count()
+            
+            milestone_bonus = 0
+            if completed_repairs_count == 5:
+                milestone_bonus = 250  # 5th repair bonus
+            elif completed_repairs_count == 10:
+                milestone_bonus = 500  # 10th repair bonus
+            elif completed_repairs_count % 25 == 0:  # Every 25th repair
+                milestone_bonus = 1000
+            
+            total_points = base_points + milestone_bonus
+            
+            # Award the points
+            reward.points += total_points
+            reward.save()
+            
+            # Create a notification about the points earned (you could add this to a notifications system later)
+            print(f"Awarded {total_points} points to {customer_user.user.email} for repair completion")
+            if milestone_bonus > 0:
+                print(f"Milestone bonus of {milestone_bonus} points awarded!")
+                
+        except Exception as e:
+            # Log the error but don't fail the save
+            print(f"Error awarding completion points: {e}")
 
     @staticmethod
     def calculate_cost(repair_count):
@@ -237,6 +357,31 @@ class Repair(models.Model):
             )
             
         return True, "Reward successfully applied to repair"
+    
+    def has_photos(self):
+        """
+        Check if this repair has any associated photos.
+        
+        Returns:
+            bool: True if repair has before or after photos, False otherwise
+        """
+        return bool(self.damage_photo_before or self.damage_photo_after)
+    
+    def get_photo_count(self):
+        """
+        Get the total number of photos associated with this repair.
+        
+        Returns:
+            int: Number of photos (before + after + additional)
+        """
+        count = 0
+        if self.damage_photo_before:
+            count += 1
+        if self.damage_photo_after:
+            count += 1
+        if self.additional_photos:
+            count += len(self.additional_photos)
+        return count
 
 class TechnicianNotification(models.Model):
     technician = models.ForeignKey(Technician, on_delete=models.CASCADE, related_name='notifications')

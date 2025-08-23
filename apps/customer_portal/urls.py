@@ -21,6 +21,9 @@ urlpatterns = [
     path('company/edit/', views.edit_company, name='edit_company'),
     path('account/settings/', views.account_settings, name='customer_account_settings'),
     
+    # Rewards and referrals dashboard
+    path('rewards/', views.customer_rewards_redirect, name='customer_rewards'),
+    
     # API endpoints for data visualization
     path('api/unit-repair-data/', views.unit_repair_data_api, name='unit_repair_data_api'),
     path('api/repair-cost-data/', views.repair_cost_data_api, name='repair_cost_data_api'),

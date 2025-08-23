@@ -76,3 +76,4 @@ HTTPS_SETUP_GUIDE.md
 # Misc.
 CLAUDE.md 
 next_steps.md
+__pycache__/

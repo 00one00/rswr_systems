@@ -143,14 +143,58 @@
         </div>
         {% endif %}
 
-        <!-- All Pending Rewards Section -->
-        {% if all_pending_redemptions %}
-        <div class="bg-white rounded-lg shadow-sm border border-yellow-200 mb-6">
-            <div class="px-6 py-4 bg-yellow-50 border-b border-yellow-200">
-                <h2 class="text-lg font-semibold text-yellow-800">All Pending Rewards</h2>
+        <!-- My Assigned Rewards Section -->
+        {% if assigned_redemptions %}
+        <div class="bg-white rounded-lg shadow-sm border border-green-200 mb-6">
+            <div class="px-6 py-4 bg-green-50 border-b border-green-200">
+                <h2 class="text-lg font-semibold text-green-800">My Assigned Rewards</h2>
             </div>
             <div class="p-6">
-                <p class="text-gray-600 mb-4">These rewards are available for any technician to fulfill:</p>
+                <p class="text-gray-600 mb-4">These rewards are specifically assigned to you:</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reward</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for redemption in assigned_redemptions %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ redemption.reward.customer_user.user.email }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ redemption.reward_option.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ redemption.created_at|date:"M j, Y" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Assigned to me
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <a href="{% url 'reward_fulfillment_detail' redemption.id %}" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                        Fulfill Reward
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Available Rewards Section -->
+        {% if all_pending_redemptions %}
+        <div class="bg-white rounded-lg shadow-sm border border-blue-200 mb-6">
+            <div class="px-6 py-4 bg-blue-50 border-b border-blue-200">
+                <h2 class="text-lg font-semibold text-blue-800">Available Rewards</h2>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600 mb-4">These rewards are available for any technician to claim and fulfill:</p>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -168,23 +212,13 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ redemption.reward.customer_user.user.email }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ redemption.reward_option.name }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ redemption.created_at|date:"M d, Y" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {% if redemption.reward_option.reward_type %}
-                                        {% if redemption.reward_option.reward_type.discount_type == 'PERCENTAGE' %}
-                                            {{ redemption.reward_option.reward_type.discount_value }}% off
-                                        {% elif redemption.reward_option.reward_type.discount_type == 'FIXED_AMOUNT' %}
-                                            ${{ redemption.reward_option.reward_type.discount_value }} off
-                                        {% elif redemption.reward_option.reward_type.discount_type == 'FREE' %}
-                                            Free (100% off)
-                                        {% else %}
-                                            {{ redemption.reward_option.reward_type.name }}
-                                        {% endif %}
-                                    {% else %}
-                                        Standard
-                                    {% endif %}
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        Available to claim
+                                    </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <a href="{% url 'reward_fulfillment_detail' redemption.id %}" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                    <a href="{% url 'reward_fulfillment_detail' redemption.id %}" class="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                         View Details
                                     </a>
                                 </td>

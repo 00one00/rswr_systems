@@ -129,7 +129,7 @@ def quick_health_check(base_url="https://rockstarwindshield.repair"):
     print("🏥 Quick Health Check")
     print(f"Target: {base_url}")
     
-    endpoints = ["/", "/admin/", "/technician/dashboard/", "/customer/dashboard"]
+    endpoints = ["/", "/admin/", "/tech/", "/app/"]
     
     for endpoint in endpoints:
         try:

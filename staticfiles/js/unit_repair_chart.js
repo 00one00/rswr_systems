@@ -1,13 +1,29 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Unit Repair Chart: DOMContentLoaded event triggered');
     
-    // Constants and configuration
-    const containerWidth = document.getElementById('unit-container').clientWidth;
-    const width = Math.min(800, containerWidth * 0.95);
-    const height = 380;
-    const margin = {top: 30, right: 30, bottom: 80, left: 60};
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
+    // Check if container exists and get dimensions
+    const container = document.getElementById('unit-container');
+    if (!container) {
+        console.error('Unit Repair Chart: Container not found');
+        return;
+    }
+    
+    // Function to get container width, handling hidden containers
+    function getContainerWidth() {
+        const containerWidth = container.clientWidth;
+        // If container is hidden, use a default width
+        return containerWidth > 0 ? containerWidth : 800;
+    }
+    
+    // Constants and configuration - will be recalculated when chart becomes visible
+    let containerWidth = getContainerWidth();
+    let width = Math.min(800, containerWidth * 0.95);
+    let height = 380;
+    let margin = {top: 30, right: 30, bottom: 80, left: 60};
+    let innerWidth = width - margin.left - margin.right;
+    let innerHeight = height - margin.top - margin.bottom;
+    
+    console.log('Unit Repair Chart: Initial container width:', containerWidth);
     
     // DOM setup
     const svg = d3.select('#unit-chart')
@@ -69,6 +85,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to create the chart
     function createChart(data) {
         console.log('Creating unit repair chart with data:', data);
+        
+        // Recalculate dimensions in case container is now visible
+        containerWidth = getContainerWidth();
+        width = Math.min(800, containerWidth * 0.95);
+        innerWidth = width - margin.left - margin.right;
+        
+        // Update SVG dimensions
+        svg.attr('width', width)
+           .attr('height', height)
+           .attr('viewBox', `0 0 ${width} ${height}`);
         
         // Hide error message if it was showing
         errorContainer.style('display', 'none');
@@ -257,9 +283,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Main function to load data and create chart
     function loadDataAndCreateChart() {
+        console.log('Unit Repair Chart: Starting data fetch...');
+        
+        // Check if container exists
+        const chartContainer = document.getElementById('unit-chart');
+        if (!chartContainer) {
+            console.error('Unit Repair Chart: Container #unit-chart not found');
+            return;
+        }
+        
         console.log('Unit Repair Chart: Fetching data from API...');
         
-        fetchDataWithRetry('/customer/api/unit-repair-data/')
+        fetchDataWithRetry('/app/api/unit-repair-data/')
             .then(data => {
                 // Remove loading indicator
                 loadingIndicator.remove();
@@ -297,6 +332,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
-    // Start loading data
-    loadDataAndCreateChart();
+    // Expose the loading function globally so it can be called when tab is shown
+    window.loadUnitChart = loadDataAndCreateChart;
+    
+    // Don't auto-load the chart - wait for the tab to be shown
+    console.log('Unit Repair Chart: Initialized, waiting for tab activation');
 }); 

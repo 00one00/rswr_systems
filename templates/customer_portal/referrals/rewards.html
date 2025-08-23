@@ -5,147 +5,157 @@
 {% block title %}Rewards & Redemptions{% endblock %}
 
 {% block extra_css %}
-<style>
-    /* Mobile-specific styles */
-    @media (max-width: 768px) {
-        .reward-card {
-            margin-bottom: 1.5rem;
-        }
-        .table th, .table td {
-            padding: 0.5rem;
-            font-size: 0.85rem;
-        }
-        .balance-display {
-            font-size: 2rem !important;
-        }
-        .points-display {
-            text-align: center !important;
-            padding-top: 1rem;
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    blue: {
+                        50: '#eff6ff',
+                        100: '#dbeafe',
+                        200: '#bfdbfe',
+                        300: '#93c5fd',
+                        400: '#60a5fa',
+                        500: '#3b82f6',
+                        600: '#2563eb',
+                        700: '#1d4ed8',
+                        800: '#1e40af',
+                        900: '#1e3a8a',
+                    }
+                }
+            }
         }
     }
-</style>
+</script>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="row mb-4">
-        <div class="col">
-            <h1 class="h2 mb-0">Rewards & Redemptions</h1>
-            <p class="text-muted">View and redeem your earned rewards</p>
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Rewards & Redemptions</h1>
+            <p class="text-gray-600 mt-2">View and redeem your earned rewards</p>
         </div>
-    </div>
 
-    <!-- Current Balance -->
-    <div class="row mb-4">
-        <div class="col">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-0">Your Current Balance</h4>
-                            <p class="mb-0 text-white-50">Earn more points by referring friends</p>
-                        </div>
-                        <div class="col-md-4 text-center text-md-right points-display">
-                            <h2 class="display-4 mb-0 balance-display">{{ points }}</h2>
-                            <span>points</span>
-                        </div>
+        <!-- Current Balance -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+            <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div class="mb-4 md:mb-0">
+                        <h2 class="text-xl font-semibold mb-1">Your Current Balance</h2>
+                        <p class="text-blue-100">Earn more points by referring friends</p>
+                    </div>
+                    <div class="text-center md:text-right">
+                        <div class="text-4xl font-bold mb-1">{{ points }}</div>
+                        <div class="text-blue-200">points</div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Available Rewards -->
-    <div class="row mb-4">
-        <div class="col">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Available Rewards</h5>
-                </div>
-                <div class="card-body">
-                    {% if reward_options %}
-                        <div class="row">
-                            {% for option in reward_options %}
-                            <div class="col-md-4 mb-4">
-                                <div class="card h-100 reward-card {% if points < option.points_required %}bg-light{% endif %}">
-                                    <div class="card-body">
-                                        <h5 class="card-title">{{ option.name }}</h5>
-                                        <p class="card-text">{{ option.description }}</p>
-                                        <p class="text-primary font-weight-bold">{{ option.points_required }} points</p>
-                                    </div>
-                                    <div class="card-footer bg-white border-top-0">
-                                        <form action="{% url 'redeem_reward' %}" method="post">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="option_id" value="{{ option.id }}">
-                                            <button type="submit" class="btn btn-primary btn-block" 
-                                                    {% if points < option.points_required %}disabled{% endif %}>
-                                                {% if points >= option.points_required %}
-                                                    Redeem Reward
-                                                {% else %}
-                                                    Need {{ option.points_required|sub:points }} more points
-                                                {% endif %}
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
+        <!-- Available Rewards -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+            <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">Available Rewards</h2>
+            </div>
+            <div class="p-6">
+                {% if reward_options %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {% for option in reward_options %}
+                        <div class="border border-gray-200 rounded-lg overflow-hidden {% if points < option.points_required %}bg-gray-50{% else %}bg-white{% endif %} transition-shadow hover:shadow-md">
+                            <div class="p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ option.name }}</h3>
+                                <p class="text-gray-600 mb-4">{{ option.description }}</p>
+                                <p class="text-blue-600 font-bold text-lg mb-4">{{ option.points_required }} points</p>
+                                
+                                <form action="{% url 'redeem_reward' %}" method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="option_id" value="{{ option.id }}">
+                                    <button type="submit" class="w-full px-4 py-2 text-sm font-medium rounded-md transition-colors
+                                            {% if points >= option.points_required %}
+                                                bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+                                            {% else %}
+                                                bg-gray-300 text-gray-500 cursor-not-allowed
+                                            {% endif %}"
+                                            {% if points < option.points_required %}disabled{% endif %}>
+                                        {% if points >= option.points_required %}
+                                            Redeem Reward
+                                        {% else %}
+                                            Need {{ option.points_required|sub:points }} more points
+                                        {% endif %}
+                                    </button>
+                                </form>
                             </div>
-                            {% endfor %}
                         </div>
-                    {% else %}
-                        <div class="text-center py-4">
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <div class="text-gray-500">
+                            <svg class="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4t.5 0 010 4H5a2 2 0 110-4z"></path>
+                            </svg>
                             <p>No reward options available at this time.</p>
                         </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Redemption History -->
-    {% if redemptions %}
-    <div class="row mb-4">
-        <div class="col">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Recent Redemptions</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Reward</th>
-                                    <th>Date</th>
-                                    <th>Points</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for redemption in redemptions %}
-                                <tr>
-                                    <td>{{ redemption.reward_option.name }}</td>
-                                    <td>{{ redemption.created_at|date:"M d, Y" }}</td>
-                                    <td>{{ redemption.reward_option.points_required }}</td>
-                                    <td>
-                                        <span class="badge {% if redemption.status == 'pending' %}bg-warning{% elif redemption.status == 'fulfilled' %}bg-success{% elif redemption.status == 'rejected' %}bg-danger{% else %}bg-secondary{% endif %}">
-                                            {{ redemption.status|title }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
                     </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Redemption History -->
+        {% if redemptions %}
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+            <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">Recent Redemptions</h2>
+            </div>
+            <div class="overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reward</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for redemption in redemptions %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ redemption.reward_option.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ redemption.created_at|date:"M d, Y" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ redemption.reward_option.points_required }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                        {% if redemption.status == 'PENDING' %}
+                                            bg-yellow-100 text-yellow-800
+                                        {% elif redemption.status == 'FULFILLED' %}
+                                            bg-green-100 text-green-800
+                                        {% elif redemption.status == 'REJECTED' %}
+                                            bg-red-100 text-red-800
+                                        {% else %}
+                                            bg-gray-100 text-gray-800
+                                        {% endif %}">
+                                        {{ redemption.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-    </div>
-    {% endif %}
+        {% endif %}
 
-    <div class="row mt-4">
-        <div class="col text-center">
-            <a href="{% url 'referral_rewards' %}" class="btn btn-outline-primary">
-                <i class="fas fa-arrow-left mr-1"></i> Back to Referrals Dashboard
+        <div class="text-center mt-8">
+            <a href="{% url 'customer_rewards' %}" class="inline-flex items-center px-4 py-2 border border-blue-600 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Rewards Dashboard
             </a>
         </div>
     </div>

@@ -14,6 +14,7 @@ from django.http import JsonResponse
 from collections import defaultdict
 from datetime import datetime, timedelta
 from django.db import transaction
+from django.urls import reverse
 
 # Custom decorator to ensure only customers can access views
 def customer_required(view_func):
@@ -482,6 +483,17 @@ def edit_company(request):
 
 @customer_required
 def request_repair(request):
+    """
+    Handle customer repair requests with photo upload support.
+    
+    Allows customers to submit repair requests with optional damage photos.
+    Validates photo files (type, size) and assigns repairs to available technicians
+    using round-robin assignment based on current workload.
+    
+    Returns:
+        - GET: Render repair request form
+        - POST: Process form submission and create repair request
+    """
     # Get the customer user record
     try:
         customer_user = CustomerUser.objects.get(user=request.user)
@@ -492,10 +504,30 @@ def request_repair(request):
             unit_number = request.POST.get('unit_number', '')
             description = request.POST.get('description', '')
             damage_type = request.POST.get('damage_type', '')
+            damage_photo = request.FILES.get('damage_photo_before')
             
-            if not unit_number or not description or not damage_type:
-                messages.error(request, "Please fill out all required fields.")
+            if not unit_number:
+                messages.error(request, "Unit number is required.")
                 return render(request, 'customer_portal/request_repair.html')
+            
+            # Provide defaults for optional fields
+            if not damage_type:
+                damage_type = "Unknown"
+            if not description:
+                description = "Customer repair request - details to be determined by technician"
+            
+            # Validate photo if provided
+            if damage_photo:
+                # Check file size (limit to 5MB)
+                if damage_photo.size > 5 * 1024 * 1024:
+                    messages.error(request, "Photo file size must be less than 5MB.")
+                    return render(request, 'customer_portal/request_repair.html')
+                
+                # Check file type
+                allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+                if damage_photo.content_type not in allowed_types:
+                    messages.error(request, "Please upload a valid image file (JPEG, PNG, or WebP).")
+                    return render(request, 'customer_portal/request_repair.html')
             
             # Find an available technician using round-robin assignment
             from apps.technician_portal.models import Technician
@@ -522,6 +554,8 @@ def request_repair(request):
                     unit_number=unit_number,
                     description=description,
                     damage_type=damage_type,
+                    damage_photo_before=damage_photo,
+                    customer_notes=description,  # Store customer's description in customer_notes field
                     queue_status='REQUESTED'  # Using a new status for customer-initiated requests
                 )
                 
@@ -718,4 +752,54 @@ def repair_cost_data_api(request):
         # Log the error and return an error response
         print(f"Error in repair_cost_data_api: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+@customer_required
+def customer_rewards_redirect(request):
+    """Customer rewards and referrals dashboard"""
+    try:
+        customer_user = CustomerUser.objects.get(user=request.user)
+        
+        # Get referral and reward information
+        from apps.rewards_referrals.services import ReferralService, RewardService
+        from apps.rewards_referrals.models import ReferralCode, RewardOption, RewardRedemption, Referral
+        
+        # Get user's referral code (or None if they don't have one)
+        referral_code = ReferralCode.objects.filter(customer_user=customer_user).first()
+        referral_code_value = referral_code.code if referral_code else None
+        
+        # Get number of successful referrals
+        referral_count = ReferralService.get_referral_count(customer_user)
+        
+        # Get reward points balance
+        reward_points = RewardService.get_reward_balance(customer_user)
+        
+        # Get available reward options
+        reward_options = RewardOption.objects.filter(is_active=True).order_by('points_required')
+        
+        # Get recent referrals (people this customer referred)
+        recent_referrals = Referral.objects.filter(
+            referral_code__customer_user=customer_user
+        ).order_by('-created_at')[:5]
+        
+        # Get recent redemptions
+        recent_redemptions = RewardRedemption.objects.filter(
+            reward__customer_user=customer_user
+        ).order_by('-created_at')[:5]
+        
+        context = {
+            'referral_code': referral_code_value,
+            'referral_count': referral_count,
+            'reward_points': reward_points,
+            'points': reward_points,  # For template compatibility
+            'reward_options': reward_options,
+            'referrals': recent_referrals,
+            'redemptions': recent_redemptions,
+            'has_code': referral_code is not None,
+        }
+        
+        return render(request, 'customer_portal/referrals/dashboard.html', context)
+        
+    except CustomerUser.DoesNotExist:
+        messages.warning(request, "Please complete your profile first.")
+        return redirect('profile_creation')
     
