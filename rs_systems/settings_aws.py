@@ -117,9 +117,9 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Security settings for deploying behind a proxy/load balancer
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SECURE_SSL_REDIRECT = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
+SESSION_COOKIE_SECURE = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
+CSRF_COOKIE_SECURE = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
 
 # HSTS settings
 SECURE_HSTS_SECONDS = 31536000  # 1 year
