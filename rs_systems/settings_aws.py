@@ -16,12 +16,13 @@ DEBUG = False
 # Configure allowed hosts via environment variable
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
-# Add common AWS domains if not specified
-if os.environ.get('AWS_DEPLOYMENT', 'False').lower() == 'true':
-    ALLOWED_HOSTS.extend([
-        '.elasticbeanstalk.com',  # For Elastic Beanstalk domains
-        '.amazonaws.com',         # For AWS domains
-    ])
+# Add production domains
+ALLOWED_HOSTS.extend([
+    'rockstarwindshield.repair',
+    'www.rockstarwindshield.repair',
+    '.elasticbeanstalk.com',  # For Elastic Beanstalk domains
+    '.amazonaws.com',         # For AWS domains
+])
 
 # Application definition
 INSTALLED_APPS = [
@@ -133,6 +134,12 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
 SESSION_COOKIE_SECURE = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
 CSRF_COOKIE_SECURE = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
+
+# CSRF trusted origins for production domain
+CSRF_TRUSTED_ORIGINS = [
+    'https://rockstarwindshield.repair',
+    'https://www.rockstarwindshield.repair',
+]
 
 # HSTS settings
 SECURE_HSTS_SECONDS = 31536000  # 1 year

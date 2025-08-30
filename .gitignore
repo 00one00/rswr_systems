@@ -77,3 +77,6 @@ HTTPS_SETUP_GUIDE.md
 CLAUDE.md 
 next_steps.md
 __pycache__/
+# Test scripts with hardcoded credentials
+/scripts/test_database_persistence.py
+/scripts/configure_rds.sh
