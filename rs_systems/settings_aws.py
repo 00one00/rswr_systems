@@ -74,13 +74,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'rs_systems.wsgi.application'
 
-# Database - Use SQLite for now
+# Database - MUST use RDS PostgreSQL in production
+# DATABASE_URL must be configured as an environment variable
+import dj_database_url
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is REQUIRED for AWS deployment. Configure RDS PostgreSQL.")
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
+
+# Ensure we're not using SQLite
+if 'sqlite' in DATABASE_URL.lower():
+    raise ValueError("SQLite is not allowed in production! Use RDS PostgreSQL for data persistence.")
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

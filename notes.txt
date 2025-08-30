@@ -12,3 +12,24 @@ is starting editing the date should be automatically applied then as well with t
 still haven't fixed the bug when a repair is still in pending (not complete) and you go to open a new ticket with the same unit number for the same customer
 a warning pops up at the top that states that there is already a repair in progress for that unit (this is supposed to happen. this is right) except when 
 the technician clicks the 'view repair' button at the top where the warning is, the page turns to an error
+
+8/26/25:
+- need a way to input multiple repairs at once for the same unit when > 1 repair was completed on a unit during a single session
+- no way to delete photo after adding picture. if you add the wrong picture accidentally there's no way to fix that.
+- 'Damage photo before' appears to show twice on the technician form above the input for photos
+- after adding a new repair i am taken to the page of that repair. need a button to add new repair easily 
+- need a way to easily mark where the repair was on the glass. a graph on the form would be awesome with the ability to choose from a grid location of repair approximately.
+- under 'my assigned repairs' it shows seperate repairs for each truck for example i did 3 repairs on 14411 and each individual repair i can choose, 
+causing clutter. i want the ability to choose unit numbers and each unit contains each individual repair job i can click and expand on that.
+a good example of this is under the customers tab in the technician portal where i can choose the customer and in the customer url i can choose individual
+unit numbers, when i choose a unit number it opens each repair that was done for that truck.
+- looking at https://www.rockstarwindshield.repair/tech/customers/10/ for some reason the units are repeating. for example 2166 it should just show the number 
+one time instead each repiar repeats the unit where i can click. Unit #2166
+Unit #2166
+Unit #14411
+Unit #14411
+Unit #2166
+when it should just be 
+Unit #2166
+Unit #14411
+and allow me to click the link and it opens and shows all of the previous repair history on that unit.

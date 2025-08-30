@@ -147,9 +147,10 @@ else:
 
 if not db_url:
     if ENVIRONMENT == 'production':
-        raise ValueError("No database URL configured in production!")
+        # CRITICAL: Never use SQLite in production - it's ephemeral on AWS!
+        raise ValueError("CRITICAL: No DATABASE_URL configured! Production requires a persistent database (RDS PostgreSQL).")
     
-    print("WARNING: No database URL configured! Using SQLite as fallback")
+    print("WARNING: No database URL configured! Using SQLite for development only")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -164,6 +165,10 @@ else:
     DATABASES = {
         'default': dj_database_url.config(default=db_url, conn_max_age=600),
     }
+    
+    # For production, ensure we're using a persistent database
+    if ENVIRONMENT == 'production' and 'sqlite' in db_url.lower():
+        raise ValueError("CRITICAL: SQLite is not allowed in production! Use RDS PostgreSQL for data persistence.")
 
 # =========================================
 # APPLICATION DEFINITION
