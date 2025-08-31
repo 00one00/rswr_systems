@@ -19,7 +19,7 @@ IS_PRODUCTION = True
 DEBUG = False
 
 # Use production database
-USE_RAILWAY_DB = True  # This flag will be renamed in future refactor
+USE_AWS_DB = True
 
 # Security settings - already defined in base settings.py but enforced here
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -37,15 +37,15 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://your-domain.com').split(',')
 
 # Ensure essential environment variables are set in production
-required_env_vars = ['SECRET_KEY', 'DATABASE_URL']
+required_env_vars = ['SECRET_KEY', 'AWS_DATABASE_URL']
 missing_vars = [var for var in required_env_vars if var not in os.environ]
 
 if missing_vars:
     raise Exception(f"The following required environment variables are missing: {', '.join(missing_vars)}")
 
-# Override database with production DATABASE_URL
-if not os.environ.get('DATABASE_URL'):
-    raise Exception("DATABASE_URL environment variable is required in production")
+# Override database with production AWS_DATABASE_URL
+if not os.environ.get('AWS_DATABASE_URL'):
+    raise Exception("AWS_DATABASE_URL environment variable is required in production")
 
 LOGGING = {
     'version': 1,

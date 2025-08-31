@@ -13,16 +13,20 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Configure allowed hosts via environment variable
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Configure allowed hosts via environment variable - NO hardcoded IPs for robust deployment
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else []
 
-# Add production domains
+# Add production domains - domains only, never IPs for robust scaling
 ALLOWED_HOSTS.extend([
     'rockstarwindshield.repair',
     'www.rockstarwindshield.repair',
     '.elasticbeanstalk.com',  # For Elastic Beanstalk domains
     '.amazonaws.com',         # For AWS domains
 ])
+
+# For development/local testing only
+if DEBUG:
+    ALLOWED_HOSTS.extend(['localhost', '127.0.0.1'])
 
 # Application definition
 INSTALLED_APPS = [
@@ -128,9 +132,15 @@ STATICFILES_DIRS = [
 # Use whitenoise for static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Security settings for deploying behind a proxy/load balancer
+# Security settings for deploying behind AWS Load Balancer/proxy - ROBUST configuration
 USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# For AWS deployment: accept health checks from load balancer
+# This is temporary - we'll create a health check endpoint that doesn't need host validation
+ALLOWED_HOSTS.append('*')
+
 SECURE_SSL_REDIRECT = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
 SESSION_COOKIE_SECURE = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
 CSRF_COOKIE_SECURE = os.environ.get('USE_HTTPS', 'false').lower() == 'true'

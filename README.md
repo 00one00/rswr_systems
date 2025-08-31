@@ -223,10 +223,64 @@ python manage.py makemigrations
 
 # Apply migrations
 python manage.py migrate
+```
 
-# Create superuser
+### Admin User Management
+
+#### Creating a Superuser
+
+**For Production Deployment (AWS/Railway):**
+
+**Initial Setup (First Time Only):**
+1. Set superuser environment variables:
+   ```bash
+   # AWS Elastic Beanstalk - Initial superuser creation
+   eb setenv DJANGO_ADMIN_USERNAME=admin \
+            DJANGO_ADMIN_EMAIL=admin@example.com \
+            DJANGO_ADMIN_PASSWORD=admin123 \
+            CREATE_SUPERUSER=true
+   
+   eb deploy
+   
+   # After successful deployment, disable automatic creation
+   eb setenv CREATE_SUPERUSER=false
+   ```
+
+   ```bash
+   # Railway (set in dashboard or via CLI)
+   railway variables set DJANGO_ADMIN_USERNAME=admin
+   railway variables set DJANGO_ADMIN_EMAIL=admin@example.com  
+   railway variables set DJANGO_ADMIN_PASSWORD=admin123
+   railway variables set CREATE_SUPERUSER=true
+   
+   # Deploy, then disable
+   railway variables set CREATE_SUPERUSER=false
+   ```
+
+**Regular Deployments (After Initial Setup):**
+- Keep `CREATE_SUPERUSER=false` to prevent creating superusers on every deployment
+- Only set `CREATE_SUPERUSER=true` when you specifically need to create a new superuser
+
+**For Local Development:**
+```bash
+# Interactive superuser creation
+python manage.py createsuperuser
+
+# Or use the custom command with environment variables
+export DJANGO_ADMIN_USERNAME=admin
+export DJANGO_ADMIN_EMAIL=admin@localhost
+export DJANGO_ADMIN_PASSWORD=admin123
 python manage.py createsu
 ```
+
+#### Important Notes:
+- **Security**: Use strong, unique passwords for production
+- **One-time Creation**: Superusers are only created if they don't already exist
+- **Environment Variables**: The `createsu` command respects these variables:
+  - `DJANGO_ADMIN_USERNAME` (default: 'admin')
+  - `DJANGO_ADMIN_EMAIL` (default: 'admin@example.com') 
+  - `DJANGO_ADMIN_PASSWORD` (default: 'admin123')
+- **No Duplicates**: Re-deploying will not create duplicate superusers
 
 ### Testing
 ```bash

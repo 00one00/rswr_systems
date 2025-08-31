@@ -9,7 +9,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         admin_username = os.environ.get('DJANGO_ADMIN_USERNAME', 'admin')
         admin_email = os.environ.get('DJANGO_ADMIN_EMAIL', 'admin@example.com')
-        admin_password = os.environ.get('DJANGO_ADMIN_PASSWORD')
+        admin_password = os.environ.get('DJANGO_ADMIN_PASSWORD', 'admin123')
 
         if not admin_password:
             self.stdout.write(self.style.WARNING('DJANGO_ADMIN_PASSWORD environment variable not set. Skipping superuser creation.'))

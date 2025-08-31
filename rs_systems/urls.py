@@ -23,6 +23,7 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),  
+    path('health/', views.health_check, name='health_check'),  # AWS health check endpoint
     path('setup-database/', views.setup_database, name='setup_database'),
     
     # API endpoints

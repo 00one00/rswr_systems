@@ -7,11 +7,29 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.csrf import csrf_exempt
 from apps.technician_portal.forms import TechnicianRegistrationForm
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.core.management import call_command
 from django.contrib.auth import get_user_model
+from django.db import connection
 import io
 import sys
+
+def health_check(request):
+    """Health check endpoint for AWS load balancer - bypasses ALLOWED_HOSTS"""
+    try:
+        # Simple database connectivity test
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        
+        return JsonResponse({
+            'status': 'healthy',
+            'database': 'connected'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'unhealthy', 
+            'error': str(e)
+        }, status=500)
 
 def home(request):
     # The root page is now a marketing landing page

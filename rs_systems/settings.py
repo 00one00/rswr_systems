@@ -16,8 +16,8 @@ import dj_database_url
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-# .env file is in the parent directory of the src directory
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', '.env'))
+# .env file is in the project root directory
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -136,11 +136,11 @@ else:
 # =========================================
 
 # Get database URL based on selection in .env
-USE_RAILWAY_DB = os.environ.get('USE_RAILWAY_DB', 'False').lower() == 'true'
+USE_AWS_DB = os.environ.get('USE_AWS_DB', 'False').lower() == 'true'
 
-if USE_RAILWAY_DB:
-    print("Using RAILWAY database")
-    db_url = os.environ.get('RAILWAY_DATABASE_URL')
+if USE_AWS_DB:
+    print("Using AWS database")
+    db_url = os.environ.get('AWS_DATABASE_URL')
 else:
     print("Using LOCAL database")
     db_url = os.environ.get('LOCAL_DATABASE_URL')
