@@ -76,6 +76,7 @@ HTTPS_SETUP_GUIDE.md
 # Misc.
 CLAUDE.md 
 next_steps.md
+notes.txt
 __pycache__/
 # Test scripts with hardcoded credentials
 /scripts/test_database_persistence.py
