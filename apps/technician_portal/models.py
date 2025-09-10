@@ -169,9 +169,8 @@ class Repair(models.Model):
                 applied_to_repair__isnull=True,  # Not already applied to another repair
                 reward_option__reward_type__category__in=[
                     'REPAIR_DISCOUNT', 
-                    'REPLACEMENT_DISCOUNT', 
                     'FREE_SERVICE'
-                ]  # Only auto-apply repair-related rewards
+                ]  # Only auto-apply repair-related rewards, NOT merchandise like donuts/pizza
             ).order_by('created_at')
             
             # Apply the oldest pending redemption to this repair
@@ -337,6 +336,10 @@ class Repair(models.Model):
         if redemption.applied_to_repair:
             # This reward is already applied to a repair
             return False, "This reward is already applied to another repair"
+        
+        # Check if this is a merchandise reward that should not be applied to repairs
+        if redemption.reward_option.reward_type and redemption.reward_option.reward_type.category == 'MERCHANDISE':
+            return False, "Merchandise rewards (like donuts and pizza) cannot be applied to repair costs. These are fulfilled separately by technicians."
         
         # Apply the reward to this repair
         redemption.applied_to_repair = self

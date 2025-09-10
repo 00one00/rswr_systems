@@ -190,19 +190,40 @@ def repair_list(request):
     # Count customer-requested repairs
     requested_repairs_count = repairs.filter(queue_status='REQUESTED').count()
     
-    # Paginate the repairs
-    paginator = Paginator(repairs.order_by('-repair_date'), 15)  # Show 15 repairs per page
+    # Group repairs by customer and unit number for better organization
+    from collections import defaultdict
+    grouped_repairs = defaultdict(lambda: defaultdict(list))
+    
+    # Order repairs by date (newest first) for grouping
+    ordered_repairs = repairs.order_by('-repair_date')
+    
+    for repair in ordered_repairs:
+        grouped_repairs[repair.customer][repair.unit_number].append(repair)
+    
+    # Convert to regular dict for template
+    repair_groups = {}
+    for customer, units in grouped_repairs.items():
+        repair_groups[customer] = dict(units)
+    
+    # For pagination, we'll paginate the customers instead of individual repairs
+    customers_with_repairs = list(repair_groups.keys())
+    paginator = Paginator(customers_with_repairs, 10)  # Show 10 customers per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # Get repair groups for current page customers
+    page_repair_groups = {customer: repair_groups[customer] for customer in page_obj}
+    
     return render(request, 'technician_portal/repair_list.html', {
-        'repairs': page_obj,
+        'repair_groups': page_repair_groups,
         'customers': customers,
         'customer_search': customer_search,
         'status_filter': status_filter,
         'requested_repairs_count': requested_repairs_count,
         'queue_choices': Repair.QUEUE_CHOICES,
-        'is_admin': request.user.is_staff
+        'is_admin': request.user.is_staff,
+        'page_obj': page_obj,  # For pagination
+        'total_repairs': ordered_repairs.count()
     })
 
 @technician_required
@@ -223,9 +244,13 @@ def repair_detail(request, repair_id):
             pass
         else:
             # For all other statuses, only the assigned technician can view
+            # EXCEPT when viewing from the "existing repair" warning link
             if repair.technician != request.user.technician:
-                messages.error(request, "You don't have permission to view this repair.")
-                return redirect('technician_dashboard')
+                # Allow viewing if this is accessed from repair form warning (referrer check)
+                referrer = request.META.get('HTTP_REFERER', '')
+                if '/create/' not in referrer and '/update/' not in referrer:
+                    messages.error(request, "You don't have permission to view this repair.")
+                    return redirect('technician_dashboard')
     # else: Admins can view any repair (no additional check needed)
         
     return render(request, 'technician_portal/repair_detail.html', {
@@ -264,10 +289,12 @@ def create_repair(request):
                     repair.save()
                     # Save the form to handle file uploads and many-to-many fields
                     form.save_m2m()
-                    messages.success(request, "Repair has been created successfully.")
                 except AttributeError:
                     messages.error(request, "You don't have a technician profile to create repairs.")
                     return redirect('technician_dashboard')
+            
+            # Add success message
+            messages.success(request, f'Repair #{repair.id} created successfully!')
             
             return redirect('repair_detail', repair_id=repair.id)
         else:
@@ -310,6 +337,16 @@ def update_repair(request, repair_id):
         form = RepairForm(request.POST, request.FILES, instance=repair, user=request.user)
         if form.is_valid():
             updated_repair = form.save(commit=False)
+            
+            # Handle photo deletion
+            for field_name in ['damage_photo_before', 'damage_photo_after']:
+                delete_flag = request.POST.get(f'{field_name}-DELETE')
+                if delete_flag == 'true':
+                    # Delete the photo if it exists
+                    current_photo = getattr(updated_repair, field_name)
+                    if current_photo:
+                        current_photo.delete(save=False)  # Delete the file
+                        setattr(updated_repair, field_name, None)  # Clear the field
             
             # For admin users, update the technician if changed
             if request.user.is_staff and form.cleaned_data.get('technician'):

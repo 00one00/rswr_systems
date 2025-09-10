@@ -116,78 +116,131 @@
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit #</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Damage Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                {% if is_admin %}
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Technician</th>
-                                {% endif %}
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {% for repair in repairs %}
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ repair.id }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ repair.customer.name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ repair.unit_number }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ repair.damage_type }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                                        {% if repair.queue_status == 'COMPLETED' %}bg-green-100 text-green-800
-                                        {% elif repair.queue_status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
-                                        {% elif repair.queue_status == 'PENDING' %}bg-yellow-100 text-yellow-800
-                                        {% elif repair.queue_status == 'APPROVED' %}bg-indigo-100 text-indigo-800
-                                        {% elif repair.queue_status == 'DENIED' %}bg-red-100 text-red-800
-                                        {% elif repair.queue_status == 'REQUESTED' %}bg-gray-100 text-gray-800
-                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                        {{ repair.get_queue_status_display }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ repair.repair_date|date:"Y-m-d" }}</td>
-                                {% if is_admin %}
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ repair.technician.user.get_full_name }}</td>
-                                {% endif %}
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <a href="{% url 'repair_detail' repair.id %}" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                                        View
-                                    </a>
-                                    {% if is_admin %}
-                                    <a href="{% url 'update_repair' repair.id %}" class="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                        Edit
-                                    </a>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="{% if is_admin %}8{% else %}7{% endif %}" class="px-6 py-12 text-center text-gray-500">
-                                    <div class="flex flex-col items-center">
-                                        <svg class="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <p class="text-sm text-gray-500">No repairs found matching the criteria.</p>
+                    <!-- Repairs Grouped by Customer and Unit -->
+                    <div class="space-y-6 p-6">
+                        {% for customer, units in repair_groups.items %}
+                        <div class="border border-gray-200 rounded-lg">
+                            <!-- Customer Header -->
+                            <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900">{{ customer.name }}</h3>
+                                        <p class="text-sm text-gray-500">{{ units|length }} unit{{ units|length|pluralize }} with repairs</p>
                                     </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                                    <button type="button" class="toggle-customer inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50" data-target="customer-{{ customer.id }}">
+                                        <svg class="w-4 h-4 mr-1 transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                        Expand
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Units Container -->
+                            <div id="customer-{{ customer.id }}" class="hidden">
+                                {% for unit_number, repairs in units.items %}
+                                <div class="border-b border-gray-100 last:border-b-0">
+                                    <!-- Unit Header -->
+                                    <div class="bg-blue-50 px-4 py-2 flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="flex-shrink-0">
+                                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-medium text-gray-900">Unit #{{ unit_number }}</h4>
+                                                <p class="text-xs text-gray-500">{{ repairs|length }} repair{{ repairs|length|pluralize }}</p>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="toggle-unit inline-flex items-center px-2 py-1 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50" data-target="unit-{{ customer.id }}-{{ unit_number|slugify }}">
+                                            <svg class="w-3 h-3 mr-1 transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                            View
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Repairs List -->
+                                    <div id="unit-{{ customer.id }}-{{ unit_number|slugify }}" class="hidden">
+                                        <table class="min-w-full">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Damage Type</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                                    {% if is_admin %}
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Technician</th>
+                                                    {% endif %}
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                {% for repair in repairs %}
+                                                <tr class="hover:bg-gray-50">
+                                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ repair.id }}</td>
+                                                    <td class="px-4 py-3 text-sm text-gray-900">{{ repair.damage_type|default:"Unknown" }}</td>
+                                                    <td class="px-4 py-3">
+                                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                                            {% if repair.queue_status == 'COMPLETED' %}bg-green-100 text-green-800
+                                                            {% elif repair.queue_status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
+                                                            {% elif repair.queue_status == 'PENDING' %}bg-yellow-100 text-yellow-800
+                                                            {% elif repair.queue_status == 'APPROVED' %}bg-indigo-100 text-indigo-800
+                                                            {% elif repair.queue_status == 'DENIED' %}bg-red-100 text-red-800
+                                                            {% elif repair.queue_status == 'REQUESTED' %}bg-gray-100 text-gray-800
+                                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                            {{ repair.get_queue_status_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-sm text-gray-900">{{ repair.repair_date|date:"M d, Y" }}</td>
+                                                    {% if is_admin %}
+                                                    <td class="px-4 py-3 text-sm text-gray-900">
+                                                        {% if repair.technician %}
+                                                            {{ repair.technician.user.get_full_name }}
+                                                        {% else %}
+                                                            <span class="text-gray-400">Unassigned</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    {% endif %}
+                                                    <td class="px-4 py-3">
+                                                        <div class="flex space-x-2">
+                                                            <a href="{% url 'repair_detail' repair.id %}" class="text-green-600 hover:text-green-900 text-sm font-medium">View</a>
+                                                            {% if is_admin %}
+                                                            <a href="{% url 'update_repair' repair.id %}" class="text-blue-600 hover:text-blue-900 text-sm font-medium">Edit</a>
+                                                            {% endif %}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="p-8 text-center">
+                            <div class="text-gray-500">
+                                <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">No repairs found</h3>
+                                <p class="text-gray-500">Try adjusting your search criteria or create a new repair.</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
     
         <!-- Pagination -->
-        {% if repairs.has_other_pages %}
+        {% if page_obj.has_other_pages %}
         <nav aria-label="Page navigation" class="flex justify-center mb-6">
             <div class="flex space-x-1">
-                {% if repairs.has_previous %}
+                {% if page_obj.has_previous %}
                 <a href="?page=1{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
                    class="px-3 py-2 text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
                     <span class="sr-only">First</span>
@@ -195,27 +248,27 @@
                         <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
                 </a>
-                <a href="?page={{ repairs.previous_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
+                <a href="?page={{ page_obj.previous_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
                    class="px-3 py-2 text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">
                     Previous
                 </a>
                 {% endif %}
                 
-                {% for i in repairs.paginator.page_range %}
-                    {% if repairs.number == i %}
+                {% for i in page_obj.paginator.page_range %}
+                    {% if page_obj.number == i %}
                     <span class="px-3 py-2 text-green-600 bg-green-50 border border-green-300 font-medium">{{ i }}</span>
-                    {% elif i > repairs.number|add:'-3' and i < repairs.number|add:'3' %}
+                    {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
                     <a href="?page={{ i }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
                        class="px-3 py-2 text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">{{ i }}</a>
                     {% endif %}
                 {% endfor %}
                 
-                {% if repairs.has_next %}
-                <a href="?page={{ repairs.next_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
                    class="px-3 py-2 text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">
                     Next
                 </a>
-                <a href="?page={{ repairs.paginator.num_pages }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
                    class="px-3 py-2 text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
                     <span class="sr-only">Last</span>
                     <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
@@ -238,4 +291,47 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle customer expand/collapse
+    document.querySelectorAll('.toggle-customer').forEach(button => {
+        button.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-target');
+            const targetDiv = document.getElementById(targetId);
+            const svg = this.querySelector('svg');
+            const text = this.querySelector('span:not(.sr-only)');
+            
+            if (targetDiv.classList.contains('hidden')) {
+                targetDiv.classList.remove('hidden');
+                svg.style.transform = 'rotate(180deg)';
+                this.innerHTML = this.innerHTML.replace('Expand', 'Collapse');
+            } else {
+                targetDiv.classList.add('hidden');
+                svg.style.transform = 'rotate(0deg)';
+                this.innerHTML = this.innerHTML.replace('Collapse', 'Expand');
+            }
+        });
+    });
+    
+    // Handle unit expand/collapse
+    document.querySelectorAll('.toggle-unit').forEach(button => {
+        button.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-target');
+            const targetDiv = document.getElementById(targetId);
+            const svg = this.querySelector('svg');
+            
+            if (targetDiv.classList.contains('hidden')) {
+                targetDiv.classList.remove('hidden');
+                svg.style.transform = 'rotate(180deg)';
+                this.innerHTML = this.innerHTML.replace('View', 'Hide');
+            } else {
+                targetDiv.classList.add('hidden');
+                svg.style.transform = 'rotate(0deg)';
+                this.innerHTML = this.innerHTML.replace('Hide', 'View');
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

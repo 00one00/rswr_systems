@@ -55,7 +55,7 @@ class CustomerForm(forms.ModelForm):
 class CustomDateTimeInput(DateTimeInput):
     input_type = 'datetime-local'
     def __init__(self, attrs=None, format=None):
-        super().__init__(attrs={'step': '60', **(attrs or {})}, format=format)
+        super().__init__(attrs={'step': '60', **(attrs or {})}, format='%Y-%m-%dT%H:%M')
 
 class RepairForm(forms.ModelForm):
     customer = forms.ModelChoiceField(queryset=Customer.objects.all().order_by('name'))
@@ -65,8 +65,7 @@ class RepairForm(forms.ModelForm):
         help_text="Only required for admin users. Regular technicians will be automatically assigned."
     )
     repair_date = forms.DateTimeField(
-        widget=CustomDateTimeInput(),
-        initial=timezone.now
+        widget=CustomDateTimeInput()
     )
     damage_type = forms.ChoiceField(
         choices=[],  # Will be set in __init__
@@ -88,6 +87,18 @@ class RepairForm(forms.ModelForm):
         # Hide technician field for non-admin users
         if self.user and not self.user.is_staff:
             self.fields['technician'].widget = forms.HiddenInput()
+        
+        # Auto-populate repair_date for all repairs (new and existing)
+        current_time = timezone.now()
+        if self.instance and self.instance.pk:
+            # This is an existing repair being edited - use existing date unless not completed
+            if self.instance.queue_status != 'COMPLETED':
+                self.fields['repair_date'].initial = current_time
+        else:
+            # This is a new repair - set initial date to current time
+            self.fields['repair_date'].initial = current_time
+            # Also set the widget value directly
+            self.fields['repair_date'].widget.attrs['value'] = current_time.strftime('%Y-%m-%dT%H:%M')
         
         # Make customer_notes read-only for technicians - they should not modify customer input
         if 'customer_notes' in self.fields:
