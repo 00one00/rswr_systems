@@ -43,7 +43,7 @@ The system is built with a modular architecture featuring three main application
 
 ### Supporting Infrastructure
 
-- **Security Module**: Authentication, authorization, and security middleware
+- **Security Module**: Comprehensive security with bot protection, rate limiting, and audit logging
 - **Photo Storage**: Repair documentation and image management
 - **Queue Management**: Advanced repair workflow orchestration
 - **Scheduling**: Appointment and maintenance scheduling
@@ -213,6 +213,50 @@ python manage.py test
    - Verify cost calculation ($50 for first repair)
 
 For detailed testing procedures, see [`docs/TESTING.md`](docs/TESTING.md).
+
+## 🛡️ Security Features
+
+RS Systems includes enterprise-grade security features designed to protect against common threats:
+
+### Authentication & Access Control
+- **Rate Limiting**: Login attempts limited to 10/hour per IP, registration to 5/hour per IP
+- **Portal Separation**: Customer and technician portals with enforced access boundaries
+- **Password Requirements**: Minimum 8 characters with validation
+- **Session Security**: Secure cookies with proper expiration and SameSite policies
+
+### Bot Protection
+- **Username Validation**: Automatically blocks bot-like patterns (e.g., random strings like 'ygzwnplsgv')
+- **Honeypot Fields**: Hidden form fields to catch automated registrations
+- **Pattern Detection**: Identifies and blocks suspicious registration patterns
+- **CSRF Protection**: All forms protected with Django's CSRF middleware
+
+### Infrastructure Security
+- **Security Headers**: HSTS, XSS protection, content type validation
+- **Health Check Security**: Dedicated middleware for AWS ELB health checks
+- **Host Validation**: Proper ALLOWED_HOSTS configuration without wildcards
+- **SSL/TLS**: Production deployment enforces HTTPS with security headers
+
+### Monitoring & Audit
+- **Login Attempt Tracking**: All authentication attempts logged with IP and user agent
+- **Security Audit Logs**: Comprehensive logging of security events
+- **Suspicious Activity Detection**: Automatic identification of attack patterns
+- **Management Commands**: Built-in tools for security investigation and response
+
+### Security Management
+```bash
+# Run security audit
+python manage.py security_audit
+
+# Check specific user
+python manage.py security_audit --check-user suspicious_username
+
+# Remove suspicious users
+python manage.py security_audit --delete-suspicious
+```
+
+For detailed security information, see:
+- `SECURITY_ROADMAP.md` - Long-term security scaling plan
+- `SECURITY_QUICK_REFERENCE.md` - Emergency response procedures
 
 ## 🔧 Development
 

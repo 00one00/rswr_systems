@@ -15,6 +15,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from django.db import transaction
 from django.urls import reverse
+from django_ratelimit.decorators import ratelimit
+import re
 
 # Custom decorator to ensure only customers can access views
 def customer_required(view_func):
@@ -398,11 +400,60 @@ def customer_repair_deny(request, repair_id):
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")
 
+def is_suspicious_username(username):
+    """Check if username looks like a bot/spam registration"""
+    # Check for random character patterns like 'ygzwnplsgv'
+    if len(username) >= 8:
+        # Check if it's all lowercase letters with no recognizable pattern
+        if username.isalpha() and username.islower():
+            # Check for lack of vowels or too many consonants in a row
+            vowels = set('aeiou')
+            consonant_run = 0
+            vowel_count = 0
+            for char in username:
+                if char in vowels:
+                    vowel_count += 1
+                    consonant_run = 0
+                else:
+                    consonant_run += 1
+                    if consonant_run > 4:  # More than 4 consonants in a row is suspicious
+                        return True
+
+            # If less than 20% vowels, likely bot
+            if vowel_count < len(username) * 0.2:
+                return True
+
+    # Check for common bot patterns
+    bot_patterns = [
+        r'^[a-z]{10,}$',  # All lowercase, 10+ chars
+        r'^[0-9a-f]{8,}$',  # Hex strings
+        r'^user[0-9]{5,}$',  # Generic userNNNNN
+    ]
+
+    for pattern in bot_patterns:
+        if re.match(pattern, username.lower()):
+            return True
+
+    return False
+
+@ratelimit(key='ip', rate='5/h', method='POST')
 def customer_register(request):
     if request.user.is_authenticated:
         return redirect('customer_dashboard')
-        
+
+    # Check if rate limited
+    if getattr(request, 'limited', False):
+        messages.error(request, "Too many registration attempts. Please try again later.")
+        return render(request, 'customer_portal/register.html')
+
     if request.method == 'POST':
+        # Honeypot field check (bot trap)
+        honeypot = request.POST.get('website', '')  # Hidden field that bots might fill
+        if honeypot:
+            # Bot detected, silently reject
+            messages.error(request, "Registration failed. Please try again.")
+            return render(request, 'customer_portal/register.html')
+
         # Get form data
         username = request.POST.get('username')
         email = request.POST.get('email')
@@ -411,42 +462,55 @@ def customer_register(request):
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
         referral_code = request.POST.get('referral_code')
-        
+
+        # Check for suspicious username patterns
+        if is_suspicious_username(username):
+            messages.error(request, "This username is not allowed. Please choose a different username.")
+            return render(request, 'customer_portal/register.html')
+
         # Validation
+        if len(username) < 3:
+            messages.error(request, "Username must be at least 3 characters long")
+            return render(request, 'customer_portal/register.html')
+
         if password != confirm_password:
             messages.error(request, "Passwords do not match")
             return render(request, 'customer_portal/register.html')
-            
+
+        if len(password) < 8:
+            messages.error(request, "Password must be at least 8 characters long")
+            return render(request, 'customer_portal/register.html')
+
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already exists")
             return render(request, 'customer_portal/register.html')
-            
+
         if User.objects.filter(email=email).exists():
             messages.error(request, "Email already exists")
             return render(request, 'customer_portal/register.html')
-        
+
         # Create user
         user = User.objects.create_user(
-            username=username, 
-            email=email, 
+            username=username,
+            email=email,
             password=password,
             first_name=first_name,
             last_name=last_name
         )
-        
+
         # Log user in
         user = authenticate(username=username, password=password)
         if user:
             login(request, user)
             messages.success(request, f"Account created successfully! Welcome, {first_name}.")
-            
+
             # Store referral code in session if provided
             if referral_code:
                 request.session['referral_code'] = referral_code
                 # We'll process this after the CustomerUser is created in the profile_creation view
-                
+
             return redirect('profile_creation')
-            
+
     return render(request, 'customer_portal/register.html')
 
 @customer_required

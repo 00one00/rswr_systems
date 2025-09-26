@@ -11,6 +11,7 @@ from django.http import HttpResponse, JsonResponse
 from django.core.management import call_command
 from django.contrib.auth import get_user_model
 from django.db import connection
+from django_ratelimit.decorators import ratelimit
 import io
 import sys
 
@@ -36,15 +37,22 @@ def home(request):
     # No automatic redirects for authenticated users
     return render(request, 'landing.html')
 
+@ratelimit(key='ip', rate='10/h', method='POST')
 def customer_login_view(request):
     """Login view specifically for customers"""
     if request.user.is_authenticated:
         return redirect('customer_dashboard')
-        
+
+    # Check if rate limited
+    if getattr(request, 'limited', False):
+        messages.error(request, "Too many login attempts. Please try again in an hour.")
+        return render(request, 'customer_login.html', {'form': AuthenticationForm(), 'portal_type': 'customer'})
+
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
+        username = request.POST.get('username', '')
+
         if form.is_valid():
-            username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password')
             user = authenticate(username=username, password=password)
             if user is not None:
@@ -52,16 +60,32 @@ def customer_login_view(request):
                 from apps.customer_portal.models import CustomerUser
                 try:
                     customer_user = CustomerUser.objects.get(user=user)
+                    # Log successful login
+                    from apps.security.models import LoginAttempt
+                    LoginAttempt.log_attempt(request, username, True, 'customer')
                     login(request, user)
                     next_url = request.GET.get('next', 'customer_dashboard')
                     return redirect(next_url)
                 except CustomerUser.DoesNotExist:
+                    # Log failed attempt - wrong portal
+                    from apps.security.models import LoginAttempt
+                    LoginAttempt.log_attempt(request, username, False, 'customer', 'Not a customer account')
                     messages.error(request, "This account is not authorized for customer access.")
+            else:
+                # Log failed attempt - bad credentials
+                from apps.security.models import LoginAttempt
+                LoginAttempt.log_attempt(request, username, False, 'customer', 'Invalid credentials')
+        else:
+            # Log failed attempt - form validation failed
+            if username:
+                from apps.security.models import LoginAttempt
+                LoginAttempt.log_attempt(request, username, False, 'customer', 'Form validation failed')
     else:
         form = AuthenticationForm()
-    
+
     return render(request, 'customer_login.html', {'form': form, 'portal_type': 'customer'})
 
+@ratelimit(key='ip', rate='10/h', method='POST')
 def technician_login_view(request):
     """Login view specifically for technicians"""
     if request.user.is_authenticated:
@@ -71,7 +95,12 @@ def technician_login_view(request):
             return redirect('technician_dashboard')
         except Technician.DoesNotExist:
             pass
-    
+
+    # Check if rate limited
+    if getattr(request, 'limited', False):
+        messages.error(request, "Too many login attempts. Please try again in an hour.")
+        return render(request, 'technician_login.html', {'form': AuthenticationForm(), 'portal_type': 'technician'})
+
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
@@ -90,7 +119,7 @@ def technician_login_view(request):
                     messages.error(request, "This account is not authorized for technician access.")
     else:
         form = AuthenticationForm()
-    
+
     return render(request, 'technician_login.html', {'form': form, 'portal_type': 'technician'})
 
 def login_router(request):

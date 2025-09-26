@@ -41,12 +41,14 @@ INSTALLED_APPS = [
     'apps.technician_portal',
     'apps.customer_portal',
     'apps.rewards_referrals',
+    'apps.security',
     'core',
     'drf_spectacular',
     'storages',  # For django-storages
 ]
 
 MIDDLEWARE = [
+    'common.health_check_middleware.HealthCheckMiddleware',  # Must be first to bypass host validation
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Whitenoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -137,13 +139,30 @@ USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# For AWS deployment: accept health checks from load balancer
-# This is temporary - we'll create a health check endpoint that doesn't need host validation
-ALLOWED_HOSTS.append('*')
+# Health checks are handled by middleware, no wildcard needed
 
 SECURE_SSL_REDIRECT = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
 SESSION_COOKIE_SECURE = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
 CSRF_COOKIE_SECURE = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
+
+# Additional security headers for production
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+# Session security
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_AGE = 86400  # 24 hours
+
+# CSRF security
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 
 # CSRF trusted origins for production domain
 CSRF_TRUSTED_ORIGINS = [
