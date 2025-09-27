@@ -58,6 +58,6 @@ urlpatterns = [
     # path('api-token-auth/', views.obtain_auth_token, name='api_token_auth'),
 ]
 
-# Serve media files in development
-if settings.DEBUG and not settings.USE_S3:
+# Serve media files in development and AWS EB (when not using S3)
+if settings.DEBUG or (not getattr(settings, 'USE_S3', False)):
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
