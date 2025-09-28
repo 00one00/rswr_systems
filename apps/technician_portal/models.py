@@ -64,7 +64,18 @@ class Repair(models.Model):
     unit_number = models.CharField(max_length=50)
     repair_date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
-    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, editable=False)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cost_override = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Manual price override (overrides automatic pricing)"
+    )
+    override_reason = models.TextField(
+        blank=True,
+        help_text="Reason for price override (required when using custom price)"
+    )
     queue_status = models.CharField(max_length=20, choices=QUEUE_CHOICES, default='PENDING')
     damage_type = models.CharField(max_length=100, choices=DAMAGE_TYPE_CHOICES, default='')
     drilled_before_repair = models.BooleanField(default=False)
@@ -117,16 +128,22 @@ class Repair(models.Model):
                 if not self.pk or (self.pk and self.original_status != 'COMPLETED'):
                     unit_repair_count.repair_count += 1
                     unit_repair_count.save()
-                
-                self.cost = self.calculate_cost(unit_repair_count.repair_count)
-                
+
+                # Use override price if provided, otherwise calculate normally
+                if self.cost_override is not None:
+                    self.cost = self.cost_override
+                else:
+                    self.cost = self.calculate_cost(unit_repair_count.repair_count)
+
                 # Check for available rewards to apply automatically
                 self.apply_available_rewards()
-                
+
                 # Award points to customer for completed repair
                 self.award_completion_points()
             else:
-                self.cost = 0
+                # Keep any override even when not completed (for preview purposes)
+                if self.cost_override is None:
+                    self.cost = 0
                 
             # Save after the cost calculation
             super().save(*args, **kwargs)
@@ -318,6 +335,28 @@ class Repair(models.Model):
             'discount_description': discount_description,
             'savings': base_cost - final_cost
         }
+
+    def get_expected_price(self):
+        """Get the expected price before completion (for preview purposes)"""
+        # If override is set, return that
+        if self.cost_override is not None:
+            return self.cost_override
+
+        # Otherwise calculate based on repair count
+        if self.customer:
+            unit_repair_count, _ = UnitRepairCount.objects.get_or_create(
+                customer=self.customer,
+                unit_number=self.unit_number,
+                defaults={'repair_count': 0}
+            )
+            # Add 1 to count since this will be the next repair when completed
+            next_count = unit_repair_count.repair_count + 1
+            return self.calculate_cost(next_count)
+        return 0
+
+    def has_price_override(self):
+        """Check if this repair has a manual price override"""
+        return self.cost_override is not None
 
     class Meta:
         ordering = ['-repair_date']

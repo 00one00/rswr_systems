@@ -429,6 +429,19 @@ def update_queue_status(request, repair_id):
                 if new_status == 'COMPLETED':
                     from django.utils import timezone
                     repair.repair_date = timezone.now()
+
+                    # Handle price override if provided
+                    cost_override = request.POST.get('cost_override')
+                    override_reason = request.POST.get('override_reason')
+
+                    if cost_override:
+                        try:
+                            repair.cost_override = float(cost_override)
+                            repair.override_reason = override_reason or "Manual price adjustment"
+                            messages.info(request, f"Custom price of ${cost_override} has been applied.")
+                        except (ValueError, TypeError):
+                            messages.warning(request, "Invalid custom price. Using automatic pricing.")
+
                 repair.save()
                 messages.success(request, f"Repair status updated to {repair.get_queue_status_display()}")
                 

@@ -223,8 +223,4 @@ if USE_S3:
 else:
     # Local media files settings for AWS EB deployment
     MEDIA_URL = '/media/'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-    # Ensure media directories exist
-    os.makedirs(os.path.join(MEDIA_ROOT, 'repair_photos', 'before'), exist_ok=True)
-    os.makedirs(os.path.join(MEDIA_ROOT, 'repair_photos', 'after'), exist_ok=True) 
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media') 

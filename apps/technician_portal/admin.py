@@ -39,7 +39,7 @@ class TechnicianAdmin(admin.ModelAdmin):
         return render(request, 'admin/register_technician.html', {})
 
 class RepairAdmin(admin.ModelAdmin):
-    list_display = ['id', 'customer', 'unit_number', 'technician', 'get_status_badge', 'repair_date']
+    list_display = ['id', 'customer', 'unit_number', 'technician', 'get_status_badge', 'get_price_display', 'repair_date']
     list_filter = ['queue_status', 'repair_date', 'technician']
     search_fields = ['customer__name', 'unit_number', 'damage_type', 'technician__user__username']
     readonly_fields = ['repair_date']
@@ -59,6 +59,17 @@ class RepairAdmin(admin.ModelAdmin):
         return format_html('<span class="badge {}">{}</span>', color, obj.get_queue_status_display())
     get_status_badge.short_description = 'Status'
     get_status_badge.admin_order_field = 'queue_status'
+
+    def get_price_display(self, obj):
+        if obj.has_price_override():
+            return format_html(
+                '<span style="color: #ff6b6b;" title="Manual override: {}">${} ⚠️</span>',
+                obj.override_reason or "No reason provided",
+                f"{obj.cost:.2f}"
+            )
+        return f"${obj.cost:.2f}"
+    get_price_display.short_description = 'Price'
+    get_price_display.admin_order_field = 'cost'
     
     fieldsets = (
         ('Basic Information', {
@@ -66,6 +77,10 @@ class RepairAdmin(admin.ModelAdmin):
         }),
         ('Repair Details', {
             'fields': ('damage_type', 'description', 'queue_status')
+        }),
+        ('Pricing', {
+            'fields': ('cost', 'cost_override', 'override_reason'),
+            'description': 'Cost is normally calculated automatically based on repair count. Admins can manually adjust the cost field directly, or use override fields to document custom pricing with a reason.'
         }),
         ('Technical Data', {
             'fields': ('drilled_before_repair', 'windshield_temperature', 'resin_viscosity'),

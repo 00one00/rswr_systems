@@ -75,7 +75,9 @@ class RepairForm(forms.ModelForm):
 
     class Meta:
         model = Repair
-        fields = ['technician', 'customer', 'unit_number', 'repair_date', 'queue_status', 'damage_type', 'drilled_before_repair', 'windshield_temperature', 'resin_viscosity', 'damage_photo_before', 'damage_photo_after', 'customer_notes', 'technician_notes']
+        fields = ['technician', 'customer', 'unit_number', 'repair_date', 'queue_status', 'damage_type',
+                  'drilled_before_repair', 'windshield_temperature', 'resin_viscosity', 'damage_photo_before',
+                  'damage_photo_after', 'customer_notes', 'technician_notes']
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
@@ -119,6 +121,7 @@ class RepairForm(forms.ModelForm):
         # Admin users must select a technician
         if hasattr(self, 'user') and self.user.is_staff and not technician:
             self.add_error('technician', 'Please select a technician to assign this repair to.')
+
 
         if customer and unit_number:
             existing_repairs = Repair.objects.filter(
