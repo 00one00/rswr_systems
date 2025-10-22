@@ -3,27 +3,72 @@ from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
 from django.utils.html import format_html
+from django import forms
 from .models import Technician, Repair, UnitRepairCount, Customer
 
 class TechnicianAdmin(admin.ModelAdmin):
-    list_display = ['user', 'get_email', 'get_full_name', 'phone_number', 'expertise']
-    list_filter = ['expertise']
+    list_display = ['user', 'get_email', 'get_full_name', 'phone_number', 'expertise', 'is_manager', 'is_active', 'repairs_completed']
+    list_filter = ['expertise', 'is_manager', 'is_active', 'can_assign_work', 'can_override_pricing']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'phone_number']
     list_select_related = ['user']
-    
+    filter_horizontal = ['managed_technicians']
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Customize form based on manager status"""
+        form = super().get_form(request, obj, **kwargs)
+
+        # If editing an existing non-manager, hide managed_technicians field
+        if obj and not obj.is_manager:
+            if 'managed_technicians' in form.base_fields:
+                form.base_fields['managed_technicians'].widget = forms.HiddenInput()
+
+        # For managers, show only active technicians (exclude self)
+        if 'managed_technicians' in form.base_fields:
+            queryset = Technician.objects.filter(is_active=True).order_by('user__first_name')
+            if obj:
+                # Exclude self from managed_technicians options
+                queryset = queryset.exclude(id=obj.id)
+            form.base_fields['managed_technicians'].queryset = queryset
+            # Use FilteredSelectMultiple for better UX with many technicians
+            form.base_fields['managed_technicians'].widget = forms.widgets.FilteredSelectMultiple('Managed Technicians', False)
+
+        return form
+
+    def save_model(self, request, obj, form, change):
+        """Validate and save technician, clearing managed_technicians for non-managers"""
+        # If not a manager, clear managed technicians
+        if not obj.is_manager:
+            obj.managed_technicians.clear()
+
+        super().save_model(request, obj, form, change)
+
     def get_email(self, obj):
         return obj.user.email
     get_email.short_description = 'Email'
     get_email.admin_order_field = 'user__email'
-    
+
     def get_full_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}"
     get_full_name.short_description = 'Full Name'
     get_full_name.admin_order_field = 'user__first_name'
-    
+
     fieldsets = (
-        (None, {
-            'fields': ('user', 'phone_number', 'expertise')
+        ('Basic Information', {
+            'fields': ('user', 'phone_number', 'expertise', 'is_active')
+        }),
+        ('Manager Capabilities', {
+            'fields': ('is_manager', 'approval_limit', 'can_assign_work', 'can_override_pricing', 'managed_technicians'),
+            'description': 'Configure manager-level permissions and responsibilities.'
+        }),
+        ('Performance Metrics', {
+            'fields': ('repairs_completed', 'average_repair_time', 'customer_rating'),
+            'classes': ('collapse',),
+            'description': 'Performance tracking data (automatically updated).'
+        }),
+        ('Schedule & Availability', {
+            'fields': ('working_hours',),
+            'classes': ('collapse',),
+            'description': 'Working hours in JSON format: {"monday": ["9:00", "17:00"], ...}'
         }),
     )
     

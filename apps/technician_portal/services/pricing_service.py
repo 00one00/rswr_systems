@@ -1,0 +1,208 @@
+"""
+Pricing service for calculating repair costs based on customer pricing configurations.
+
+This service centralizes pricing logic and supports:
+- Customer-specific pricing tiers
+- Volume discounts
+- Fallback to default pricing
+- Manager override capabilities
+"""
+
+from decimal import Decimal
+from typing import Optional, Tuple
+from core.models import Customer
+from apps.customer_portal.pricing_models import CustomerPricing
+from apps.technician_portal.models import Repair, UnitRepairCount
+
+
+def calculate_repair_cost(customer: Customer, repair_count: int) -> Decimal:
+    """
+    Calculate the cost for a repair based on customer pricing configuration.
+
+    Args:
+        customer: The Customer object
+        repair_count: The number of repairs for this unit (1, 2, 3, 4, 5+)
+
+    Returns:
+        Decimal: The calculated repair cost
+    """
+    try:
+        # Try to get custom pricing for this customer
+        pricing = CustomerPricing.objects.get(customer=customer, use_custom_pricing=True)
+
+        # Get the custom price for this repair tier
+        custom_price = pricing.get_repair_price(repair_count)
+
+        if custom_price is not None:
+            return Decimal(str(custom_price))
+
+    except CustomerPricing.DoesNotExist:
+        pass  # Fall back to default pricing
+
+    # Use default pricing from Repair model
+    return Decimal(str(Repair.calculate_cost(repair_count)))
+
+
+def calculate_repair_cost_with_volume_discount(customer: Customer, repair_count: int, total_customer_repairs: int) -> Tuple[Decimal, bool, Decimal]:
+    """
+    Calculate repair cost with volume discount consideration.
+
+    Args:
+        customer: The Customer object
+        repair_count: The number of repairs for this unit
+        total_customer_repairs: Total repairs completed for this customer
+
+    Returns:
+        Tuple of (final_price, discount_applied, discount_amount)
+    """
+    base_price = calculate_repair_cost(customer, repair_count)
+
+    try:
+        pricing = CustomerPricing.objects.get(customer=customer, use_custom_pricing=True)
+
+        if pricing.has_volume_discount(total_customer_repairs):
+            discounted_price = pricing.apply_volume_discount(base_price, total_customer_repairs)
+            discount_amount = base_price - discounted_price
+            return discounted_price, True, discount_amount
+
+    except CustomerPricing.DoesNotExist:
+        pass
+
+    return base_price, False, Decimal('0.00')
+
+
+def get_expected_repair_cost(customer: Customer, unit_number: str) -> Tuple[Decimal, int]:
+    """
+    Get the expected cost for the next repair on a specific unit.
+
+    Args:
+        customer: The Customer object
+        unit_number: The unit number
+
+    Returns:
+        Tuple of (expected_cost, next_repair_count)
+    """
+    # Get or create the repair count record
+    unit_repair_count, created = UnitRepairCount.objects.get_or_create(
+        customer=customer,
+        unit_number=unit_number,
+        defaults={'repair_count': 0}
+    )
+
+    next_repair_count = unit_repair_count.repair_count + 1
+    expected_cost = calculate_repair_cost(customer, next_repair_count)
+
+    return expected_cost, next_repair_count
+
+
+def can_manager_override_price(technician, proposed_amount: Decimal) -> bool:
+    """
+    Check if a technician can override pricing for a given amount.
+
+    Args:
+        technician: Technician object
+        proposed_amount: The proposed override amount
+
+    Returns:
+        bool: True if technician can override this amount
+    """
+    if not hasattr(technician, 'can_override_pricing') or not technician.can_override_pricing:
+        return False
+
+    if not technician.is_manager:
+        return False
+
+    # If technician has approval limit, check against it
+    if technician.approval_limit:
+        return proposed_amount <= technician.approval_limit
+
+    # If no limit set, allow override (for senior managers)
+    return True
+
+
+def apply_pricing_to_repair(repair: 'Repair') -> None:
+    """
+    Apply appropriate pricing to a repair object.
+
+    This function updates the repair's cost based on:
+    1. Existing cost_override (if set)
+    2. Customer-specific pricing
+    3. Default pricing
+
+    Args:
+        repair: The Repair object to update
+    """
+    # If there's already a cost override, don't change it
+    if repair.cost_override:
+        repair.cost = repair.cost_override
+        return
+
+    # Get the current repair count for this unit
+    try:
+        unit_repair_count = UnitRepairCount.objects.get(
+            customer=repair.customer,
+            unit_number=repair.unit_number
+        )
+        repair_count = unit_repair_count.repair_count
+    except UnitRepairCount.DoesNotExist:
+        repair_count = 1  # First repair for this unit
+
+    # Calculate and apply the cost
+    repair.cost = calculate_repair_cost(repair.customer, repair_count)
+
+
+def get_pricing_info(customer: Customer) -> dict:
+    """
+    Get comprehensive pricing information for a customer.
+
+    Args:
+        customer: The Customer object
+
+    Returns:
+        dict: Pricing information including custom rates, volume discounts, etc.
+    """
+    info = {
+        'has_custom_pricing': False,
+        'pricing_tiers': {},
+        'volume_discount': {
+            'enabled': False,
+            'threshold': 0,
+            'percentage': 0
+        },
+        'default_pricing': {
+            1: Repair.calculate_cost(1),
+            2: Repair.calculate_cost(2),
+            3: Repair.calculate_cost(3),
+            4: Repair.calculate_cost(4),
+            5: Repair.calculate_cost(5)
+        }
+    }
+
+    try:
+        pricing = CustomerPricing.objects.get(customer=customer, use_custom_pricing=True)
+        info['has_custom_pricing'] = True
+
+        # Get custom pricing tiers
+        if pricing.repair_1_price:
+            info['pricing_tiers'][1] = float(pricing.repair_1_price)
+        if pricing.repair_2_price:
+            info['pricing_tiers'][2] = float(pricing.repair_2_price)
+        if pricing.repair_3_price:
+            info['pricing_tiers'][3] = float(pricing.repair_3_price)
+        if pricing.repair_4_price:
+            info['pricing_tiers'][4] = float(pricing.repair_4_price)
+        if pricing.repair_5_plus_price:
+            info['pricing_tiers'][5] = float(pricing.repair_5_plus_price)
+
+        # Volume discount info
+        if pricing.volume_discount_percentage > 0:
+            info['volume_discount'] = {
+                'enabled': True,
+                'threshold': pricing.volume_discount_threshold,
+                'percentage': float(pricing.volume_discount_percentage)
+            }
+
+    except CustomerPricing.DoesNotExist:
+        pass
+
+    return info

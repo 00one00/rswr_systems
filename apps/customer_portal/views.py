@@ -342,9 +342,19 @@ def customer_repair_approve(request, repair_id):
             
             # Update the repair status
             repair.queue_status = 'APPROVED'
+
+            # IMPORTANT: Ensure technician is preserved
+            # PENDING repairs should already have a technician (the one who found the damage)
+            # This prevents NULL technician errors later
+            if not repair.technician:
+                # This shouldn't happen, but log it for debugging
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Repair #{repair.id} approved but has no technician assigned")
+
             repair.save()
-            
-            messages.success(request, "Repair has been approved successfully.")
+
+            messages.success(request, "Repair has been approved successfully. The technician can now complete the work.")
             return redirect('customer_repair_detail', repair_id=repair.id)
         
         return render(request, 'customer_portal/repair_approve.html', {

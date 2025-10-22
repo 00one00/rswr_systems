@@ -1,0 +1,598 @@
+# Admin Interface Guide
+
+Complete guide for administrators managing RS Systems via Django admin.
+
+## Table of Contents
+- [Getting Started](#getting-started)
+- [Customer Management](#customer-management)
+- [Technician Management](#technician-management)
+- [Pricing Configuration](#pricing-configuration)
+- [Repair Preferences](#repair-preferences)
+- [User Management](#user-management)
+
+---
+
+## Getting Started
+
+### Accessing Admin
+
+```
+URL: https://[your-domain]/admin/
+Credentials: Superuser account
+```
+
+### Admin Dashboard Overview
+
+```
+RS Systems Administration
+
+AUTHENTICATION AND AUTHORIZATION
+- Groups
+- Users
+
+CORE
+- Customers
+
+CUSTOMER_PORTAL
+- Customer preferences
+- Customer pricing          ← Pricing configuration
+- Customer users
+- Repair approvals
+- Customer repair preferences  ← NEW: Approval settings
+
+TECHNICIAN_PORTAL
+- Repairs
+- Technicians              ← Manager setup
+- Unit repair counts
+- Technician notifications
+```
+
+---
+
+## Customer Management
+
+### Viewing Customers
+
+**Navigation**: Admin → Core → Customers
+
+**List View Shows**:
+- Company name
+- Contact person
+- Email
+- Phone
+- Address
+
+### Creating New Customer
+
+```
+1. Click "Add customer" button
+2. Fill required fields:
+   - Name (company name)
+   - Contact_name
+   - Email
+   - Phone
+   - Address
+3. Save
+```
+
+### Customer Fields
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| Name | Company name | ✓ |
+| Contact_name | Primary contact person | ✓ |
+| Email | Contact email | ✓ |
+| Phone | Contact phone | ✓ |
+| Address | Company address | ✓ |
+
+---
+
+## Technician Management
+
+### Viewing Technicians
+
+**Navigation**: Admin → Technician Portal → Technicians
+
+**List Shows**:
+- User (linked Django account)
+- Email
+- Full Name
+- Phone
+- Expertise
+- Manager (✓ if manager)
+- Active (✓ if active)
+- Repairs (completed count)
+
+### Creating Technician Profile
+
+**Prerequisites**: User account must exist first
+
+```
+1. Admin → Technician Portal → Technicians
+2. Click "Add technician"
+3. Select user from dropdown
+4. Fill basic info:
+   - Phone number
+   - Expertise (e.g., "Senior Technician")
+   - Is active: ✓
+5. Save
+```
+
+### Promoting to Manager
+
+```
+1. Click technician name to edit
+2. Scroll to "Manager Capabilities" section
+3. Configure:
+   ☑ Is manager
+   Approval limit: 150.00        ← Max override amount
+   ☑ Can assign work
+   ☑ Can override pricing
+   Managed technicians: [Select team members]
+4. Save
+```
+
+**Approval Limits**:
+- **$50**: New managers, small adjustments only
+- **$150**: Standard managers, most situations
+- **$500**: Senior managers, major exceptions
+- **Blank**: Unlimited (use carefully!)
+
+### Manager Capabilities Explained
+
+| Permission | Effect |
+|------------|--------|
+| **Is manager** | Grants manager status, sees REQUESTED repairs |
+| **Can assign work** | Can assign repairs to team members |
+| **Can override pricing** | Shows override section in repair forms |
+| **Approval limit** | Maximum override amount allowed |
+| **Managed technicians** | Team members this manager supervises |
+
+### Performance Tracking
+
+```
+Performance Metrics section:
+- Repairs completed: [Auto-updated]
+- Average repair time: [Manual entry]
+- Customer rating: [Manual entry, 1.00-5.00]
+```
+
+### Schedule Management
+
+```
+Working hours: JSON format
+
+Example:
+{
+  "monday": ["9:00", "17:00"],
+  "tuesday": ["9:00", "17:00"],
+  "wednesday": ["9:00", "17:00"],
+  "thursday": ["9:00", "17:00"],
+  "friday": ["9:00", "17:00"],
+  "saturday": ["9:00", "13:00"],
+  "sunday": []
+}
+```
+
+---
+
+## Pricing Configuration
+
+### Customer Pricing
+
+**Navigation**: Admin → Customer Portal → Customer Pricing
+
+### Creating Custom Pricing
+
+```
+1. Click "Add customer pricing"
+2. Customer & Settings:
+   - Customer: [Select from dropdown]
+   ☑ Use custom pricing
+   - Notes: "VIP customer - 10% discount on all repairs"
+
+3. Custom Repair Pricing:
+   - Repair 1 price: 45.00    (Leave blank for default $50)
+   - Repair 2 price: 36.00    (Leave blank for default $40)
+   - Repair 3 price: 31.50    (Leave blank for default $35)
+   - Repair 4 price: 27.00    (Leave blank for default $30)
+   - Repair 5+ price: 22.50   (Leave blank for default $25)
+
+4. Volume Discounts:
+   - Threshold: 10            (Number of repairs to qualify)
+   - Percentage: 15.00        (Discount percentage, e.g., 15%)
+
+5. Save
+```
+
+### Common Pricing Scenarios
+
+#### Scenario 1: Flat Discount (10% off everything)
+```
+Customer: ABC Logistics
+Use custom pricing: ✓
+Repair 1: 45.00   (10% off $50)
+Repair 2: 36.00   (10% off $40)
+Repair 3: 31.50   (10% off $35)
+Repair 4: 27.00   (10% off $30)
+Repair 5+: 22.50  (10% off $25)
+```
+
+#### Scenario 2: Volume Discount Only
+```
+Customer: City Delivery Co
+Use custom pricing: ✓
+(Leave all repair prices blank - uses defaults)
+Volume threshold: 15
+Volume percentage: 20.00
+```
+
+#### Scenario 3: Contract Pricing + Volume Bonus
+```
+Customer: Enterprise Fleet
+Use custom pricing: ✓
+Repair 1: 40.00
+Repair 2: 40.00   (Same rate for first 2)
+(Leave 3-5 blank - defaults apply)
+Volume threshold: 25
+Volume percentage: 15.00
+```
+
+### How Pricing Works
+
+**Calculation Order**:
+1. Check if custom pricing enabled
+2. Get tier price (1st, 2nd, 3rd, 4th, or 5th+ repair)
+3. If tier price blank, use default
+4. If volume discount qualified, apply percentage
+5. If manager override present, use override
+
+**Example**:
+```
+Customer: ABC Logistics (custom pricing + volume)
+Unit: #45 (3rd repair for this unit)
+Total customer repairs: 12 (exceeds threshold of 10)
+
+Calculation:
+- Base price (3rd repair): $31.50 (custom tier)
+- Volume discount: 15%
+- Final price: $31.50 × 0.85 = $26.78
+```
+
+---
+
+## Repair Preferences
+
+### Customer Repair Preferences
+
+**Navigation**: Admin → Customer Portal → Customer Repair Preferences
+
+### Approval Modes
+
+**Three Options**:
+
+1. **AUTO_APPROVE**: All field repairs auto-approved
+   - Use for: Trusted customers, emergency services
+   - Result: Tech can fix what they find immediately
+
+2. **REQUIRE_APPROVAL**: Customer must approve every field repair
+   - Use for: Cost-conscious customers, strict budget control
+   - Result: Customer sees PENDING repairs on dashboard
+
+3. **UNIT_THRESHOLD**: Auto-approve up to X units per visit
+   - Use for: Flexible control, predictable costs
+   - Result: First X units auto-approved, rest require approval
+
+### Creating Preference
+
+```
+1. Click "Add customer repair preference"
+2. Select customer
+3. Choose approval mode:
+   ● Auto-approve all field repairs
+   ○ Require approval for all
+   ○ Unit threshold per visit
+
+   If "Unit threshold" selected:
+   - Units per visit threshold: 3
+
+4. Save
+```
+
+### Examples
+
+**Example 1: Trusted Customer**
+```
+Customer: ABC Logistics
+Mode: AUTO_APPROVE
+
+Result:
+- Tech finds 5 chips during lot walk
+- All 5 auto-approved
+- Tech can complete immediately
+- Customer invoiced at end
+```
+
+**Example 2: Budget-Conscious Customer**
+```
+Customer: Startup Delivery
+Mode: REQUIRE_APPROVAL
+
+Result:
+- Tech finds 2 chips
+- Both go to PENDING
+- Customer sees yellow alert on dashboard
+- Must approve before work starts
+```
+
+**Example 3: Hybrid Approach**
+```
+Customer: Mid-Size Fleet
+Mode: UNIT_THRESHOLD
+Threshold: 3
+
+Result:
+- Tech finds 5 chips during visit
+- First 3: Auto-approved (under threshold)
+- Units 4-5: PENDING (require approval)
+- Customer approves additional 2
+```
+
+---
+
+## User Management
+
+### Creating Users
+
+```
+1. Admin → Authentication and Authorization → Users
+2. Click "Add user"
+3. Enter:
+   - Username
+   - Password (twice)
+4. Save
+5. Edit user to add:
+   - First name
+   - Last name
+   - Email address
+   - Staff status (if admin)
+   - Groups (if technician)
+6. Save
+```
+
+### User Roles
+
+**Customers**:
+- Regular user (not staff)
+- Has CustomerUser profile
+- Can access /app/* portal
+
+**Technicians**:
+- Regular user (not staff)
+- Has Technician profile
+- Member of "Technicians" group
+- Can access /tech/* portal
+
+**Managers**:
+- Regular user (not staff)
+- Has Technician profile with is_manager=True
+- Member of "Technicians" group
+- Additional manager permissions
+- Can access /tech/* portal
+
+**Admins**:
+- Staff status enabled
+- Superuser (optional, for full access)
+- Can access /admin/* interface
+
+### Groups & Permissions
+
+**Technicians Group**:
+- View/Add/Change repairs
+- View customers (read-only)
+- View/Change own technician profile
+- View/Update notifications
+
+**Creating Group** (if needed):
+```bash
+python manage.py setup_groups
+```
+
+---
+
+## Common Admin Tasks
+
+### Task 1: Set Up New Customer with Special Pricing
+
+```
+1. Create customer (Core → Customers)
+2. Create customer pricing (Customer Portal → Customer Pricing)
+   - Configure tiers and/or volume discount
+3. Create repair preference (Customer Portal → Customer Repair Preferences)
+   - Choose appropriate approval mode
+4. Test with sample repair
+```
+
+### Task 2: Promote Technician to Manager
+
+```
+1. Technician Portal → Technicians
+2. Click technician name
+3. Manager Capabilities section:
+   ☑ Is manager
+   Approval limit: 150.00
+   ☑ Can assign work
+   ☑ Can override pricing
+   Select managed technicians
+4. Save
+5. Verify manager can see override section in repair forms
+```
+
+### Task 3: Give Customer Auto-Approval
+
+```
+1. Customer Portal → Customer Repair Preferences
+2. Add or edit preference
+3. Select customer
+4. Mode: AUTO_APPROVE
+5. Save
+6. Test: Tech creates field repair → should be APPROVED immediately
+```
+
+### Task 4: Audit Manager Overrides
+
+```
+1. Technician Portal → Repairs
+2. Add filter: "Cost override is not null"
+3. Review overrides:
+   - Check override amounts
+   - Review override reasons
+   - Verify within approval limits
+4. Discuss patterns with team
+```
+
+### Task 5: Deactivate Technician Temporarily
+
+```
+1. Technician Portal → Technicians
+2. Click technician name
+3. Uncheck "Is active"
+4. Save
+
+Result:
+- Won't appear in assignment lists
+- Can't login to portal
+- Existing assignments preserved
+```
+
+---
+
+## Filtering & Searching
+
+### Customer Pricing
+- **Filter by**: Use custom pricing (Yes/No), Created date
+- **Search**: Customer name, Notes
+
+### Technicians
+- **Filter by**: Is manager, Is active, Can assign work, Can override pricing
+- **Search**: Username, Email, First name, Last name, Phone
+
+### Repairs
+- **Filter by**: Status, Customer, Technician, Date range
+- **Search**: Unit number, Notes
+
+---
+
+## Maintenance Tasks
+
+### Weekly
+- [ ] Review new customer pricing requests
+- [ ] Check manager override usage
+- [ ] Update technician performance metrics
+- [ ] Review repair approval patterns
+
+### Monthly
+- [ ] Audit all custom pricing configurations
+- [ ] Review manager approval limits
+- [ ] Clean up inactive users
+- [ ] Update technician working hours
+
+### Quarterly
+- [ ] Review all pricing contracts
+- [ ] Audit manager permissions
+- [ ] Update volume discount thresholds
+- [ ] Prepare performance review data
+
+---
+
+## Troubleshooting
+
+### Issue: Manager Can't See Override Section
+
+**Check**:
+1. User has technician profile ✓
+2. Technician marked as manager ✓
+3. "Can override pricing" checked ✓
+4. User logging into /tech/ portal (not /admin/) ✓
+
+### Issue: Custom Pricing Not Applying
+
+**Check**:
+1. CustomerPricing record exists ✓
+2. "Use custom pricing" checked ✓
+3. Tier prices set (blank = default) ✓
+4. Test with shell command:
+   ```bash
+   python manage.py shell -c "
+   from apps.technician_portal.services.pricing_service import calculate_repair_cost
+   from core.models import Customer
+   customer = Customer.objects.get(name='ABC Logistics')
+   print(calculate_repair_cost(customer, 1))
+   "
+   ```
+
+### Issue: Approval Preference Not Working
+
+**Check**:
+1. CustomerRepairPreference exists ✓
+2. Correct approval mode selected ✓
+3. Unit threshold set (if using UNIT_THRESHOLD mode) ✓
+4. Test with new repair creation ✓
+
+---
+
+## Best Practices
+
+### Security
+- Limit admin access to necessary personnel only
+- Use strong, unique passwords for all admin accounts
+- Review permissions regularly
+- Document all pricing arrangements in notes field
+
+### Data Management
+- Back up before major changes
+- Test pricing on development before production
+- Keep notes updated in all configurations
+- Regular audit of user accounts and permissions
+
+### Communication
+- Document pricing agreements
+- Notify team of manager permission changes
+- Keep customers informed of preference changes
+- Maintain changelog of admin modifications
+
+---
+
+## Quick Reference Commands
+
+```bash
+# Test customer pricing
+python manage.py shell -c "
+from apps.customer_portal.pricing_models import CustomerPricing
+from apps.technician_portal.services.pricing_service import calculate_repair_cost
+from core.models import Customer
+customer = Customer.objects.get(name='customer_name')
+print(f'Repair cost: \${calculate_repair_cost(customer, 1)}')
+"
+
+# Check manager permissions
+python manage.py shell -c "
+from apps.technician_portal.models import Technician
+tech = Technician.objects.get(user__username='username')
+print(f'Is manager: {tech.is_manager}')
+print(f'Approval limit: \${tech.approval_limit}')
+"
+
+# List all custom pricing
+python manage.py shell -c "
+from apps.customer_portal.pricing_models import CustomerPricing
+for p in CustomerPricing.objects.filter(use_custom_pricing=True):
+    print(f'{p.customer.name}: Tier 1 = \${p.repair_1_price}')
+"
+```
+
+---
+
+**Last Updated**: October 21, 2025
+**For**: RS Systems v1.4.0
+**Target Users**: System Administrators

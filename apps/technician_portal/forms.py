@@ -77,7 +77,7 @@ class RepairForm(forms.ModelForm):
         model = Repair
         fields = ['technician', 'customer', 'unit_number', 'repair_date', 'queue_status', 'damage_type',
                   'drilled_before_repair', 'windshield_temperature', 'resin_viscosity', 'damage_photo_before',
-                  'damage_photo_after', 'customer_notes', 'technician_notes']
+                  'damage_photo_after', 'customer_notes', 'technician_notes', 'cost_override', 'override_reason']
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
@@ -89,6 +89,17 @@ class RepairForm(forms.ModelForm):
         # Hide technician field for non-admin users
         if self.user and not self.user.is_staff:
             self.fields['technician'].widget = forms.HiddenInput()
+
+        # Hide pricing override fields for non-managers
+        if self.user and hasattr(self.user, 'technician'):
+            technician = self.user.technician
+            if not (technician.is_manager and technician.can_override_pricing):
+                self.fields['cost_override'].widget = forms.HiddenInput()
+                self.fields['override_reason'].widget = forms.HiddenInput()
+        else:
+            # Hide for users without technician profiles
+            self.fields['cost_override'].widget = forms.HiddenInput()
+            self.fields['override_reason'].widget = forms.HiddenInput()
         
         # Auto-populate repair_date for all repairs (new and existing)
         current_time = timezone.now()
@@ -117,11 +128,29 @@ class RepairForm(forms.ModelForm):
         unit_number = cleaned_data.get('unit_number')
         queue_status = cleaned_data.get('queue_status')
         technician = cleaned_data.get('technician')
+        cost_override = cleaned_data.get('cost_override')
+        override_reason = cleaned_data.get('override_reason')
 
         # Admin users must select a technician
         if hasattr(self, 'user') and self.user.is_staff and not technician:
             self.add_error('technician', 'Please select a technician to assign this repair to.')
 
+        # Validate pricing override permissions and limits
+        if cost_override is not None:
+            if not (hasattr(self, 'user') and hasattr(self.user, 'technician')):
+                self.add_error('cost_override', 'Only managers can override pricing.')
+            else:
+                user_technician = self.user.technician
+                if not (user_technician.is_manager and user_technician.can_override_pricing):
+                    self.add_error('cost_override', 'You do not have permission to override pricing.')
+                elif user_technician.approval_limit and cost_override > user_technician.approval_limit:
+                    self.add_error('cost_override', f'Override amount exceeds your approval limit of ${user_technician.approval_limit}.')
+                elif not override_reason:
+                    self.add_error('override_reason', 'Override reason is required when setting a custom price.')
+
+        # If override reason is provided, cost_override should also be provided
+        if override_reason and cost_override is None:
+            self.add_error('cost_override', 'Please provide an override amount when specifying a reason.')
 
         if customer and unit_number:
             existing_repairs = Repair.objects.filter(

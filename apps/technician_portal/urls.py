@@ -13,6 +13,7 @@ urlpatterns = [
     path('repairs/', views.repair_list, name='repair_list'),
     path('repairs/assigned/', views.repair_list, name='assigned_repairs'),
     path('repairs/<int:repair_id>/', views.repair_detail, name='repair_detail'),
+    path('repairs/<int:repair_id>/assign/', views.assign_repair, name='assign_repair'),
     path('repairs/<int:repair_id>/apply-reward/', views.apply_reward_to_repair, name='apply_reward_to_repair'),
     path('repairs/create/', views.create_repair, name='create_repair'),
     path('repairs/<int:repair_id>/update/', views.update_repair, name='update_repair'),

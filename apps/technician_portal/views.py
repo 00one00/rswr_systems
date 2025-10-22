@@ -83,17 +83,16 @@ def technician_dashboard(request):
     if hasattr(request.user, 'technician'):
         technician = request.user.technician
     
-    # Get customer-requested repairs
+    # Get customer-requested repairs (ONLY for managers)
     if technician:
-        # For regular technicians, show all REQUESTED repairs (unassigned queue)
-        # but highlight their specifically assigned ones
-        customer_requested_repairs = Repair.objects.filter(
-            queue_status='REQUESTED'
-        ).order_by('-repair_date')
-        
-        # Add a flag to mark which repairs are assigned to this technician
-        for repair in customer_requested_repairs:
-            repair.assigned_to_me = repair.technician == technician
+        # Only MANAGERS can see REQUESTED repairs (for assignment purposes)
+        # Regular technicians should NOT see these
+        if technician.is_manager:
+            customer_requested_repairs = Repair.objects.filter(
+                queue_status='REQUESTED'
+            ).order_by('-repair_date')
+        else:
+            customer_requested_repairs = Repair.objects.none()
         
         # Get assigned reward redemptions for this technician
         from apps.rewards_referrals.models import RewardRedemption
@@ -112,14 +111,10 @@ def technician_dashboard(request):
         # Get unread notifications
         unread_notifications = technician.notifications.filter(read=False).order_by('-created_at')
     else:
-        # For admins without a technician profile, show all requested repairs
+        # For admins without a technician profile, show all requested repairs (for assignment)
         customer_requested_repairs = Repair.objects.filter(
             queue_status='REQUESTED'
         ).order_by('-repair_date')
-        
-        # For admins, show technician assignment info
-        for repair in customer_requested_repairs:
-            repair.assigned_to_me = False  # Admins don't have assignments
         
         # For admins, show all pending redemptions
         from apps.rewards_referrals.models import RewardRedemption
@@ -156,16 +151,28 @@ def technician_dashboard(request):
 
 @technician_required
 def repair_list(request):
-    # For regular technicians, only show their repairs
+    # For regular technicians, only show their repairs or their team's repairs if they're a manager
     if not request.user.is_staff:
         # Ensure user has a technician profile
         if not hasattr(request.user, 'technician'):
             messages.error(request, "You don't have a technician profile to view repairs.")
             return redirect('technician_dashboard')
-            
+
         technician = request.user.technician
-        # Get all repairs for this technician
-        repairs = Repair.objects.filter(technician=technician)
+
+        # If manager, show their team's repairs + their own + REQUESTED repairs
+        if technician.is_manager:
+            # Get repairs for managed technicians + own repairs
+            managed_tech_ids = list(technician.managed_technicians.values_list('id', flat=True))
+            managed_tech_ids.append(technician.id)  # Include own repairs
+            repairs = Repair.objects.filter(
+                Q(technician_id__in=managed_tech_ids) | Q(queue_status='REQUESTED')
+            )
+        else:
+            # Regular technician - only their own repairs, EXCLUDING REQUESTED and PENDING
+            repairs = Repair.objects.filter(
+                technician=technician
+            ).exclude(queue_status__in=['REQUESTED', 'PENDING'])
     else:
         # For admins, show all repairs
         repairs = Repair.objects.all()
@@ -230,27 +237,43 @@ def repair_list(request):
 def repair_detail(request, repair_id):
     # First get the repair to check its status
     repair = get_object_or_404(Repair, id=repair_id)
-    
+
     # For regular technicians
     if not request.user.is_staff:
         # Ensure user has a technician profile
         if not hasattr(request.user, 'technician'):
             messages.error(request, "You don't have a technician profile to view repairs.")
             return redirect('technician_dashboard')
-        
-        # Allow any technician to view customer-requested repairs (unassigned queue)
+
+        technician = request.user.technician
+
+        # BLOCK all techs from viewing PENDING repairs (customer approval only)
+        if repair.queue_status == 'PENDING':
+            messages.error(request, "This repair is pending customer approval and cannot be viewed by technicians.")
+            return redirect('technician_dashboard')
+
+        # Only MANAGERS can view REQUESTED repairs (for assignment)
         if repair.queue_status == 'REQUESTED':
-            # Any technician can view customer-requested repairs
-            pass
+            if not technician.is_manager:
+                messages.error(request, "Only managers can view customer-requested repairs.")
+                return redirect('technician_dashboard')
         else:
-            # For all other statuses, only the assigned technician can view
-            # EXCEPT when viewing from the "existing repair" warning link
-            if repair.technician != request.user.technician:
-                # Allow viewing if this is accessed from repair form warning (referrer check)
-                referrer = request.META.get('HTTP_REFERER', '')
-                if '/create/' not in referrer and '/update/' not in referrer:
-                    messages.error(request, "You don't have permission to view this repair.")
-                    return redirect('technician_dashboard')
+            # Check if technician can view this repair
+            can_view = False
+
+            # Can view own repairs
+            if repair.technician == technician:
+                can_view = True
+            # Managers can view repairs from their managed technicians
+            elif technician.is_manager and technician.manages_technician(repair.technician):
+                can_view = True
+            # Special case: viewing from form warning link
+            elif '/create/' in request.META.get('HTTP_REFERER', '') or '/update/' in request.META.get('HTTP_REFERER', ''):
+                can_view = True
+
+            if not can_view:
+                messages.error(request, "You don't have permission to view this repair.")
+                return redirect('technician_dashboard')
     # else: Admins can view any repair (no additional check needed)
         
     return render(request, 'technician_portal/repair_detail.html', {
@@ -286,16 +309,39 @@ def create_repair(request):
                     # Set technician before saving
                     repair = form.save(commit=False)
                     repair.technician = request.user.technician
+
+                    # SECURITY: Check customer preferences for ALL tech-created repairs
+                    # Technicians cannot bypass approval by setting status to anything other than PENDING
+                    # Only customer REQUESTED repairs (created by customers) should skip this check
+                    from apps.customer_portal.models import CustomerRepairPreference
+
+                    # Force check customer preferences regardless of what status tech tried to set
+                    try:
+                        preferences = repair.customer.repair_preferences
+                        # Check if repair should be auto-approved
+                        if preferences.should_auto_approve(repair.technician, repair.repair_date.date() if repair.repair_date else None):
+                            repair.queue_status = 'APPROVED'
+                            messages.info(request, "Repair auto-approved based on customer preferences.")
+                        else:
+                            # Force to PENDING - customer must approve
+                            # This prevents technicians from setting status to COMPLETED/APPROVED to bypass approval
+                            repair.queue_status = 'PENDING'
+                            messages.warning(request, "This customer requires approval for field repairs. Repair submitted for customer approval.")
+                    except CustomerRepairPreference.DoesNotExist:
+                        # No preferences set - default to requiring approval for security
+                        repair.queue_status = 'PENDING'
+                        messages.warning(request, "Repair submitted for customer approval (customer preferences not configured).")
+
                     repair.save()
                     # Save the form to handle file uploads and many-to-many fields
                     form.save_m2m()
                 except AttributeError:
                     messages.error(request, "You don't have a technician profile to create repairs.")
                     return redirect('technician_dashboard')
-            
+
             # Add success message
             messages.success(request, f'Repair #{repair.id} created successfully!')
-            
+
             return redirect('repair_detail', repair_id=repair.id)
         else:
             logger.debug(f"Form errors: {form.errors}")
@@ -308,36 +354,69 @@ def create_repair(request):
         form = RepairForm(user=request.user)
     
     pending_repair_warning = form.errors.get('__all__')
+
+    # Calculate expected cost for the template if we have customer/unit info
+    expected_cost = None
+    if hasattr(form, 'instance') and form.instance.customer and form.instance.unit_number:
+        expected_cost = form.instance.get_expected_price()
+
     return render(request, 'technician_portal/repair_form.html', {
         'form': form,
         'pending_repair_warning': pending_repair_warning,
-        'is_admin': request.user.is_staff
+        'is_admin': request.user.is_staff,
+        'expected_cost': expected_cost
     })
 
 @technician_required
 def update_repair(request, repair_id):
+    import logging
+    logger = logging.getLogger(__name__)
+
     # For regular technicians, they can only edit their own repairs
     if not request.user.is_staff:
         # Ensure user has a technician profile
         if not hasattr(request.user, 'technician'):
             messages.error(request, "You don't have a technician profile to manage repairs.")
             return redirect('technician_dashboard')
-            
-        repair = get_object_or_404(Repair, id=repair_id, technician=request.user.technician)
-        
-        # Check if repair is editable (not completed or in certain stages)
-        if repair.queue_status in ['COMPLETED', 'APPROVED']:
-            messages.warning(request, "This repair cannot be edited in its current state. Please contact an administrator for assistance.")
+
+        # First get the repair WITHOUT filtering by technician (to avoid crash on NULL technician)
+        repair = get_object_or_404(Repair, id=repair_id)
+        logger.info(f"UPDATE_REPAIR: Got repair #{repair.id}, technician_id={repair.technician_id}")
+
+        # SECURITY: Check if repair is in a final/locked state
+        if repair.queue_status in ['COMPLETED', 'DENIED']:
+            messages.error(request, "This repair is closed and cannot be edited.")
+            return redirect('repair_detail', repair_id=repair.id)
+
+        # SECURITY: Check if technician is assigned to this repair
+        # Customer-submitted repairs (REQUESTED) have no technician yet - block editing
+        # Use technician_id to avoid RelatedObjectDoesNotExist error
+        if not repair.technician_id:
+            messages.error(request, "This repair has not been assigned yet and cannot be edited by technicians.")
+            return redirect('repair_detail', repair_id=repair.id)
+
+        # SECURITY: Only allow editing own repairs
+        if repair.technician_id != request.user.technician.id:
+            messages.error(request, "You can only edit repairs assigned to you.")
             return redirect('repair_detail', repair_id=repair.id)
     else:
         # Admins can edit any repair
         repair = get_object_or_404(Repair, id=repair_id)
     
     if request.method == 'POST':
+        logger.info(f"UPDATE_REPAIR POST: Processing form for repair #{repair.id}")
+
+        # CRITICAL FIX: Save the technician_id BEFORE creating the form
+        # because form.save(commit=False) will modify the original instance
+        original_technician_id = repair.technician_id
+        logger.info(f"UPDATE_REPAIR: Saved original_technician_id={original_technician_id}")
+
         form = RepairForm(request.POST, request.FILES, instance=repair, user=request.user)
         if form.is_valid():
+            logger.info(f"UPDATE_REPAIR: Form is valid, calling save(commit=False)")
             updated_repair = form.save(commit=False)
-            
+            logger.info(f"UPDATE_REPAIR: After form.save(), updated_repair.technician_id={updated_repair.technician_id}")
+
             # Handle photo deletion
             for field_name in ['damage_photo_before', 'damage_photo_after']:
                 delete_flag = request.POST.get(f'{field_name}-DELETE')
@@ -347,13 +426,22 @@ def update_repair(request, repair_id):
                     if current_photo:
                         current_photo.delete(save=False)  # Delete the file
                         setattr(updated_repair, field_name, None)  # Clear the field
-            
+
+            # For non-admin users, preserve the existing technician (form hides this field)
+            if not request.user.is_staff:
+                # CRITICAL FIX: form.save(commit=False) sets technician to NULL when field is hidden
+                # We must restore the original technician_id that we saved before creating the form
+                logger.info(f"UPDATE_REPAIR: Restoring technician_id from original_technician_id={original_technician_id}")
+                updated_repair.technician_id = original_technician_id
+                logger.info(f"UPDATE_REPAIR: Set updated_repair.technician_id={updated_repair.technician_id}")
             # For admin users, update the technician if changed
-            if request.user.is_staff and form.cleaned_data.get('technician'):
+            elif form.cleaned_data.get('technician'):
                 updated_repair.technician = form.cleaned_data.get('technician')
-            
+
             # Save the repair with all form data including uploaded files
+            logger.info(f"UPDATE_REPAIR: About to save repair, technician_id={updated_repair.technician_id}")
             updated_repair.save()
+            logger.info(f"UPDATE_REPAIR: Save successful!")
             # Also save many-to-many fields if any exist
             form.save_m2m()
             
@@ -362,10 +450,14 @@ def update_repair(request, repair_id):
     else:
         form = RepairForm(instance=repair, user=request.user)
     
+    # Calculate expected cost for the template
+    expected_cost = repair.get_expected_price() if repair.customer and repair.unit_number else None
+
     return render(request, 'technician_portal/repair_form.html', {
-        'form': form, 
+        'form': form,
         'repair': repair,
-        'is_admin': request.user.is_staff
+        'is_admin': request.user.is_staff,
+        'expected_cost': expected_cost
     })
 
 @technician_required
@@ -379,15 +471,34 @@ def update_queue_status(request, repair_id):
         if not hasattr(request.user, 'technician'):
             messages.error(request, "You don't have a technician profile to update repairs.")
             return redirect('technician_dashboard')
-        
-        # Allow any technician to update customer-requested repairs
+
+        technician = request.user.technician
+
+        # BLOCK all techs from PENDING repairs (customer approval only)
+        if repair.queue_status == 'PENDING':
+            messages.error(request, "This repair is pending customer approval. Technicians cannot modify it.")
+            return redirect('technician_dashboard')
+
+        # Only MANAGERS can handle REQUESTED repairs (assignment workflow)
         if repair.queue_status == 'REQUESTED':
-            # When accepting a customer request, assign it to this technician
-            if request.POST.get('status') == 'APPROVED':
-                repair.technician = request.user.technician
+            if not technician.is_manager:
+                messages.error(request, "Only managers can assign customer-requested repairs.")
+                return redirect('technician_dashboard')
         else:
-            # For all other statuses, only the assigned technician can update
-            if repair.technician != request.user.technician:
+            # Check if technician can update this repair
+            can_update = False
+
+            # Can update own repairs (assigned to them)
+            if repair.technician == technician:
+                can_update = True
+            # Managers CANNOT update/complete repairs assigned to other technicians
+            # This prevents managers from taking over assigned work
+            elif technician.is_manager and technician.manages_technician(repair.technician):
+                # Managers can VIEW but cannot change status of repairs assigned to their team
+                messages.error(request, "You cannot modify repairs assigned to other technicians. Use the reassign feature instead.")
+                return redirect('repair_detail', repair_id=repair.id)
+
+            if not can_update:
                 messages.error(request, "You don't have permission to update this repair.")
                 return redirect('technician_dashboard')
     # else: Admins can update any repair (no additional check needed)
@@ -516,7 +627,12 @@ def customer_list(request):
 def customer_details(request, customer_id):
     technician = get_object_or_404(Technician, user=request.user)
     customer = get_object_or_404(Customer, id=customer_id)
-    repairs = Repair.objects.filter(technician=technician, customer=customer)
+
+    # Only show repairs assigned to this technician, exclude REQUESTED and PENDING
+    repairs = Repair.objects.filter(
+        technician=technician,
+        customer=customer
+    ).exclude(queue_status__in=['REQUESTED', 'PENDING'])
 
     unit_search = request.GET.get('unit_search', '')
     if unit_search:
@@ -534,7 +650,13 @@ def customer_details(request, customer_id):
 def unit_details(request, customer_id, unit_number):
     technician = get_object_or_404(Technician, user=request.user)
     customer = get_object_or_404(Customer, id=customer_id)
-    repairs = Repair.objects.filter(technician=technician, customer=customer, unit_number=unit_number)
+
+    # Only show repairs assigned to this technician, exclude REQUESTED and PENDING
+    repairs = Repair.objects.filter(
+        technician=technician,
+        customer=customer,
+        unit_number=unit_number
+    ).exclude(queue_status__in=['REQUESTED', 'PENDING'])
 
     return render(request, 'technician_portal/unit_details.html', {
         'customer': customer,
@@ -661,6 +783,92 @@ def mark_notification_read(request, notification_id):
         return redirect('reward_fulfillment_detail', redemption_id=notification.redemption.id)
     
     return redirect('technician_dashboard')
+
+@technician_required
+def assign_repair(request, repair_id):
+    """Manager assigns a REQUESTED repair to a technician"""
+    # Only managers can assign repairs
+    if not request.user.is_staff:
+        if not hasattr(request.user, 'technician') or not request.user.technician.is_manager:
+            messages.error(request, "Only managers can assign repairs.")
+            return redirect('technician_dashboard')
+
+    repair = get_object_or_404(Repair, id=repair_id)
+
+    # Can only assign REQUESTED repairs
+    if repair.queue_status != 'REQUESTED':
+        messages.error(request, "Only REQUESTED repairs can be assigned. This repair is already assigned.")
+        return redirect('repair_detail', repair_id=repair.id)
+
+    if request.method == 'POST':
+        technician_id = request.POST.get('technician_id')
+
+        if not technician_id:
+            messages.error(request, "Please select a technician.")
+            return redirect('assign_repair', repair_id=repair.id)
+
+        try:
+            assigned_tech = Technician.objects.get(id=technician_id)
+
+            # If regular manager (not admin), verify they manage this technician
+            if not request.user.is_staff:
+                manager = request.user.technician
+                if not manager.manages_technician(assigned_tech):
+                    messages.error(request, "You can only assign repairs to technicians you manage.")
+                    return redirect('assign_repair', repair_id=repair.id)
+
+            # Assign the repair
+            repair.technician = assigned_tech
+            repair.queue_status = 'APPROVED'  # Customer already approved by requesting
+            repair.save()
+
+            # Create approval record
+            from apps.customer_portal.models import CustomerUser, RepairApproval
+            from django.utils import timezone
+
+            customer_users = CustomerUser.objects.filter(customer=repair.customer)
+            customer_user = customer_users.filter(is_primary_contact=True).first()
+            if not customer_user and customer_users.exists():
+                customer_user = customer_users.first()
+
+            if customer_user:
+                RepairApproval.objects.create(
+                    repair=repair,
+                    approved=True,
+                    approved_by=customer_user,
+                    approval_date=timezone.now(),
+                    notes="Auto-approved - customer requested repair"
+                )
+
+            # Create notification for assigned technician
+            from .models import TechnicianNotification
+            TechnicianNotification.objects.create(
+                technician=assigned_tech,
+                message=f"You have been assigned Repair #{repair.id} for {repair.customer.name} - Unit {repair.unit_number}",
+                read=False,
+                repair=repair
+            )
+
+            messages.success(request, f"Repair #{repair.id} assigned to {assigned_tech.user.get_full_name()}")
+            return redirect('repair_detail', repair_id=repair.id)
+
+        except Technician.DoesNotExist:
+            messages.error(request, "Selected technician not found.")
+            return redirect('assign_repair', repair_id=repair.id)
+
+    # GET request - show assignment form
+    if request.user.is_staff:
+        # Admins can assign to any technician
+        available_technicians = Technician.objects.filter(is_active=True).order_by('user__first_name')
+    else:
+        # Managers can only assign to technicians they manage
+        manager = request.user.technician
+        available_technicians = manager.managed_technicians.filter(is_active=True).order_by('user__first_name')
+
+    return render(request, 'technician_portal/assign_repair.html', {
+        'repair': repair,
+        'available_technicians': available_technicians,
+    })
 
 @technician_required
 def apply_reward_to_repair(request, repair_id):

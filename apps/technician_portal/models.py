@@ -11,8 +11,118 @@ class Technician(models.Model):
     phone_number = models.CharField(max_length=15, blank=True)
     expertise = models.CharField(max_length=100, blank=True)
 
+    # Dual Role Support
+    is_manager = models.BooleanField(
+        default=False,
+        help_text="Can this technician perform manager functions?"
+    )
+    approval_limit = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Maximum repair amount this manager can approve"
+    )
+    can_assign_work = models.BooleanField(
+        default=False,
+        help_text="Can assign repairs to other technicians"
+    )
+    can_override_pricing = models.BooleanField(
+        default=False,
+        help_text="Can override automatic pricing calculations"
+    )
+    managed_technicians = models.ManyToManyField(
+        'self',
+        blank=True,
+        symmetrical=False,
+        related_name='managers',
+        help_text="Technicians managed by this manager"
+    )
+
+    # Performance Tracking
+    repairs_completed = models.IntegerField(
+        default=0,
+        help_text="Total number of repairs completed"
+    )
+    average_repair_time = models.DurationField(
+        null=True,
+        blank=True,
+        help_text="Average time to complete a repair"
+    )
+    customer_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Average customer rating (1.00-5.00)"
+    )
+
+    # Availability
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Is this technician currently active/available?"
+    )
+    working_hours = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Working hours schedule (JSON format)"
+    )
+
+    class Meta:
+        ordering = ['user__first_name', 'user__last_name']
+        verbose_name = 'Technician'
+        verbose_name_plural = 'Technicians'
+
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.expertise}"
+        role = " (Manager)" if self.is_manager else ""
+        return f"{self.user.get_full_name()} - {self.expertise}{role}"
+
+    def clean(self):
+        """Validate technician data before saving"""
+        from django.core.exceptions import ValidationError
+
+        # Non-managers cannot manage other technicians
+        if not self.is_manager and self.pk:
+            # Check if managed_technicians will be set (can't check m2m before save)
+            # This will be enforced in the admin save_model method
+            pass
+
+        # If not a manager, clear manager-specific fields
+        if not self.is_manager:
+            self.approval_limit = None
+            self.can_assign_work = False
+            self.can_override_pricing = False
+
+    def get_managed_technicians_count(self):
+        """Get the number of technicians this manager supervises"""
+        return self.managed_technicians.count()
+
+    def can_approve_amount(self, amount):
+        """Check if this manager can override pricing up to a given amount"""
+        if not self.is_manager or not self.approval_limit:
+            return False
+        return amount <= self.approval_limit
+
+    def manages_technician(self, technician):
+        """Check if this manager manages a specific technician"""
+        if not self.is_manager:
+            return False
+        return self.managed_technicians.filter(id=technician.id).exists()
+
+    def get_team_repairs(self):
+        """Get all repairs assigned to technicians this manager supervises"""
+        if not self.is_manager:
+            return Repair.objects.none()
+        managed_tech_ids = self.managed_technicians.values_list('id', flat=True)
+        return Repair.objects.filter(technician_id__in=managed_tech_ids)
+
+    def update_performance_stats(self):
+        """Update performance statistics based on completed repairs"""
+        from django.db.models import Avg
+        completed_repairs = self.repair_set.filter(queue_status='COMPLETED')
+        self.repairs_completed = completed_repairs.count()
+        # Note: average_repair_time calculation would need repair start/end timestamps
+        self.save()
 
     @receiver(post_save, sender=User)
     def save_technician(sender, instance, **kwargs):
@@ -116,24 +226,41 @@ class Repair(models.Model):
     def save(self, *args, **kwargs):
         # Ensure we have a customer before trying to access UnitRepairCount
         if self.customer:
+            # Check if this is a new repair (not an update)
+            is_new_repair = self.pk is None
+
+            # Auto-approval logic for field-discovered repairs
+            if is_new_repair and self.queue_status == 'PENDING':
+                # Check customer preferences for auto-approval
+                from apps.customer_portal.models import CustomerRepairPreference
+                try:
+                    preferences = self.customer.repair_preferences
+                    if preferences.should_auto_approve(self.technician, self.repair_date.date() if self.repair_date else None):
+                        self.queue_status = 'APPROVED'
+                except CustomerRepairPreference.DoesNotExist:
+                    # No preferences set - default to requiring approval
+                    pass
+
             # Get or create the unit repair count
             unit_repair_count, created = UnitRepairCount.objects.get_or_create(
                 customer=self.customer,
                 unit_number=self.unit_number,
                 defaults={'repair_count': 0}
             )
-            
+
             # Handle completed repairs
             if self.queue_status == 'COMPLETED':
                 if not self.pk or (self.pk and self.original_status != 'COMPLETED'):
                     unit_repair_count.repair_count += 1
                     unit_repair_count.save()
 
-                # Use override price if provided, otherwise calculate normally
+                # Use override price if provided, otherwise use pricing service
                 if self.cost_override is not None:
                     self.cost = self.cost_override
                 else:
-                    self.cost = self.calculate_cost(unit_repair_count.repair_count)
+                    # Use the new pricing service for customer-specific pricing
+                    from .services.pricing_service import calculate_repair_cost
+                    self.cost = calculate_repair_cost(self.customer, unit_repair_count.repair_count)
 
                 # Check for available rewards to apply automatically
                 self.apply_available_rewards()
@@ -141,13 +268,18 @@ class Repair(models.Model):
                 # Award points to customer for completed repair
                 self.award_completion_points()
             else:
-                # Keep any override even when not completed (for preview purposes)
-                if self.cost_override is None:
-                    self.cost = 0
-                
+                # For non-completed repairs, show expected cost for preview
+                if self.cost_override is not None:
+                    self.cost = self.cost_override
+                else:
+                    # Calculate expected cost for next repair (current count + 1)
+                    from .services.pricing_service import calculate_repair_cost
+                    next_repair_count = unit_repair_count.repair_count + 1
+                    self.cost = calculate_repair_cost(self.customer, next_repair_count)
+
             # Save after the cost calculation
             super().save(*args, **kwargs)
-            
+
             # Update the original status after saving
             self.original_status = self.queue_status
         else:
@@ -342,16 +474,11 @@ class Repair(models.Model):
         if self.cost_override is not None:
             return self.cost_override
 
-        # Otherwise calculate based on repair count
+        # Otherwise calculate based on repair count using pricing service
         if self.customer:
-            unit_repair_count, _ = UnitRepairCount.objects.get_or_create(
-                customer=self.customer,
-                unit_number=self.unit_number,
-                defaults={'repair_count': 0}
-            )
-            # Add 1 to count since this will be the next repair when completed
-            next_count = unit_repair_count.repair_count + 1
-            return self.calculate_cost(next_count)
+            from .services.pricing_service import get_expected_repair_cost
+            expected_cost, _ = get_expected_repair_cost(self.customer, self.unit_number)
+            return expected_cost
         return 0
 
     def has_price_override(self):
@@ -431,10 +558,11 @@ class TechnicianNotification(models.Model):
     read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     redemption = models.ForeignKey('rewards_referrals.RewardRedemption', on_delete=models.SET_NULL, null=True, blank=True)
-    
+    repair = models.ForeignKey('Repair', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+
     def __str__(self):
         return f"Notification for {self.technician.user.username}: {self.message[:30]}..."
-    
+
     class Meta:
         ordering = ['-created_at']
 

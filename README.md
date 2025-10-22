@@ -407,12 +407,21 @@ ADMIN_PASSWORD=secure-password
 
 ## 📚 Documentation
 
-Comprehensive documentation is available in the `/docs` directory:
+Professional documentation organized by role and purpose in the [`/docs`](docs/) directory:
 
-- **[Testing Guide](docs/TESTING.md)**: Complete testing procedures and automation
-- **[Developer Guide](docs/DEVELOPER_GUIDE.md)**: Technical implementation and architecture
-- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)**: Common issues and solutions
-- **[Changelog](docs/CHANGELOG.md)**: Version history and recent improvements
+### Quick Links
+- **[Documentation Index](docs/README.md)** - Complete documentation guide
+- **[User Guides](docs/user-guides/)** - Admin, Technician, and Customer guides
+- **[Development Docs](docs/development/)** - Workflow, Testing, Changelog
+- **[Deployment](docs/deployment/)** - AWS deployment and production checklist
+- **[Security](docs/security/)** - Security overview and incident response
+
+### By Role
+- **Administrators**: [Admin Guide](docs/user-guides/ADMIN_GUIDE.md) → Manage users, pricing, preferences
+- **Technicians**: [Technician Guide](docs/user-guides/TECHNICIAN_GUIDE.md) → Repair workflows, manager features
+- **Customers**: [Customer Guide](docs/user-guides/CUSTOMER_GUIDE.md) → Submit requests, approve repairs
+- **Developers**: [Workflow Implementation](docs/development/WORKFLOW_IMPLEMENTATION.md) → Sprint tracking, implementation
+- **DevOps**: [AWS Deployment](docs/deployment/AWS_DEPLOYMENT.md) → Production deployment guide
 
 ### Recent Improvements (v1.3.0)
 

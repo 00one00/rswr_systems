@@ -57,6 +57,7 @@
 
 
                     {% for field in form %}
+                    {% if field.field.widget.input_type != 'hidden' %}
                     <div>
                         <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                             {{ field.label }}
@@ -135,8 +136,9 @@
                         </div>
                         {% endif %}
                     </div>
+                    {% endif %}
                     {% endfor %}
-                    
+
                     {% if is_admin and technicians %}
                     <div>
                         <label for="technician_id" class="block text-sm font-medium text-gray-700 mb-1">
