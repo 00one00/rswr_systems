@@ -7,10 +7,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- **Customer Settings UI Enhancement** - Tabbed interface for account settings
+  - Modern tabbed layout with Personal Info, Repair Preferences, and Security sections
+  - Customer-facing repair preference configuration (previously admin-only)
+  - Lot walking service configuration with frequency and schedule preferences
+  - Dynamic form fields with JavaScript-based visibility controls
+- **Lot Walking Preferences** - New fields in CustomerRepairPreference model
+  - Enable/disable scheduled lot walking service
+  - Frequency options: Weekly, Bi-weekly, Monthly, Quarterly
+  - Preferred time configuration
+  - Day-of-week selection (stored in JSONField)
+- **Django Forms Layer** - New `apps/customer_portal/forms.py`
+  - RepairPreferenceForm using Django ModelForm pattern
+  - Custom save() method for JSONField handling
+  - Widget customization for better UX
 - Comprehensive testing documentation (`docs/TESTING.md`)
 - Developer guide with system architecture details (`docs/DEVELOPER_GUIDE.md`)
 - Troubleshooting guide for common issues (`docs/TROUBLESHOOTING.md`)
 - Professional documentation structure with clear navigation
+
+### Changed
+- **Account Settings View** - Enhanced with repair preference management
+  - Implemented get_or_create() pattern for CustomerRepairPreference
+  - Added form validation and error handling
+  - Integrated repair preference form with existing user settings
+- **Account Settings Template** - Complete redesign with Bootstrap tabs
+  - Responsive tabbed interface
+  - JavaScript-based conditional field visibility
+  - Improved user experience with contextual help text
+
+### Technical Details
+- **Migration**: `customer_portal.0005_customerrepairpreference_lot_walking_days_and_more`
+- **New Files**:
+  - `apps/customer_portal/forms.py`
+- **Modified Files**:
+  - `apps/customer_portal/models.py` - CustomerRepairPreference model extended
+  - `apps/customer_portal/views.py` - account_settings view enhanced
+  - `templates/customer_portal/account_settings.html` - Complete redesign
 
 ## [1.2.0] - 2025-08-02
 

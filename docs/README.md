@@ -6,6 +6,14 @@ Welcome to the comprehensive documentation for the RS Systems windshield repair 
 
 ### Essential Guides
 
+#### 🎨 [UI Design Guide](development/UI_DESIGN_GUIDE.md)
+**Design system and UI component library**
+- Complete design system (colors, typography, spacing)
+- Reusable UI components and patterns
+- Form patterns and interactive elements
+- Code examples and best practices
+- Migration guide for updating existing pages
+
 #### 🧪 [Testing Guide](TESTING.md)
 **Complete testing procedures and automation**
 - Automated end-to-end testing with `test_system_flow`
@@ -90,6 +98,7 @@ Keep your populated deployment guides in a secure location outside of this repos
 
 #### **Developers**
 - **Getting Started**: Main README.md → [Developer Guide](DEVELOPER_GUIDE.md)
+- **UI Development**: [UI Design Guide](development/UI_DESIGN_GUIDE.md) → Components & Patterns
 - **Code Standards**: [Developer Guide](DEVELOPER_GUIDE.md) → Code Organization
 - **API Development**: [Developer Guide](DEVELOPER_GUIDE.md) → API Development
 - **Debugging**: [Troubleshooting Guide](TROUBLESHOOTING.md)

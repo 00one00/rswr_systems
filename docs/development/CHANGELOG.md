@@ -12,6 +12,39 @@ All notable changes to the RS Systems windshield repair management platform.
 
 ---
 
+## [1.5.0] - October 25, 2025
+
+### 🎨 MAJOR UI/UX REDESIGN
+
+#### Changed
+- **Customer Account Settings Complete Redesign**: Transformed from cluttered Bootstrap forms to professional Tailwind CSS interface
+  - **Card-based Layout**: Each section in visually separated cards with color-coded icon badges
+  - **Tooltip System**: All help text converted to hover tooltips, reducing clutter by ~60%
+  - **Tab Navigation**: Custom-styled tabs with smooth transitions and icons
+  - **Better Visual Hierarchy**: Icons, improved typography, consistent spacing throughout
+  - **Responsive Design**: Mobile-friendly grid layouts and touch-friendly spacing
+  - **Interactive Enhancements**: Smooth animations for show/hide sections, hover states, focus rings
+  - Location: `templates/customer_portal/account_settings.html`
+
+#### Added
+- **UI Design Guide**: Comprehensive documentation for maintaining consistent design across the system
+  - Complete design system (colors, typography, spacing)
+  - Reusable component library with code examples
+  - Form patterns and interactive elements
+  - Migration guide for updating existing pages
+  - Icon usage guidelines and best practices
+  - Location: `docs/development/UI_DESIGN_GUIDE.md`
+
+#### Technical Details
+- Replaced Bootstrap with Tailwind CSS for modern utility-first approach
+- Implemented custom tooltip component with hover interactions
+- Added conditional section animations with smooth transitions
+- Enhanced tab switching with visual feedback
+- Color-coded sections: Blue (personal), Yellow (approvals), Green (scheduling), Red (security)
+- Professional form styling with focus states and validation feedback
+
+---
+
 ## [1.4.0] - October 21, 2025
 
 ### 🚨 CRITICAL SECURITY FIXES

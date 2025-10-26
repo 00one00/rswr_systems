@@ -13,10 +13,93 @@ from django.db import transaction
 import logging
 logger = logging.getLogger(__name__)
 
-class TechnicianForm(forms.ModelForm):
-    class Meta:
-        model = Technician
-        fields = ['phone_number', 'expertise']
+class TechnicianForm(forms.Form):
+    """
+    Form for technicians to update their profile.
+    Combines User and Technician model fields.
+    Expertise is read-only (only admins can change it).
+    """
+    # User fields (editable)
+    first_name = forms.CharField(max_length=30, required=True)
+    last_name = forms.CharField(max_length=30, required=True)
+    email = forms.EmailField(required=True)
+    username = forms.CharField(max_length=150, required=True)
+
+    # Technician fields (editable)
+    phone_number = forms.CharField(max_length=15, required=False)
+
+    # Password fields (optional)
+    password1 = forms.CharField(
+        label="New Password",
+        widget=forms.PasswordInput,
+        required=False,
+        help_text="Leave blank if you don't want to change your password."
+    )
+    password2 = forms.CharField(
+        label="Confirm New Password",
+        widget=forms.PasswordInput,
+        required=False
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        self.technician = kwargs.pop('technician', None)
+        super().__init__(*args, **kwargs)
+
+        # Pre-populate fields if instances provided
+        if self.user and not kwargs.get('data'):
+            self.fields['first_name'].initial = self.user.first_name
+            self.fields['last_name'].initial = self.user.last_name
+            self.fields['email'].initial = self.user.email
+            self.fields['username'].initial = self.user.username
+
+        if self.technician and not kwargs.get('data'):
+            self.fields['phone_number'].initial = self.technician.phone_number
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        # Check if username is taken by another user
+        if self.user:
+            if User.objects.filter(username=username).exclude(pk=self.user.pk).exists():
+                raise forms.ValidationError("This username is already taken.")
+        return username
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
+
+        # If password fields are provided, validate they match
+        if password1 or password2:
+            if password1 != password2:
+                raise forms.ValidationError("Passwords don't match.")
+            if password1 and len(password1) < 8:
+                raise forms.ValidationError("Password must be at least 8 characters long.")
+
+        return cleaned_data
+
+    def save(self):
+        """Save both User and Technician data"""
+        if not self.user or not self.technician:
+            raise ValueError("User and Technician instances required")
+
+        # Update User fields
+        self.user.first_name = self.cleaned_data['first_name']
+        self.user.last_name = self.cleaned_data['last_name']
+        self.user.email = self.cleaned_data['email']
+        self.user.username = self.cleaned_data['username']
+
+        # Update password if provided
+        if self.cleaned_data.get('password1'):
+            self.user.set_password(self.cleaned_data['password1'])
+
+        self.user.save()
+
+        # Update Technician fields
+        self.technician.phone_number = self.cleaned_data['phone_number']
+        self.technician.save()
+
+        return self.user
 
 
 class TechnicianRegistrationForm(UserCreationForm):

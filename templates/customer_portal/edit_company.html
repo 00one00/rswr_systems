@@ -1,75 +1,170 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Company Information - RS Systems{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white py-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h3 class="mb-0">Edit Company Information</h3>
-                        <a href="{% url 'customer_dashboard' %}" class="btn btn-sm btn-outline-light">Back to Dashboard</a>
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Page Header -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Company Information</h1>
+                    <p class="text-gray-600 mt-1">Manage your company profile and contact details</p>
+                </div>
+                <a href="{% url 'customer_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="mb-6 space-y-4">
+            {% for message in messages %}
+            <div class="bg-{% if message.tags == 'error' %}red-50 border-l-4 border-red-400{% elif message.tags == 'success' %}green-50 border-l-4 border-green-400{% else %}blue-50 border-l-4 border-blue-400{% endif %} p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle text-red-400{% elif message.tags == 'success' %}check-circle text-green-400{% else %}info-circle text-blue-400{% endif %}"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm {% if message.tags == 'error' %}text-red-700{% elif message.tags == 'success' %}text-green-700{% else %}text-blue-700{% endif %}">{{ message }}</p>
                     </div>
                 </div>
-                <div class="card-body p-4">
-                    {% if messages %}
-                    <div class="messages mb-4">
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }}">
-                            {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Main Form Card -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <form method="post">
+                {% csrf_token %}
+
+                <!-- Company Details Section -->
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="bg-blue-100 text-blue-600 p-2 rounded-lg">
+                            <i class="fas fa-building text-xl"></i>
                         </div>
-                        {% endfor %}
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Company Details</h3>
+                            <p class="text-sm text-gray-600">Basic information about your organization</p>
+                        </div>
                     </div>
-                    {% endif %}
-                    
-                    <form method="post">
-                        {% csrf_token %}
-                        
-                        <div class="mb-3">
-                            <label for="name" class="form-label">Company Name</label>
-                            <input type="text" class="form-control" id="name" name="name" value="{{ customer.name|title }}" required>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label for="name" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-briefcase text-gray-400"></i>
+                                Company Name
+                            </label>
+                            <input type="text" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" id="name" name="name" value="{{ customer.name|title }}" required>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" value="{{ customer.email }}">
+
+                        <div>
+                            <label for="email" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-envelope text-gray-400"></i>
+                                Company Email
+                            </label>
+                            <input type="email" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" id="email" name="email" value="{{ customer.email }}" placeholder="company@example.com">
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="phone" class="form-label">Phone</label>
-                            <input type="text" class="form-control" id="phone" name="phone" value="{{ customer.phone }}">
+
+                        <div>
+                            <label for="phone" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-phone text-gray-400"></i>
+                                Company Phone
+                            </label>
+                            <input type="text" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" id="phone" name="phone" value="{{ customer.phone }}" placeholder="(555) 123-4567">
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="address" class="form-label">Address</label>
-                            <textarea class="form-control" id="address" name="address" rows="2">{{ customer.address }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Address Section -->
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="bg-green-100 text-green-600 p-2 rounded-lg">
+                            <i class="fas fa-map-marker-alt text-xl"></i>
                         </div>
-                        
-                        <div class="row">
-                            <div class="col-md-5 mb-3">
-                                <label for="city" class="form-label">City</label>
-                                <input type="text" class="form-control" id="city" name="city" value="{{ customer.city }}">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Company Address</h3>
+                            <p class="text-sm text-gray-600">Physical location and mailing address</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label for="address" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-home text-gray-400"></i>
+                                Street Address
+                            </label>
+                            <textarea class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100" id="address" name="address" rows="2" placeholder="Enter street address">{{ customer.address }}</textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-2">
+                                <label for="city" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-city text-gray-400"></i>
+                                    City
+                                </label>
+                                <input type="text" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100" id="city" name="city" value="{{ customer.city }}" placeholder="City name">
                             </div>
-                            
-                            <div class="col-md-4 mb-3">
-                                <label for="state" class="form-label">State</label>
-                                <input type="text" class="form-control" id="state" name="state" value="{{ customer.state }}">
-                            </div>
-                            
-                            <div class="col-md-3 mb-3">
-                                <label for="zip_code" class="form-label">ZIP Code</label>
-                                <input type="text" class="form-control" id="zip_code" name="zip_code" value="{{ customer.zip_code }}">
+
+                            <div>
+                                <label for="state" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-flag text-gray-400"></i>
+                                    State
+                                </label>
+                                <input type="text" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100" id="state" name="state" value="{{ customer.state }}" placeholder="State" maxlength="2">
                             </div>
                         </div>
-                        
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                            <a href="{% url 'customer_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="zip_code" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-mail-bulk text-gray-400"></i>
+                                    ZIP Code
+                                </label>
+                                <input type="text" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100" id="zip_code" name="zip_code" value="{{ customer.zip_code }}" placeholder="12345">
+                            </div>
                         </div>
-                    </form>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="p-6 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                    <p class="text-sm text-gray-600">
+                        <i class="fas fa-info-circle text-gray-400 mr-1"></i>
+                        Changes will be visible to all users in your company
+                    </p>
+                    <div class="flex gap-3">
+                        <a href="{% url 'customer_dashboard' %}" class="inline-flex items-center px-5 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                            Cancel
+                        </a>
+                        <button type="submit" class="inline-flex items-center px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm">
+                            <i class="fas fa-save mr-2"></i>
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Help Note -->
+        <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex gap-3">
+                <i class="fas fa-lightbulb text-blue-600 mt-0.5"></i>
+                <div class="text-sm text-blue-900">
+                    <p class="font-medium">Note about company information</p>
+                    <p class="mt-1 text-blue-800">This information is shared across all users in your organization. Make sure to keep it up to date for accurate reporting and communication.</p>
                 </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}

@@ -35,6 +35,13 @@ class CustomerRepairPreference(models.Model):
         ('UNIT_THRESHOLD', 'Auto-approve up to unit threshold per visit'),
     ]
 
+    LOT_WALKING_FREQUENCY_CHOICES = [
+        ('WEEKLY', 'Weekly'),
+        ('BIWEEKLY', 'Bi-weekly (Every 2 weeks)'),
+        ('MONTHLY', 'Monthly'),
+        ('QUARTERLY', 'Quarterly (Every 3 months)'),
+    ]
+
     customer = models.OneToOneField(Customer, on_delete=models.CASCADE, related_name='repair_preferences')
 
     # Field repair approval workflow
@@ -49,6 +56,33 @@ class CustomerRepairPreference(models.Model):
     units_per_visit_threshold = models.IntegerField(
         default=5,
         help_text="Max number of units technician can repair per visit without approval (only applies in Unit Threshold mode)"
+    )
+
+    # Lot walking service configuration
+    lot_walking_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable scheduled lot walking service for this customer"
+    )
+
+    lot_walking_frequency = models.CharField(
+        max_length=20,
+        choices=LOT_WALKING_FREQUENCY_CHOICES,
+        default='WEEKLY',
+        blank=True,
+        null=True,
+        help_text="How often should technicians walk your lot?"
+    )
+
+    lot_walking_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="Preferred time for lot walking (e.g., 9:00 AM)"
+    )
+
+    lot_walking_days = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Preferred days of week for lot walking (stored as list)"
     )
 
     # Tracking

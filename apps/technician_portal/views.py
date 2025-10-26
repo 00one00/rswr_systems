@@ -561,15 +561,27 @@ def update_queue_status(request, repair_id):
 @technician_required
 def update_technician_profile(request):
     technician = get_object_or_404(Technician, user=request.user)
+
     if request.method == 'POST':
-        form = TechnicianForm(request.POST, instance=technician)
+        form = TechnicianForm(request.POST, user=request.user, technician=technician)
         if form.is_valid():
             form.save()
             messages.success(request, 'Profile updated successfully.')
+
+            # If password was changed, update session to prevent logout
+            if form.cleaned_data.get('password1'):
+                from django.contrib.auth import update_session_auth_hash
+                update_session_auth_hash(request, request.user)
+                messages.info(request, 'Your password has been changed successfully.')
+
             return redirect('technician_dashboard')
     else:
-        form = TechnicianForm(instance=technician)
-    return render(request, 'technician_portal/update_profile.html', {'form': form})
+        form = TechnicianForm(user=request.user, technician=technician)
+
+    return render(request, 'technician_portal/update_profile.html', {
+        'form': form,
+        'technician': technician
+    })
 
 @admin_required
 def create_customer(request):

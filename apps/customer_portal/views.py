@@ -2,6 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from core.models import Customer
 from apps.technician_portal.models import Repair, UnitRepairCount
+from .forms import RepairPreferenceForm
+from .models import CustomerRepairPreference
 from .models import CustomerUser, RepairApproval
 from django.contrib import messages
 from django.contrib.auth.models import User
@@ -650,14 +652,30 @@ def account_settings(request):
     try:
         customer_user = CustomerUser.objects.get(user=request.user)
         user = request.user
-        
+        customer = customer_user.customer
+
+        # Get or create the customer's repair preferences
+        repair_prefs, created = CustomerRepairPreference.objects.get_or_create(
+            customer=customer,
+            defaults={
+                'field_repair_approval_mode': 'REQUIRE_APPROVAL',
+                'units_per_visit_threshold': 5,
+            }
+        )
+
         if request.method == 'POST':
+            # Handle repair preference form
+            repair_form = RepairPreferenceForm(request.POST, instance=repair_prefs)
+            if repair_form.is_valid():
+                repair_form.save()
+                messages.success(request, "Repair preferences updated successfully!")
+
             # Update user information
             first_name = request.POST.get('first_name', '')
             last_name = request.POST.get('last_name', '')
             email = request.POST.get('email', '')
             is_primary_contact = request.POST.get('is_primary_contact') == 'on'
-            
+
             # Update password if provided
             current_password = request.POST.get('current_password', '')
             new_password = request.POST.get('new_password', '')
@@ -667,8 +685,10 @@ def account_settings(request):
             if email and email != user.email:
                 if User.objects.filter(email=email).exclude(id=user.id).exists():
                     messages.error(request, "This email is already in use by another account.")
+                    repair_form = RepairPreferenceForm(instance=repair_prefs)
                     return render(request, 'customer_portal/account_settings.html', {
-                        'customer_user': customer_user
+                        'customer_user': customer_user,
+                        'repair_form': repair_form,
                     })
                 user.email = email
             
@@ -679,20 +699,26 @@ def account_settings(request):
             if current_password and new_password and confirm_password:
                 if not user.check_password(current_password):
                     messages.error(request, "Current password is incorrect.")
+                    repair_form = RepairPreferenceForm(instance=repair_prefs)
                     return render(request, 'customer_portal/account_settings.html', {
-                        'customer_user': customer_user
+                        'customer_user': customer_user,
+                        'repair_form': repair_form,
                     })
-                
+
                 if new_password != confirm_password:
                     messages.error(request, "New passwords don't match.")
+                    repair_form = RepairPreferenceForm(instance=repair_prefs)
                     return render(request, 'customer_portal/account_settings.html', {
-                        'customer_user': customer_user
+                        'customer_user': customer_user,
+                        'repair_form': repair_form,
                     })
-                
+
                 if len(new_password) < 8:
                     messages.error(request, "Password must be at least 8 characters long.")
+                    repair_form = RepairPreferenceForm(instance=repair_prefs)
                     return render(request, 'customer_portal/account_settings.html', {
-                        'customer_user': customer_user
+                        'customer_user': customer_user,
+                        'repair_form': repair_form,
                     })
                 
                 user.set_password(new_password)
@@ -708,10 +734,14 @@ def account_settings(request):
                 return redirect('customer_dashboard')
             except Exception as e:
                 messages.error(request, f"Error updating account: {str(e)}")
-        
+
+        # Create form instance for GET requests
+        repair_form = RepairPreferenceForm(instance=repair_prefs)
+
         # Render the account settings form
         return render(request, 'customer_portal/account_settings.html', {
-            'customer_user': customer_user
+            'customer_user': customer_user,
+            'repair_form': repair_form,
         })
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")
