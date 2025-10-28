@@ -219,9 +219,217 @@ Good for:
 
 ### Changing Your Settings
 
-*Currently admin-only. Contact support to change your approval mode.*
+✅ **Now Available**: Self-service settings in Account Settings → Repair Preferences tab
 
-**Future**: Self-service settings in Account Settings section.
+```
+1. Go to Account Settings
+2. Click "Repair Preferences" tab
+3. Select your approval mode:
+   - Auto-Approve All
+   - Require Approval
+   - Unit Threshold (set your limit)
+4. Save changes
+```
+
+---
+
+## Lot Walking Service Settings
+
+Configure scheduled lot walking service where technicians proactively inspect your fleet.
+
+### What is Lot Walking?
+
+Lot walking is a proactive inspection service where technicians visit your location on a regular schedule to:
+- Inspect all vehicles for windshield damage
+- Identify issues before they become urgent
+- Repair damage immediately (subject to your approval settings)
+- Provide inspection reports
+
+**Benefits**:
+- Catch small chips before they crack
+- Reduce emergency repairs
+- Keep fleet windshields in compliance
+- Preventive maintenance approach
+
+### Configuring Lot Walking Preferences
+
+**Access Settings**:
+```
+1. Go to Account Settings
+2. Click "Repair Preferences" tab
+3. Scroll to "Lot Walking Schedule" section
+```
+
+**Enable Service**:
+```
+☑ Enable Lot Walking Service
+```
+Check this box to enable scheduled lot walking for your fleet.
+
+**Set Frequency**:
+Choose how often you want technicians to inspect your lot:
+- **Weekly**: Every week (best for large fleets or high-damage environments)
+- **Bi-weekly**: Every 2 weeks (balanced approach)
+- **Monthly**: Once per month (smaller fleets)
+- **Quarterly**: Every 3 months (seasonal inspections)
+
+**Choose Preferred Days**:
+Select which days work best for your operation:
+```
+☑ Monday
+☑ Wednesday
+☑ Friday
+```
+You can select multiple days. The system will use these preferences when scheduling.
+
+**Set Preferred Time**:
+```
+Preferred Time: [09:00 AM]
+```
+Choose the time that works best for your operation (e.g., early morning before fleet goes out).
+
+### How It Works
+
+**Configuration Process**:
+```
+1. You enable lot walking and set preferences
+2. Save your settings
+3. Your preferences are stored in the system
+4. Contact support to coordinate initial lot walk schedule
+5. Technician performs lot walk on agreed schedule
+6. Repairs handled per your approval settings
+7. You receive summary report
+```
+
+**Current Implementation Status**:
+> ⚠️ **Note**: The automatic scheduling system is in development. Your preferences are saved, but you'll need to contact support to arrange lot walks based on your saved settings. The automated scheduler that uses these preferences will be implemented in a future release.
+
+### Lot Walking + Approval Settings
+
+Lot walking works together with your field repair approval mode:
+
+**If You Have "Auto-Approve All"**:
+```
+Technician walks your lot
+    ↓
+Finds damage on 5 units
+    ↓
+Creates repairs (auto-approved)
+    ↓
+Completes all 5 repairs immediately
+    ↓
+You get summary: "5 repairs completed during lot walk"
+```
+
+**If You Have "Require Approval"**:
+```
+Technician walks your lot
+    ↓
+Finds damage on 5 units
+    ↓
+Creates repair requests (PENDING)
+    ↓
+You see yellow alerts on dashboard
+    ↓
+You review and approve each one
+    ↓
+Technician completes approved repairs
+```
+
+**If You Have "Unit Threshold" (e.g., 3 units)**:
+```
+Technician walks your lot
+    ↓
+Finds damage on 5 units
+    ↓
+First 3 units: Auto-approved & repaired
+Next 2 units: Require your approval
+    ↓
+You approve the additional 2 units
+    ↓
+Technician completes all repairs
+```
+
+### Example Configurations
+
+**Large Fleet (100+ vehicles)**:
+```
+Enable Lot Walking: ☑ Yes
+Frequency: Weekly
+Days: Monday, Wednesday, Friday
+Time: 6:00 AM (before fleet departs)
+Approval Mode: Unit Threshold (10 units)
+
+Result: Tech inspects lot 3x/week at 6 AM,
+        auto-approves first 10 units,
+        you approve any additional
+```
+
+**Small Fleet (20-30 vehicles)**:
+```
+Enable Lot Walking: ☑ Yes
+Frequency: Monthly
+Days: First Monday of month
+Time: 9:00 AM
+Approval Mode: Auto-Approve All
+
+Result: Tech inspects once per month,
+        fixes everything found,
+        you get monthly report
+```
+
+**Budget-Conscious Operation**:
+```
+Enable Lot Walking: ☑ Yes
+Frequency: Quarterly
+Days: Tuesday
+Time: 10:00 AM
+Approval Mode: Require Approval
+
+Result: Tech inspects every 3 months,
+        you review and approve each repair,
+        tight cost control
+```
+
+### Modifying Your Settings
+
+You can change your lot walking preferences anytime:
+```
+1. Go to Account Settings
+2. Click "Repair Preferences" tab
+3. Update your preferences
+4. Save changes
+5. Contact support to update scheduled lot walks
+```
+
+**Settings You Can Change**:
+- Enable/disable lot walking
+- Change frequency
+- Update preferred days
+- Change preferred time
+- Modify approval mode
+
+### Best Practices
+
+✓ **Choose frequency based on your fleet size and environment**
+  - High-damage areas (construction zones): Weekly
+  - Normal operations: Bi-weekly or Monthly
+  - Low-risk fleets: Quarterly
+
+✓ **Coordinate time with your operations**
+  - Before fleet departs: Early morning (6-7 AM)
+  - During normal hours: Mid-morning (9-10 AM)
+  - Avoid peak operational times
+
+✓ **Match approval mode to your needs**
+  - Trust your tech: Auto-Approve All
+  - Need cost control: Require Approval
+  - Want balance: Unit Threshold
+
+✓ **Review lot walk reports**
+  - Track damage patterns
+  - Identify high-risk units
+  - Adjust frequency if needed
 
 ---
 

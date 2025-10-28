@@ -27,6 +27,14 @@ All notable changes to the RS Systems windshield repair management platform.
   - Location: `templates/customer_portal/account_settings.html`
 
 #### Added
+- **Lot Walking Configuration UI**: Customer-facing settings for configuring lot walking service preferences
+  - **Scope**: Customer preferences and UI only - customers can configure when/how often they want lot walking
+  - **What's Included**: Enable/disable service, set frequency (weekly/bi-weekly/monthly/quarterly), choose preferred days, set preferred time
+  - **What's NOT Included**: Technician scheduling system that generates and manages lot walk schedules (planned for future release - see FUTURE_FEATURES.md)
+  - **Data Model**: `CustomerRepairPreference` model stores all settings in database
+  - **UI Location**: Customer portal → Account Settings → Repair Preferences tab → Lot Walking Schedule section
+  - **Current Limitation**: Preferences are saved but scheduling automation not yet implemented - contact support to arrange lot walks
+
 - **UI Design Guide**: Comprehensive documentation for maintaining consistent design across the system
   - Complete design system (colors, typography, spacing)
   - Reusable component library with code examples

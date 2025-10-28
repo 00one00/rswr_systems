@@ -9,8 +9,9 @@
 
 ### Customer Settings UI & Repair Preferences ✅ COMPLETED October 25, 2025
 **What**: Improved account settings page with repair preference controls and lot walking configuration
-**Status**: ✅ Implemented and tested
+**Status**: ✅ Implemented and tested (Customer-facing preferences UI only)
 **Completed**: October 25, 2025
+**Note**: This is the customer-facing configuration UI where customers set their lot walking preferences. The technician-side scheduling system that USES these preferences is a separate future feature (see below).
 
 **What Was Delivered**:
 1. ✅ Redesigned `templates/customer_portal/account_settings.html` with modern tabbed interface:
@@ -57,6 +58,121 @@
 ---
 
 ## 🎯 IMMEDIATE NEXT STEPS (Start Here Next Session)
+
+### Lot Walking Scheduler Implementation (Technician-Side)
+**Effort**: 4-5 days
+**Priority**: HIGH - Customer UI is complete, need backend scheduling
+**Status**:
+- ✅ Customer preferences UI complete (customers can configure settings)
+- ❌ Scheduling system not implemented (preferences are stored but not used)
+- ❌ Technician interface not implemented
+
+**Current State**:
+- `apps/scheduling/` app exists but ALL files are empty (0 lines of code)
+- `CustomerRepairPreference` model stores: `lot_walking_enabled`, `lot_walking_frequency`, `lot_walking_time`, `lot_walking_days`
+- Data is saved to database but no code reads/uses these preferences yet
+
+**What Needs Implementation**:
+
+**1. Scheduling App Models** (`apps/scheduling/models.py` - currently empty):
+```python
+class LotWalkSchedule(models.Model):
+    customer = models.ForeignKey(Customer)
+    technician = models.ForeignKey(Technician)
+    scheduled_date = models.DateField()
+    scheduled_time = models.TimeField()
+    frequency = models.CharField()  # Mirrors customer preference
+    status = models.CharField(choices=['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'])
+    created_from_preference = models.BooleanField(default=True)
+    notes = models.TextField()
+
+class LotWalkRoute(models.Model):
+    schedule = models.ForeignKey(LotWalkSchedule)
+    customer_order = models.IntegerField()  # Route sequence
+    estimated_duration = models.DurationField()
+    actual_start_time = models.DateTimeField()
+    actual_end_time = models.DateTimeField()
+```
+
+**2. Schedule Generation Service** (`apps/scheduling/services.py` - currently empty):
+```python
+class LotWalkScheduler:
+    def generate_schedules_from_preferences():
+        # Read all CustomerRepairPreference with lot_walking_enabled=True
+        # For each preference:
+        #   - Calculate next schedule date based on frequency
+        #   - Match to available days (lot_walking_days)
+        #   - Create LotWalkSchedule records
+        #   - Assign to available technicians
+
+    def assign_technician_to_schedule():
+        # Smart assignment based on:
+        #   - Technician availability (working_hours)
+        #   - Geographic proximity
+        #   - Current workload
+        #   - Customer preferred_technicians
+```
+
+**3. Technician Calendar View** (new):
+- File: `templates/technician_portal/lot_walk_calendar.html`
+- View: `apps/scheduling/views.py` (currently empty)
+- Features:
+  - Calendar display (day/week/month views)
+  - Show scheduled lot walks with customer names
+  - Click to see lot walk details
+  - Mark as started/completed
+  - Add ad-hoc lot walks
+
+**4. Mobile Lot Walking Interface**:
+- Route list for technicians (ordered by location)
+- GPS integration for navigation
+- Quick repair creation during lot walk (auto-tags as lot walk repair)
+- Checklist of customers on route
+- Mark each customer inspection complete
+- Summary report generation
+
+**5. Notification System**:
+- Technician: "You have a lot walk scheduled for [Customer] tomorrow at [Time]"
+- Technician: Morning reminder on day of lot walk
+- Customer: "Technician [Name] is starting your lot walk"
+- Customer: "Lot walk complete - [X] repairs found" (with approval links if needed)
+
+**6. Management Commands** (for automation):
+```bash
+python manage.py generate_lot_walk_schedules  # Run daily via cron
+python manage.py send_lot_walk_reminders      # Run in morning
+```
+
+**7. Integration with Existing Repair Workflow**:
+- When technician creates repair during lot walk, tag with lot_walk_schedule_id
+- Apply customer's field_repair_approval_mode automatically
+- Group repairs from same lot walk visit for reporting
+- Link repairs to lot walk schedule for tracking
+
+**Files to Create/Modify**:
+- `apps/scheduling/models.py` (currently 0 lines) - Add Schedule models
+- `apps/scheduling/services.py` (currently 0 lines) - Add scheduler service
+- `apps/scheduling/views.py` (currently 0 lines) - Add calendar views
+- `apps/scheduling/urls.py` (currently 0 lines) - Add URL routes
+- `templates/technician_portal/lot_walk_calendar.html` - NEW
+- `templates/technician_portal/lot_walk_route.html` - NEW
+- `core/management/commands/generate_lot_walk_schedules.py` - NEW
+- `core/management/commands/send_lot_walk_reminders.py` - NEW
+
+**Testing Checklist**:
+- [ ] Customer preferences automatically generate schedules
+- [ ] Schedules respect customer's selected days/times
+- [ ] Technicians see schedules in calendar view
+- [ ] Technicians receive notifications before lot walks
+- [ ] Repairs created during lot walk are properly tagged
+- [ ] Lot walk completion updates schedule status
+- [ ] Route optimization works for multiple customers
+
+**Dependencies**:
+- ✅ CustomerRepairPreference model (complete)
+- ❌ Scheduling app buildout (empty)
+- ❌ Enhanced notification system
+- ❌ Mobile interface improvements
 
 ---
 

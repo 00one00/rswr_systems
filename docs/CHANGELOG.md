@@ -10,13 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Customer Settings UI Enhancement** - Tabbed interface for account settings
   - Modern tabbed layout with Personal Info, Repair Preferences, and Security sections
   - Customer-facing repair preference configuration (previously admin-only)
-  - Lot walking service configuration with frequency and schedule preferences
+  - Lot walking service configuration with frequency and schedule preferences (UI only - see note below)
   - Dynamic form fields with JavaScript-based visibility controls
 - **Lot Walking Preferences** - New fields in CustomerRepairPreference model
-  - Enable/disable scheduled lot walking service
-  - Frequency options: Weekly, Bi-weekly, Monthly, Quarterly
-  - Preferred time configuration
-  - Day-of-week selection (stored in JSONField)
+  - **Scope**: Customer preferences and UI only - customers can configure when/how often they want lot walking
+  - **What's Included**: Enable/disable service, set frequency (weekly/bi-weekly/monthly/quarterly), choose preferred days, set preferred time
+  - **What's NOT Included**: Technician scheduling system that generates and manages lot walk schedules (planned for future release - see `docs/development/FUTURE_FEATURES.md`)
+  - **Data Storage**: All preferences saved to CustomerRepairPreference model (JSONField for days)
+  - **Current Limitation**: Preferences are saved but scheduling automation not yet implemented - `apps/scheduling/` app exists but is empty (0 lines of code)
 - **Django Forms Layer** - New `apps/customer_portal/forms.py`
   - RepairPreferenceForm using Django ModelForm pattern
   - Custom save() method for JSONField handling

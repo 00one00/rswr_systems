@@ -320,38 +320,66 @@ Streamline repair workflow to single approval with upfront pricing.
 
 ---
 
-### Phase 2.3: Lot Walking Implementation
-**Duration**: 2 days | **Complexity**: Medium | **Files**: 4-5
+### Phase 2.3: Lot Walking Scheduler Implementation (Technician-Side)
+**Duration**: 4-5 days | **Complexity**: Medium-High | **Files**: 8-10
+**Status**: Customer preferences UI complete ✅ | Scheduling system not implemented ❌
 
 #### Objective
-Implement lot walking with auto-approval and batch processing.
+Implement technician-side lot walking scheduler that USES customer preferences to generate and manage schedules.
 
-#### Tasks
-- [ ] Create `apps/scheduling/lot_walking_service.py`:
+#### What's Already Complete
+- [x] ✅ Customer preferences UI (`CustomerRepairPreference` model with lot walking fields)
+- [x] ✅ Customer can configure: frequency, days, time, enable/disable
+- [x] ✅ Data saved to database via account settings form
+- [x] ✅ Auto-approval logic already exists (field_repair_approval_mode)
+
+#### What Needs Implementation
+- [ ] Create `apps/scheduling/models.py` (currently empty - 0 lines):
+  - LotWalkSchedule model (customer, technician, scheduled_date, scheduled_time, status)
+  - LotWalkRoute model (schedule, customer_order, estimated_duration)
+
+- [ ] Create `apps/scheduling/services.py` (currently empty - 0 lines):
   ```python
-  class LotWalkingService:
-      def schedule_walks(self, customer):
-          # Generate schedule based on customer settings
+  class LotWalkScheduler:
+      def generate_schedules_from_preferences():
+          # Read CustomerRepairPreference where lot_walking_enabled=True
+          # Generate recurring schedules based on frequency
+          # Match to customer's selected days
+          # Assign to available technicians
 
-      def auto_approve_repair(self, repair, customer):
-          # Check auto-approval criteria
-          # Apply if within limits
-
-      def batch_invoice_repairs(self, repairs):
-          # Group repairs for single invoice
+      def assign_technician_to_schedule():
+          # Smart assignment based on availability, location, workload
   ```
-- [ ] Add lot walking views in technician portal
-- [ ] Create template for lot walking interface
-- [ ] Add auto-approval logic to repair creation
+
+- [ ] Create `apps/scheduling/views.py` (currently empty - 0 lines):
+  - Technician calendar view showing lot walk schedules
+  - Day/week/month calendar display
+  - Mark lot walk as started/completed
+
+- [ ] Create templates:
+  - `templates/technician_portal/lot_walk_calendar.html`
+  - `templates/technician_portal/lot_walk_route.html`
+
+- [ ] Create management commands:
+  - `core/management/commands/generate_lot_walk_schedules.py` (run daily)
+  - `core/management/commands/send_lot_walk_reminders.py` (run in morning)
+
+- [ ] Add lot walking notification system:
+  - Notify technicians 24hr before lot walk
+  - Morning reminders on day of lot walk
+  - Customer notifications when lot walk starts/completes
 
 #### Testing Checklist
-- [ ] Can schedule lot walks
-- [ ] Auto-approval works within limits
-- [ ] Batch invoicing groups repairs
-- [ ] Manual approval required when over limit
+- [ ] Customer preferences automatically generate schedules
+- [ ] Schedules respect customer's selected days/times/frequency
+- [ ] Technicians see lot walk schedules in calendar view
+- [ ] Technicians receive advance notifications
+- [ ] Repairs created during lot walk use customer's auto-approval settings
+- [ ] Lot walk completion updates schedule status
+- [ ] Route optimization for multiple customers
 
 #### Success Criteria
-✅ Lot walking with configurable auto-approval functional
+✅ Complete lot walking system where customer preferences drive automatic scheduling
 
 ---
 
