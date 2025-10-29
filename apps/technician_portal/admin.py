@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
@@ -30,7 +31,7 @@ class TechnicianAdmin(admin.ModelAdmin):
                 queryset = queryset.exclude(id=obj.id)
             form.base_fields['managed_technicians'].queryset = queryset
             # Use FilteredSelectMultiple for better UX with many technicians
-            form.base_fields['managed_technicians'].widget = forms.widgets.FilteredSelectMultiple('Managed Technicians', False)
+            form.base_fields['managed_technicians'].widget = FilteredSelectMultiple('Managed Technicians', False)
 
         return form
 
