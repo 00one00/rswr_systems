@@ -159,8 +159,9 @@ class RepairForm(forms.ModelForm):
     class Meta:
         model = Repair
         fields = ['technician', 'customer', 'unit_number', 'repair_date', 'queue_status', 'damage_type',
-                  'drilled_before_repair', 'windshield_temperature', 'resin_viscosity', 'damage_photo_before',
-                  'damage_photo_after', 'customer_notes', 'technician_notes', 'cost_override', 'override_reason']
+                  'drilled_before_repair', 'windshield_temperature', 'resin_viscosity', 'customer_submitted_photo',
+                  'damage_photo_before', 'damage_photo_after', 'customer_notes', 'technician_notes',
+                  'cost_override', 'override_reason']
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
@@ -200,7 +201,13 @@ class RepairForm(forms.ModelForm):
         if 'customer_notes' in self.fields:
             self.fields['customer_notes'].widget.attrs['readonly'] = True
             self.fields['customer_notes'].help_text = "Notes provided by the customer (read-only)"
-        
+
+        # Make customer_submitted_photo read-only (display only, cannot be edited/uploaded by technician)
+        if 'customer_submitted_photo' in self.fields:
+            self.fields['customer_submitted_photo'].widget.attrs['disabled'] = True
+            self.fields['customer_submitted_photo'].required = False
+            self.fields['customer_submitted_photo'].help_text = "Photo uploaded by customer with repair request (read-only)"
+
         # Add helpful labels for the note fields
         if 'technician_notes' in self.fields:
             self.fields['technician_notes'].help_text = "Add your internal notes about the repair process"
@@ -234,6 +241,33 @@ class RepairForm(forms.ModelForm):
         # If override reason is provided, cost_override should also be provided
         if override_reason and cost_override is None:
             self.add_error('cost_override', 'Please provide an override amount when specifying a reason.')
+
+        # Photo validation when completing a repair
+        if queue_status == 'COMPLETED':
+            # Check if after photo exists (from form upload or existing instance)
+            after_photo = cleaned_data.get('damage_photo_after')
+            has_existing_after_photo = self.instance.pk and self.instance.damage_photo_after
+
+            # Determine if user is a manager who can override photo requirement
+            is_manager = False
+            if hasattr(self, 'user'):
+                if self.user.is_staff:
+                    is_manager = True
+                elif hasattr(self.user, 'technician') and self.user.technician.is_manager:
+                    is_manager = True
+
+            # Require after photo for non-managers
+            if not is_manager and not after_photo and not has_existing_after_photo:
+                self.add_error('damage_photo_after', 'After photo is required to complete a repair. Managers can override if needed.')
+
+            # Soft warning for missing before photo (doesn't block submission)
+            before_photo = cleaned_data.get('damage_photo_before')
+            has_existing_before_photo = self.instance.pk and self.instance.damage_photo_before
+            if not before_photo and not has_existing_before_photo:
+                # Add a warning message (won't block form submission)
+                import warnings
+                from django.contrib import messages
+                logger.warning(f"Repair being completed without before photo. User: {self.user.username if hasattr(self, 'user') else 'Unknown'}")
 
         if customer and unit_number:
             existing_repairs = Repair.objects.filter(

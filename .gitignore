@@ -30,6 +30,11 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Media files (user-uploaded content - photos, documents, etc.)
+# These should be stored in cloud storage (S3) for production
+media/
+/media/
+
 # Environment variables and secrets
 .env
 .env.local

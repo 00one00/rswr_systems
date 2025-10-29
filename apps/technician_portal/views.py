@@ -278,14 +278,28 @@ def repair_detail(request, repair_id):
     can_reassign_to_self = False
     technician = None
 
+    # Get technician profile if available
+    if hasattr(request.user, 'technician'):
+        technician = request.user.technician
+
+        # AUTO-MARK NOTIFICATIONS AS READ when viewing repair (Hybrid approach)
+        # Mark any unread notifications about this repair as read when viewed
+        unread_notifications = TechnicianNotification.objects.filter(
+            technician=technician,
+            repair=repair,
+            read=False
+        )
+        if unread_notifications.exists():
+            unread_count = unread_notifications.count()
+            unread_notifications.update(read=True)
+            logger.info(f"Auto-marked {unread_count} notification(s) as read for technician {technician.user.username} viewing repair #{repair.id}")
+
     # For regular technicians
     if not request.user.is_staff:
         # Ensure user has a technician profile
-        if not hasattr(request.user, 'technician'):
+        if not technician:
             messages.error(request, "You don't have a technician profile to view repairs.")
             return redirect('technician_dashboard')
-
-        technician = request.user.technician
 
         # BLOCK all techs from viewing PENDING repairs (customer approval only)
         if repair.queue_status == 'PENDING':
@@ -440,8 +454,11 @@ def update_repair(request, repair_id):
         logger.info(f"UPDATE_REPAIR: Got repair #{repair.id}, technician_id={repair.technician_id}")
 
         # SECURITY: Check if repair is in a final/locked state
-        if repair.queue_status in ['COMPLETED', 'DENIED']:
-            messages.error(request, "This repair is closed and cannot be edited.")
+        # Allow managers to edit photos on completed repairs (for adding missing photos)
+        # Regular technicians cannot edit completed/denied repairs
+        user_is_manager = request.user.technician.is_manager if hasattr(request.user, 'technician') else False
+        if repair.queue_status in ['COMPLETED', 'DENIED'] and not user_is_manager:
+            messages.error(request, "This repair is closed and cannot be edited. Contact a manager if photos need to be added.")
             return redirect('repair_detail', repair_id=repair.id)
 
         # SECURITY: Check if technician is assigned to this repair
@@ -506,12 +523,37 @@ def update_repair(request, repair_id):
             logger.info(f"UPDATE_REPAIR: Save successful!")
             # Also save many-to-many fields if any exist
             form.save_m2m()
-            
+
             messages.success(request, "Repair has been updated successfully.")
             return redirect('repair_detail', repair_id=repair.id)
+        else:
+            # FORM VALIDATION FAILED - ensure error messages are clear
+            logger.warning(f"UPDATE_REPAIR: Form validation failed for repair #{repair.id}. Errors: {form.errors}")
+            logger.warning(f"UPDATE_REPAIR: Form data - customer: {request.POST.get('customer')}, unit_number: {request.POST.get('unit_number')}, status: {request.POST.get('queue_status')}")
+
+            # Add a user-friendly message about what went wrong
+            if form.errors:
+                # Check if the error is about missing after photo
+                if 'damage_photo_after' in form.errors:
+                    messages.error(request, "Please upload an after photo before completing the repair.")
+                else:
+                    # Generic error message
+                    messages.error(request, "Please correct the errors below and try again.")
+
+            # CRITICAL: Ensure the form instance still has the original repair data
+            # This prevents fields from being reset when validation fails
+            # The form is already bound with POST data, so it will show the submitted values
+            # But we need to ensure the instance maintains its original values for reference
     else:
         form = RepairForm(instance=repair, user=request.user)
-    
+
+        # Inform managers/admins when editing completed repairs (for photo additions)
+        if repair.queue_status == 'COMPLETED':
+            user_is_manager = (request.user.is_staff or
+                             (hasattr(request.user, 'technician') and request.user.technician.is_manager))
+            if user_is_manager:
+                messages.info(request, "You're editing a completed repair. You can add or update photos for documentation/AI training purposes.")
+
     # Calculate expected cost for the template
     expected_cost = repair.get_expected_price() if repair.customer and repair.unit_number else None
 
@@ -621,8 +663,22 @@ def update_queue_status(request, repair_id):
                             messages.warning(request, "Invalid custom price. Using automatic pricing.")
 
                 repair.save()
+
+                # AUTO-CLEANUP: Mark notifications as read when repair is completed
+                if new_status == 'COMPLETED' and repair.technician:
+                    # Mark all notifications related to this repair as read for the assigned technician
+                    completed_notifications = TechnicianNotification.objects.filter(
+                        technician=repair.technician,
+                        repair=repair,
+                        read=False
+                    )
+                    if completed_notifications.exists():
+                        completed_count = completed_notifications.count()
+                        completed_notifications.update(read=True)
+                        logger.info(f"Auto-marked {completed_count} notification(s) as read for technician {repair.technician.user.username} after completing repair #{repair.id}")
+
                 messages.success(request, f"Repair status updated to {repair.get_queue_status_display()}")
-                
+
     return redirect('repair_detail', repair_id=repair.id)
 
 @technician_required
@@ -983,7 +1039,18 @@ def reassign_to_self(request, repair_id):
 
             messages.success(request, f"Repair reassigned from {old_technician.user.get_full_name()} to you.")
 
-            # Create notification for the old technician
+            # AUTO-CLEANUP: Mark old technician's notifications as read since repair is no longer their responsibility
+            old_tech_notifications = TechnicianNotification.objects.filter(
+                technician=old_technician,
+                repair=repair,
+                read=False
+            )
+            if old_tech_notifications.exists():
+                reassign_count = old_tech_notifications.count()
+                old_tech_notifications.update(read=True)
+                logger.info(f"Auto-marked {reassign_count} notification(s) as read for technician {old_technician.user.username} after reassigning repair #{repair.id}")
+
+            # Create notification for the old technician about the reassignment
             TechnicianNotification.objects.create(
                 technician=old_technician,
                 message=f"Repair #{repair.id} for {repair.customer.name} - Unit {repair.unit_number} has been reassigned to {request.user.get_full_name()}",

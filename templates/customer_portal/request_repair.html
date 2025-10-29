@@ -28,7 +28,7 @@
         const fileDisplay = document.getElementById('selected-file');
         if (input.files && input.files[0]) {
             const file = input.files[0];
-            
+
             // Validate file size (5MB limit)
             if (file.size > 5 * 1024 * 1024) {
                 alert('File size must be less than 5MB. Please choose a smaller image.');
@@ -36,16 +36,24 @@
                 fileDisplay.classList.add('hidden');
                 return;
             }
-            
-            // Validate file type
-            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-            if (!allowedTypes.includes(file.type)) {
-                alert('Please upload a valid image file (JPEG, PNG, or WebP).');
+
+            // Validate file type - includes HEIC for iPhone photos
+            // Check both MIME type and file extension (some browsers report HEIC files with incorrect MIME types)
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+            const fileName = file.name.toLowerCase();
+            const fileExt = fileName.split('.').pop();
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+
+            const isValidType = allowedTypes.includes(file.type);
+            const isValidExtension = allowedExtensions.includes(fileExt);
+
+            if (!isValidType && !isValidExtension) {
+                alert('Please upload a valid image file (JPEG, PNG, WebP, or HEIC).');
                 input.value = '';
                 fileDisplay.classList.add('hidden');
                 return;
             }
-            
+
             fileDisplay.textContent = 'Selected: ' + file.name;
             fileDisplay.classList.remove('hidden');
         } else {
@@ -259,11 +267,11 @@
                                     </label>
                                     <p class="sm:pl-1 mt-1 sm:mt-0">or drag and drop</p>
                                 </div>
-                                <p class="text-xs text-gray-500">PNG, JPG, WebP up to 5MB</p>
+                                <p class="text-xs text-gray-500">PNG, JPG, WebP, HEIC up to 5MB</p>
                                 <p id="selected-file" class="text-sm text-blue-600 hidden break-words px-2"></p>
                             </div>
                         </div>
-                        <p class="mt-1 text-xs text-gray-500">A photo of the damage can help our technicians prepare for the repair.</p>
+                        <p class="mt-1 text-xs text-gray-500">A photo of the damage can help our technicians prepare for the repair. iPhone HEIC photos are supported.</p>
                     </div>
                     
                     <div class="flex flex-col sm:flex-row gap-3 pt-6">

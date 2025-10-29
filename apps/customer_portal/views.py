@@ -599,21 +599,17 @@ def request_repair(request):
             damage_type = request.POST.get('damage_type', '')
             damage_photo = request.FILES.get('damage_photo_before')
 
-            # Convert HEIC to JPEG for browser compatibility
-            if damage_photo:
-                damage_photo = convert_heic_to_jpeg(damage_photo)
-
             if not unit_number:
                 messages.error(request, "Unit number is required.")
                 return render(request, 'customer_portal/request_repair.html')
-            
+
             # Provide defaults for optional fields
             if not damage_type:
                 damage_type = "Unknown"
             if not description:
                 description = "Customer repair request - details to be determined by technician"
-            
-            # Validate photo if provided
+
+            # Validate photo if provided (BEFORE conversion)
             if damage_photo:
                 # Check file size (limit to 5MB)
                 if damage_photo.size > 5 * 1024 * 1024:
@@ -621,10 +617,21 @@ def request_repair(request):
                     return render(request, 'customer_portal/request_repair.html')
 
                 # Check file type - includes HEIC for iPhone photos
+                # Accept both standard and non-standard HEIC content types from different browsers
                 allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
-                if damage_photo.content_type not in allowed_types:
+                file_ext = damage_photo.name.lower().split('.')[-1] if '.' in damage_photo.name else ''
+
+                # Accept file if content_type is valid OR if file extension is valid (for HEIC files with wrong content_type)
+                is_valid_content_type = damage_photo.content_type in allowed_types
+                is_valid_extension = file_ext in ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+
+                if not (is_valid_content_type or is_valid_extension):
                     messages.error(request, "Please upload a valid image file (JPEG, PNG, WebP, or HEIC).")
                     return render(request, 'customer_portal/request_repair.html')
+
+            # Convert HEIC to JPEG for browser compatibility (AFTER validation)
+            if damage_photo:
+                damage_photo = convert_heic_to_jpeg(damage_photo)
             
             # Find an available technician using round-robin assignment
             # Get technicians ordered by their current repair load (ascending)
@@ -648,7 +655,7 @@ def request_repair(request):
                     unit_number=unit_number,
                     description=description,
                     damage_type=damage_type,
-                    damage_photo_before=damage_photo,
+                    customer_submitted_photo=damage_photo,  # Store in customer-specific field
                     customer_notes=description,  # Store customer's description in customer_notes field
                     queue_status='REQUESTED'  # Using a new status for customer-initiated requests
                 )

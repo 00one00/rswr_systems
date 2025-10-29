@@ -126,13 +126,48 @@ When you find damage during inspection:
 
 *Available only if you're designated as a manager*
 
-### Assigning Customer-Requested Repairs
+### Working Manager Capability
 
+As a manager, you have **two options** for handling customer-requested repairs:
+
+1. **Complete the repair yourself** - Accept and work on it like a regular technician
+2. **Assign to a team member** - Delegate to someone on your team
+
+This flexibility allows you to balance management duties with hands-on repair work.
+
+### Option 1: Accepting Repairs for Yourself
+
+**When viewing a REQUESTED repair**, you'll see:
+
+```
+[Accept Repair] [Assign to Technician]
+```
+
+**To complete it yourself**:
+```
+1. Dashboard shows "Customer Requested Repairs"
+2. Click on REQUESTED repair
+3. Click "Accept Repair" button
+4. Repair assigns to you, status → APPROVED
+5. Page refreshes showing "Start Repair" button
+6. Click "Start Repair" → Status: IN_PROGRESS
+7. Complete work as normal
+8. Click "Mark as Completed" → Status: COMPLETED
+```
+
+**Result**:
+- Repair assigned to YOU
+- Status: APPROVED → ready to start
+- Natural workflow: Accept → Start → Complete
+
+### Option 2: Assigning to Team Members
+
+**To delegate to a technician**:
 ```
 1. Dashboard shows "Customer Requested Repairs"
 2. Click on REQUESTED repair
 3. Click "Assign to Technician"
-4. Select technician from dropdown
+4. Select technician from dropdown (includes yourself)
 5. Submit assignment
 ```
 
@@ -141,6 +176,25 @@ When you find damage during inspection:
 - Assigned tech gets notification
 - Notification includes direct link to repair
 - You can only assign to technicians on your team
+
+### Reassigning Team Repairs to Yourself
+
+**If you need to take over a team member's repair**:
+
+```
+1. View repair assigned to team member
+2. Click "Reassign to Me" button
+3. Confirm reassignment
+4. Repair now assigned to you
+5. Original technician receives notification
+6. You can now complete the repair
+```
+
+**Use Cases**:
+- Team member is unavailable
+- Urgent repair needs immediate attention
+- You're already at that customer location
+- Training opportunity (shadow the repair)
 
 ### Pricing Override
 
@@ -175,9 +229,34 @@ When you find damage during inspection:
 
 ## Repair Workflows
 
-### Workflow 1: Customer-Requested Repair
+### Workflow 1A: Customer-Requested Repair (Manager Completes)
 
-*For managers assigning work*
+*For working managers who complete repairs themselves*
+
+```
+1. Customer submits request
+   Status: REQUESTED
+
+2. You see it on dashboard
+   (Non-managers don't see REQUESTED)
+
+3. Click "Accept Repair"
+   Status: APPROVED
+   Assigned to YOU
+
+4. Click "Start Repair"
+   Status: IN_PROGRESS
+
+5. Complete work
+   Status: COMPLETED
+
+6. Closed after invoicing
+   Status: CLOSED
+```
+
+### Workflow 1B: Customer-Requested Repair (Manager Assigns)
+
+*For managers delegating to team members*
 
 ```
 1. Customer submits request
@@ -454,6 +533,17 @@ This helps you know what to expect before finalizing.
 
 ---
 
-**Last Updated**: October 21, 2025
-**For**: RS Systems v1.4.0
+**Last Updated**: October 28, 2025
+**For**: RS Systems v1.5.0
 **Support**: Contact your team lead or system administrator
+
+---
+
+## Recent Updates
+
+### October 28, 2025 - Working Manager Feature
+- ✅ Managers can now complete repairs themselves
+- ✅ Two clear options: "Accept Repair" or "Assign to Technician"
+- ✅ Reassign team repairs to yourself when needed
+- ✅ Simplified workflow with fewer clicks
+- ✅ Natural progression: Accept → Start → Complete

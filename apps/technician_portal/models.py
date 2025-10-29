@@ -193,22 +193,31 @@ class Repair(models.Model):
     resin_viscosity = models.CharField(max_length=50, blank=True)
     
     # Photo documentation fields
+    # Customer-submitted photo (when customer requests repair through portal)
+    customer_submitted_photo = models.ImageField(
+        upload_to='repair_photos/customer_submitted/',
+        null=True,
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])],
+        help_text="Photo uploaded by customer when submitting repair request (supports JPEG, PNG, WebP, HEIC)"
+    )
+    # Technician-documented photos
     damage_photo_before = models.ImageField(
         upload_to='repair_photos/before/',
         null=True,
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])],
-        help_text="Photo of damage before repair (supports JPEG, PNG, WebP, HEIC)"
+        help_text="Photo of damage before repair taken by technician (supports JPEG, PNG, WebP, HEIC)"
     )
     damage_photo_after = models.ImageField(
         upload_to='repair_photos/after/',
         null=True,
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])],
-        help_text="Photo of repair after completion (supports JPEG, PNG, WebP, HEIC)"
+        help_text="Photo of repair after completion taken by technician (supports JPEG, PNG, WebP, HEIC)"
     )
     additional_photos = models.JSONField(
-        default=list, 
+        default=list,
         blank=True,
         help_text="Additional photos related to the repair (stored as list of URLs)"
     )
@@ -539,11 +548,13 @@ class Repair(models.Model):
     def get_photo_count(self):
         """
         Get the total number of photos associated with this repair.
-        
+
         Returns:
-            int: Number of photos (before + after + additional)
+            int: Number of photos (customer_submitted + before + after + additional)
         """
         count = 0
+        if self.customer_submitted_photo:
+            count += 1
         if self.damage_photo_before:
             count += 1
         if self.damage_photo_after:

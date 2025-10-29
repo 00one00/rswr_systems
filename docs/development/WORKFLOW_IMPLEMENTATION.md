@@ -74,6 +74,71 @@ This document breaks down ALL features from PRACTICAL_WORKFLOW_IMPLEMENTATION.md
 - [x] Non-manager technicians cannot see REQUESTED repairs
 - [x] All technicians cannot see PENDING repairs
 
+## 🔧 WORKING MANAGER FEATURE - October 2025
+**Manager Self-Completion Capability** - COMPLETED & SIMPLIFIED
+
+### Feature Overview
+Managers with technician profiles can now complete repairs themselves instead of only assigning to team members. The system supports "working managers" who actively perform repairs while managing a team.
+
+### Implementation Details
+
+**Simplified Workflow** (Minimal, Perfect Features):
+1. **REQUESTED Repair Actions** (2 clear choices):
+   - **"Accept Repair"** → Assigns repair to manager, sets status to APPROVED, shows "Start Repair" button
+   - **"Assign to Technician"** → Opens form to assign to team member (manager can also select themselves)
+
+2. **Team Repair Reassignment**:
+   - **"Reassign to Me"** button appears when manager views team member's repair
+   - One-click reassignment with notification to original technician
+   - Once reassigned, manager can complete like normal
+
+**Key Changes Made**:
+- Added `is_working_manager()` helper function to identify manager-technicians
+- Removed blocking logic that prevented managers from modifying repairs
+- Auto-assigns REQUESTED repairs to manager when they click "Accept Repair"
+- Manager dropdown includes self in assignment form
+- Created `reassign_to_self` view and URL route
+- Simplified UI to only 2 buttons (removed redundant "Start Work Now")
+
+### Files Modified
+- `apps/technician_portal/views.py` - Added helper function, updated permission logic
+- `apps/technician_portal/urls.py` - Added reassign_to_self route
+- `templates/technician_portal/repair_detail.html` - Simplified button choices
+- `templates/technician_portal/reassign_to_self.html` - New confirmation page
+
+### User Flow Example
+
+**Scenario 1: Manager accepts customer request directly**
+1. Customer submits repair request (status = REQUESTED)
+2. Manager views repair, sees 2 options: "Accept Repair" or "Assign to Technician"
+3. Manager clicks "Accept Repair"
+4. System assigns repair to manager, sets status = APPROVED
+5. Page refreshes, shows "Start Repair" button
+6. Manager clicks "Start Repair" → IN_PROGRESS
+7. Manager completes work, clicks "Mark as Completed" → COMPLETED
+
+**Scenario 2: Manager reassigns team member's repair**
+1. Repair assigned to team member (status = APPROVED or IN_PROGRESS)
+2. Manager views repair, sees "Reassign to Me" button
+3. Manager clicks button, confirms reassignment
+4. System reassigns to manager, notifies original technician
+5. Manager can now update status and complete repair
+
+### Design Philosophy
+- **Simplicity**: Only 2 initial choices for REQUESTED repairs (Accept OR Assign)
+- **No Redundancy**: Removed "Start Work Now" button (redundant with Accept → Start flow)
+- **Natural Progression**: Accept → APPROVED → Start → IN_PROGRESS → Complete
+- **Clear Separation**: Different actions for unassigned vs team-assigned repairs
+
+### Testing Completed
+- [x] Manager can accept REQUESTED repair (auto-assigns to manager)
+- [x] After accepting, "Start Repair" button appears
+- [x] Manager can assign REQUESTED repair to themselves via dropdown
+- [x] Manager can reassign team member's repair to themselves
+- [x] Original technician receives notification when reassigned
+- [x] Manager can complete repairs assigned to them like regular technician
+- [x] No redundant buttons or workflows
+
 ## 🎯 Implementation Strategy
 - **Small, focused changes**: Each phase modifies 2-3 files maximum
 - **Incremental testing**: Test after each phase before proceeding
