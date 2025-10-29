@@ -12,6 +12,94 @@ All notable changes to the RS Systems windshield repair management platform.
 
 ---
 
+## [1.6.0] - October 29, 2025
+
+### 📸 IMAGE UPLOAD ENHANCEMENTS
+
+#### Added
+- **HEIC/HEIF Image Support**: Native iPhone photo format support for unedited AI training photos
+  - Automatic conversion to JPEG for browser compatibility
+  - Pillow-HEIF integration for server-side image processing
+  - High-quality conversion (95% JPEG quality) preserves image details
+  - Transparent conversion - users upload HEIC, system stores JPEG
+  - Extensions: `.heic`, `.heif` now accepted alongside `.jpg`, `.jpeg`, `.png`, `.webp`
+  - Location: `common/utils.py:convert_heic_to_jpeg()`
+
+- **Increased Upload Size Limits**: Expanded from 2.5MB to 10MB
+  - Django settings: `DATA_UPLOAD_MAX_MEMORY_SIZE` and `FILE_UPLOAD_MAX_MEMORY_SIZE` set to 10MB
+  - AWS Nginx configuration: `client_max_body_size` set to 10MB
+  - Application validation remains at 5MB with clear error messages
+  - Supports high-resolution photos for AI model training
+  - Locations: `rs_systems/settings.py`, `rs_systems/settings_aws.py`, `.ebextensions/00_nginx_upload.config`
+
+- **Image Conversion Utility**: New shared utility module for image processing
+  - Handles HEIC to JPEG conversion
+  - Graceful error handling (returns original file if conversion fails)
+  - Maintains filename with changed extension (.heic → .jpg)
+  - Updates MIME type for proper browser handling
+  - Location: `common/utils.py`
+
+#### Fixed
+- **Localhost Upload Failures**: "Not an image or corrupted image" error for files 2.5MB-5MB
+  - Root cause: Django's 2.5MB default limit smaller than validation limit
+  - Solution: Increased Django upload limits to 10MB
+
+- **AWS Upload Failures**: "413 Request Entity Too Large" error
+  - Root cause: Nginx default 1MB limit rejected uploads before reaching Django
+  - Solution: Added nginx configuration for 10MB client_max_body_size
+
+- **HEIC Preview Issues**: HEIC images uploaded but didn't display in browser
+  - Root cause: Browsers don't support HEIC format natively
+  - Solution: Automatic server-side conversion to JPEG on upload
+
+#### Changed
+- **Photo Field Validators**: Extended to accept HEIC/HEIF extensions
+  - `damage_photo_before` and `damage_photo_after` now accept 6 formats
+  - Help text updated to mention HEIC support
+  - Migration: `apps/technician_portal/migrations/0009_alter_repair_damage_photo_after_and_more.py`
+
+- **Upload Validation**: MIME type checks now include HEIC formats
+  - Customer portal: `image/heic` and `image/heif` added to allowed types
+  - Error messages updated to mention HEIC support
+  - Location: `apps/customer_portal/views.py:619`
+
+- **View Processing**: All upload views now convert HEIC to JPEG automatically
+  - Customer portal: `request_repair` view
+  - Technician portal: `create_repair` and `update_repair` views
+  - Conversion happens before form processing
+  - Locations: `apps/customer_portal/views.py`, `apps/technician_portal/views.py`
+
+#### Technical Details
+- **Dependencies Added**: `pillow-heif==1.1.1` for HEIC support
+- **Plugin Registration**: Auto-registers HEIC opener on app startup
+  - Location: `apps/technician_portal/apps.py:ready()`
+- **AWS Deployment Ready**: All configurations compatible with Elastic Beanstalk
+- **File Formats Supported**: JPEG, PNG, WebP, HEIC, HEIF
+- **Max File Size**: 10MB (system) / 5MB (validation with user-friendly error)
+
+#### Benefits
+- ✅ Users can upload unedited iPhone photos directly
+- ✅ High-resolution photos supported for AI training
+- ✅ Browser compatibility maintained (all photos viewable)
+- ✅ Consistent user experience across all devices
+- ✅ No user action required (automatic conversion)
+- ✅ Better image quality for damage documentation
+
+### Files Modified
+11 files changed, ~250 additions:
+- `common/utils.py` - NEW: HEIC conversion utility
+- `requirements.txt` - Added pillow-heif dependency
+- `rs_systems/settings.py` - Increased upload size limits
+- `rs_systems/settings_aws.py` - Increased upload size limits
+- `.ebextensions/00_nginx_upload.config` - NEW: Nginx upload configuration
+- `apps/technician_portal/models.py` - Extended file validators
+- `apps/technician_portal/apps.py` - Registered HEIC plugin
+- `apps/customer_portal/views.py` - HEIC conversion + validation
+- `apps/technician_portal/views.py` - HEIC conversion in create/update
+- `apps/technician_portal/migrations/0009_*.py` - NEW: Photo field migration
+
+---
+
 ## [1.5.0] - October 25, 2025
 
 ### 🎨 MAJOR UI/UX REDESIGN
@@ -339,6 +427,8 @@ All notable changes to the RS Systems windshield repair management platform.
 
 | Version | Date | Focus | Status |
 |---------|------|-------|--------|
+| 1.6.0 | Oct 29, 2025 | Image Upload Enhancements | ✅ Complete |
+| 1.5.0 | Oct 25, 2025 | UI/UX Redesign & Lot Walking | ✅ Complete |
 | 1.4.0 | Oct 21, 2025 | Critical Security Fixes & Workflow | ✅ Deployed |
 | 1.3.0 | Sep 28, 2025 | Sprint 1: Pricing & Roles | ✅ Complete |
 | 1.2.0 | Aug 23, 2025 | Backup & Security | ✅ Complete |
@@ -453,6 +543,6 @@ python manage.py migrate
 
 ---
 
-**Latest Version**: 1.4.0
-**Last Updated**: October 21, 2025
+**Latest Version**: 1.6.0
+**Last Updated**: October 29, 2025
 **Status**: Production Ready ✅

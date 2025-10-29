@@ -16,6 +16,7 @@ from apps.rewards_referrals.services import RewardFulfillmentService
 import logging
 from django.core.paginator import Paginator
 from functools import wraps
+from common.utils import convert_heic_to_jpeg
 
 # Add a helper function to safely check if a user has technician access
 def has_technician_access(user):
@@ -23,14 +24,31 @@ def has_technician_access(user):
     # Admin users always have access
     if user.is_staff:
         return True
-    
+
     # Check if user is in the Technicians group
     if user.groups.filter(name='Technicians').exists():
         return True
-    
+
     # Non-admin users need a technician profile
     try:
         return hasattr(user, 'technician') and user.technician is not None
+    except:
+        return False
+
+def is_working_manager(user):
+    """
+    Helper function to check if a user is a working manager.
+    A working manager is someone who:
+    1. Has a technician profile AND
+    2. Has is_manager=True flag
+
+    This allows them to both assign work AND complete repairs themselves.
+    """
+    if not hasattr(user, 'technician'):
+        return False
+    try:
+        technician = user.technician
+        return technician is not None and technician.is_manager
     except:
         return False
 
@@ -254,6 +272,12 @@ def repair_detail(request, repair_id):
     # First get the repair to check its status
     repair = get_object_or_404(Repair, id=repair_id)
 
+    # Initialize permission flags
+    can_update_status = False
+    can_assign_repair = False
+    can_reassign_to_self = False
+    technician = None
+
     # For regular technicians
     if not request.user.is_staff:
         # Ensure user has a technician profile
@@ -268,11 +292,14 @@ def repair_detail(request, repair_id):
             messages.error(request, "This repair is pending customer approval and cannot be viewed by technicians.")
             return redirect('technician_dashboard')
 
-        # Only MANAGERS can view REQUESTED repairs (for assignment)
+        # Only MANAGERS can view REQUESTED repairs (for assignment or self-completion)
         if repair.queue_status == 'REQUESTED':
             if not technician.is_manager:
                 messages.error(request, "Only managers can view customer-requested repairs.")
                 return redirect('technician_dashboard')
+            # Working managers can update REQUESTED repairs directly
+            can_update_status = True
+            can_assign_repair = True
         else:
             # Check if technician can view this repair
             can_view = False
@@ -280,9 +307,11 @@ def repair_detail(request, repair_id):
             # Can view own repairs
             if repair.technician == technician:
                 can_view = True
+                can_update_status = True  # Can update own repairs
             # Managers can view repairs from their managed technicians
-            elif technician.is_manager and technician.manages_technician(repair.technician):
+            elif technician.is_manager and repair.technician and technician.manages_technician(repair.technician):
                 can_view = True
+                can_reassign_to_self = True  # Manager can reassign team repair to themselves
             # Special case: viewing from form warning link
             elif '/create/' in request.META.get('HTTP_REFERER', '') or '/update/' in request.META.get('HTTP_REFERER', ''):
                 can_view = True
@@ -290,17 +319,30 @@ def repair_detail(request, repair_id):
             if not can_view:
                 messages.error(request, "You don't have permission to view this repair.")
                 return redirect('technician_dashboard')
-    # else: Admins can view any repair (no additional check needed)
-        
+    else:
+        # Admins can do everything
+        can_update_status = True
+        can_assign_repair = repair.queue_status == 'REQUESTED'
+
     return render(request, 'technician_portal/repair_detail.html', {
         'repair': repair,
         'TIME_ZONE': timezone.get_current_timezone_name(),
-        'is_admin': request.user.is_staff
+        'is_admin': request.user.is_staff,
+        'can_update_status': can_update_status,
+        'can_assign_repair': can_assign_repair,
+        'can_reassign_to_self': can_reassign_to_self,
+        'technician': technician,
     })
 
 @technician_required
 def create_repair(request):
     if request.method == 'POST':
+        # Convert HEIC images to JPEG for browser compatibility
+        if 'damage_photo_before' in request.FILES:
+            request.FILES['damage_photo_before'] = convert_heic_to_jpeg(request.FILES['damage_photo_before'])
+        if 'damage_photo_after' in request.FILES:
+            request.FILES['damage_photo_after'] = convert_heic_to_jpeg(request.FILES['damage_photo_after'])
+
         form = RepairForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             # For admin users, use the selected technician
@@ -420,6 +462,12 @@ def update_repair(request, repair_id):
     if request.method == 'POST':
         logger.info(f"UPDATE_REPAIR POST: Processing form for repair #{repair.id}")
 
+        # Convert HEIC images to JPEG for browser compatibility
+        if 'damage_photo_before' in request.FILES:
+            request.FILES['damage_photo_before'] = convert_heic_to_jpeg(request.FILES['damage_photo_before'])
+        if 'damage_photo_after' in request.FILES:
+            request.FILES['damage_photo_after'] = convert_heic_to_jpeg(request.FILES['damage_photo_after'])
+
         # CRITICAL FIX: Save the technician_id BEFORE creating the form
         # because form.save(commit=False) will modify the original instance
         original_technician_id = repair.technician_id
@@ -493,11 +541,13 @@ def update_queue_status(request, repair_id):
             messages.error(request, "This repair is pending customer approval. Technicians cannot modify it.")
             return redirect('technician_dashboard')
 
-        # Only MANAGERS can handle REQUESTED repairs (assignment workflow)
+        # Only MANAGERS can handle REQUESTED repairs
+        # Working managers can update REQUESTED repairs directly (auto-assigns to them)
         if repair.queue_status == 'REQUESTED':
             if not technician.is_manager:
                 messages.error(request, "Only managers can assign customer-requested repairs.")
                 return redirect('technician_dashboard')
+            # If manager is updating a REQUESTED repair, allow it (will auto-assign to manager)
         else:
             # Check if technician can update this repair
             can_update = False
@@ -505,11 +555,11 @@ def update_queue_status(request, repair_id):
             # Can update own repairs (assigned to them)
             if repair.technician == technician:
                 can_update = True
-            # Managers CANNOT update/complete repairs assigned to other technicians
-            # This prevents managers from taking over assigned work
-            elif technician.is_manager and technician.manages_technician(repair.technician):
-                # Managers can VIEW but cannot change status of repairs assigned to their team
-                messages.error(request, "You cannot modify repairs assigned to other technicians. Use the reassign feature instead.")
+            # Managers can only update team repairs if they've been reassigned to the manager
+            # They cannot directly modify repairs assigned to other team members
+            elif technician.is_manager and repair.technician and technician.manages_technician(repair.technician):
+                # If repair is assigned to a team member (not the manager), block modification
+                messages.error(request, "You cannot modify repairs assigned to other technicians. Use the reassign feature to take over this repair.")
                 return redirect('repair_detail', repair_id=repair.id)
 
             if not can_update:
@@ -523,18 +573,24 @@ def update_queue_status(request, repair_id):
         new_status = request.POST.get('status')
         if new_status in dict(Repair.QUEUE_CHOICES):
             # Special handling for customer-requested repairs
-            if old_status == 'REQUESTED' and new_status == 'APPROVED':
+            if old_status == 'REQUESTED':
+                # Auto-assign to the manager who is accepting the repair
+                if not request.user.is_staff and hasattr(request.user, 'technician'):
+                    repair.technician = request.user.technician
+                    messages.info(request, f"Repair assigned to you.")
+
+                # Update status
                 repair.queue_status = new_status
                 repair.save()
-                
+
                 # Create an automatic approval record since the customer already implicitly approved it
-                
+
                 # Find the customer user who would be the primary contact
                 customer_users = CustomerUser.objects.filter(customer=repair.customer)
                 customer_user = customer_users.filter(is_primary_contact=True).first()
                 if not customer_user and customer_users.exists():
                     customer_user = customer_users.first()
-                
+
                 if customer_user:
                     # Create an approval record
                     RepairApproval.objects.create(
@@ -544,7 +600,7 @@ def update_queue_status(request, repair_id):
                         approval_date=timezone.now(),
                         notes="Auto-approved as customer initiated the request"
                     )
-                
+
                 messages.success(request, f"Repair request has been accepted and added to your schedule. The customer has been notified.")
             else:
                 repair.queue_status = new_status
@@ -829,11 +885,12 @@ def assign_repair(request, repair_id):
         try:
             assigned_tech = Technician.objects.get(id=technician_id)
 
-            # If regular manager (not admin), verify they manage this technician
+            # If regular manager (not admin), verify they manage this technician OR assigning to themselves
             if not request.user.is_staff:
                 manager = request.user.technician
-                if not manager.manages_technician(assigned_tech):
-                    messages.error(request, "You can only assign repairs to technicians you manage.")
+                # Allow if assigning to themselves OR to a technician they manage
+                if assigned_tech.id != manager.id and not manager.manages_technician(assigned_tech):
+                    messages.error(request, "You can only assign repairs to yourself or technicians you manage.")
                     return redirect('assign_repair', repair_id=repair.id)
 
             # Assign the repair
@@ -877,13 +934,72 @@ def assign_repair(request, repair_id):
         # Admins can assign to any technician
         available_technicians = Technician.objects.filter(is_active=True).order_by('user__first_name')
     else:
-        # Managers can only assign to technicians they manage
+        # Managers can assign to technicians they manage OR to themselves
         manager = request.user.technician
-        available_technicians = manager.managed_technicians.filter(is_active=True).order_by('user__first_name')
+        # Get managed technicians
+        managed_techs = manager.managed_technicians.filter(is_active=True)
+        # Include the manager themselves in the list
+        available_technicians = Technician.objects.filter(
+            Q(id=manager.id) | Q(id__in=managed_techs)
+        ).filter(is_active=True).order_by('user__first_name')
 
     return render(request, 'technician_portal/assign_repair.html', {
         'repair': repair,
         'available_technicians': available_technicians,
+    })
+
+@technician_required
+def reassign_to_self(request, repair_id):
+    """Manager reassigns a team member's repair to themselves"""
+    # Only managers can reassign repairs
+    if not request.user.is_staff:
+        if not hasattr(request.user, 'technician') or not request.user.technician.is_manager:
+            messages.error(request, "Only managers can reassign repairs.")
+            return redirect('technician_dashboard')
+
+    repair = get_object_or_404(Repair, id=repair_id)
+
+    # Verify user has permission
+    if not request.user.is_staff:
+        manager = request.user.technician
+
+        # Check if repair is assigned to one of their managed technicians
+        if not repair.technician or not manager.manages_technician(repair.technician):
+            messages.error(request, "You can only reassign repairs from your managed technicians.")
+            return redirect('repair_detail', repair_id=repair.id)
+
+        # Cannot reassign if already assigned to themselves
+        if repair.technician.id == manager.id:
+            messages.error(request, "This repair is already assigned to you.")
+            return redirect('repair_detail', repair_id=repair.id)
+
+    if request.method == 'POST':
+        old_technician = repair.technician
+
+        if not request.user.is_staff:
+            # Reassign to the manager
+            repair.technician = request.user.technician
+            repair.save()
+
+            messages.success(request, f"Repair reassigned from {old_technician.user.get_full_name()} to you.")
+
+            # Create notification for the old technician
+            TechnicianNotification.objects.create(
+                technician=old_technician,
+                message=f"Repair #{repair.id} for {repair.customer.name} - Unit {repair.unit_number} has been reassigned to {request.user.get_full_name()}",
+                read=False,
+                repair=repair
+            )
+        else:
+            # Admins would use the regular assign_repair view
+            messages.info(request, "Admins should use the regular assignment interface.")
+            return redirect('assign_repair', repair_id=repair.id)
+
+        return redirect('repair_detail', repair_id=repair.id)
+
+    # GET request - show confirmation
+    return render(request, 'technician_portal/reassign_to_self.html', {
+        'repair': repair,
     })
 
 @technician_required

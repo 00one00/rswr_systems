@@ -194,18 +194,18 @@ class Repair(models.Model):
     
     # Photo documentation fields
     damage_photo_before = models.ImageField(
-        upload_to='repair_photos/before/', 
-        null=True, 
+        upload_to='repair_photos/before/',
+        null=True,
         blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])],
-        help_text="Photo of damage before repair"
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])],
+        help_text="Photo of damage before repair (supports JPEG, PNG, WebP, HEIC)"
     )
     damage_photo_after = models.ImageField(
-        upload_to='repair_photos/after/', 
-        null=True, 
+        upload_to='repair_photos/after/',
+        null=True,
         blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])],
-        help_text="Photo of repair after completion"
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])],
+        help_text="Photo of repair after completion (supports JPEG, PNG, WebP, HEIC)"
     )
     additional_photos = models.JSONField(
         default=list, 

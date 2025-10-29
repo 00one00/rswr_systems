@@ -22,6 +22,7 @@ from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 import logging
 import re
+from common.utils import convert_heic_to_jpeg
 
 # Custom decorator to ensure only customers can access views
 def customer_required(view_func):
@@ -597,7 +598,11 @@ def request_repair(request):
             description = request.POST.get('description', '')
             damage_type = request.POST.get('damage_type', '')
             damage_photo = request.FILES.get('damage_photo_before')
-            
+
+            # Convert HEIC to JPEG for browser compatibility
+            if damage_photo:
+                damage_photo = convert_heic_to_jpeg(damage_photo)
+
             if not unit_number:
                 messages.error(request, "Unit number is required.")
                 return render(request, 'customer_portal/request_repair.html')
@@ -614,11 +619,11 @@ def request_repair(request):
                 if damage_photo.size > 5 * 1024 * 1024:
                     messages.error(request, "Photo file size must be less than 5MB.")
                     return render(request, 'customer_portal/request_repair.html')
-                
-                # Check file type
-                allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+
+                # Check file type - includes HEIC for iPhone photos
+                allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
                 if damage_photo.content_type not in allowed_types:
-                    messages.error(request, "Please upload a valid image file (JPEG, PNG, or WebP).")
+                    messages.error(request, "Please upload a valid image file (JPEG, PNG, WebP, or HEIC).")
                     return render(request, 'customer_portal/request_repair.html')
             
             # Find an available technician using round-robin assignment

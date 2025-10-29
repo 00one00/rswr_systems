@@ -68,6 +68,15 @@ STATICFILES_DIRS = [
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # =========================================
+# FILE UPLOAD CONFIGURATION
+# =========================================
+
+# File upload size limits - Allow up to 10MB for image uploads
+# This provides headroom beyond the 5MB validation in the application
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+
+# =========================================
 # MEDIA FILES & AWS S3 CONFIGURATION
 # =========================================
 
