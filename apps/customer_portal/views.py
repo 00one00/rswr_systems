@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from core.models import Customer
-from apps.technician_portal.models import Repair, UnitRepairCount
+from apps.technician_portal.models import Repair, UnitRepairCount, TechnicianNotification
 from .forms import RepairPreferenceForm
 from .models import CustomerRepairPreference
 from .models import CustomerUser, RepairApproval
@@ -357,7 +357,6 @@ def customer_repair_approve(request, repair_id):
             repair.save()
 
             # Create notification for technician
-            from apps.technician_portal.models import TechnicianNotification
             if repair.technician:
                 TechnicianNotification.objects.create(
                     technician=repair.technician,
@@ -413,7 +412,6 @@ def customer_repair_deny(request, repair_id):
             repair.save()
 
             # Create notification for technician
-            from apps.technician_portal.models import TechnicianNotification
             if repair.technician:
                 denial_message = f"❌ Repair #{repair.id} DENIED by {customer.name} - Unit {repair.unit_number}."
                 if reason:

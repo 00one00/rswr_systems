@@ -7,6 +7,8 @@ from django.db.models import Count, F
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
+from datetime import timedelta
+from apps.customer_portal.models import RepairApproval
 import logging
 from django.core.paginator import Paginator
 from functools import wraps
@@ -112,11 +114,6 @@ def technician_dashboard(request):
         unread_notifications = technician.notifications.filter(read=False).order_by('-created_at')
 
         # Get recently approved repairs for this technician (approved in last 24 hours)
-        from django.utils import timezone
-        from datetime import timedelta
-        from apps.customer_portal.models import RepairApproval
-
-        # Get repairs that were approved in the last 24 hours
         recent_approvals = RepairApproval.objects.filter(
             approved=True,
             approval_date__gte=timezone.now() - timedelta(hours=24)
