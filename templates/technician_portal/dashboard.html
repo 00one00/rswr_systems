@@ -108,6 +108,52 @@
         </div>
         {% endif %}
 
+        <!-- Recently Approved Repairs Alert -->
+        {% if recently_approved_repairs %}
+        <div class="bg-white rounded-lg shadow-sm border border-green-200 mb-6">
+            <div class="px-6 py-4 bg-green-50 border-b border-green-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-green-800">✅ Recently Approved Repairs</h2>
+                        <p class="text-sm text-green-700 mt-1">Customer approved {{ recently_approved_repairs|length }} repair{{ recently_approved_repairs|length|pluralize }} - Ready to complete</p>
+                    </div>
+                </div>
+            </div>
+            <div class="divide-y divide-gray-200">
+                {% for repair in recently_approved_repairs %}
+                <div class="p-6 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="text-lg font-semibold text-gray-900">Unit {{ repair.unit_number }}</span>
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    {{ repair.get_damage_type_display }}
+                                </span>
+                            </div>
+                            <div class="text-sm text-gray-600 mb-2">
+                                <strong>Customer:</strong> {{ repair.customer.name }}<br>
+                                <strong>Estimated Cost:</strong> ${{ repair.estimated_cost }}<br>
+                                <strong>Approved:</strong> {{ repair.updated_at|timesince }} ago
+                            </div>
+                            {% if repair.customer_notes %}
+                            <div class="text-sm text-gray-700 bg-gray-50 p-3 rounded mt-2">
+                                <strong>Customer Notes:</strong> {{ repair.customer_notes }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'repair_detail' repair.id %}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Start Work
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Reward Redemption Section -->
         {% if assigned_redemptions %}
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">

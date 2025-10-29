@@ -110,20 +110,38 @@ def technician_dashboard(request):
         
         # Get unread notifications
         unread_notifications = technician.notifications.filter(read=False).order_by('-created_at')
+
+        # Get recently approved repairs for this technician (approved in last 24 hours)
+        from django.utils import timezone
+        from datetime import timedelta
+        from apps.customer_portal.models import RepairApproval
+
+        # Get repairs that were approved in the last 24 hours
+        recent_approvals = RepairApproval.objects.filter(
+            approved=True,
+            approval_date__gte=timezone.now() - timedelta(hours=24)
+        ).values_list('repair_id', flat=True)
+
+        recently_approved_repairs = Repair.objects.filter(
+            id__in=recent_approvals,
+            technician=technician,
+            queue_status='APPROVED'
+        ).select_related('customer').order_by('-repair_date')[:5]  # Limit to 5 most recent
     else:
         # For admins without a technician profile, show all requested repairs (for assignment)
         customer_requested_repairs = Repair.objects.filter(
             queue_status='REQUESTED'
         ).order_by('-repair_date')
-        
+
         # For admins, show all pending redemptions
         from apps.rewards_referrals.models import RewardRedemption
         assigned_redemptions = []
         all_pending_redemptions = RewardRedemption.objects.filter(
             status='PENDING'
         ).order_by('-created_at')
-        
+
         unread_notifications = None
+        recently_approved_repairs = Repair.objects.none()
     
     # Extra data for admin users
     is_admin = request.user.is_staff
@@ -145,6 +163,7 @@ def technician_dashboard(request):
         'assigned_redemptions': assigned_redemptions,
         'all_pending_redemptions': all_pending_redemptions,
         'unread_notifications': unread_notifications,
+        'recently_approved_repairs': recently_approved_repairs,
         'is_admin': is_admin,
         'admin_data': admin_data,
     })

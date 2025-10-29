@@ -356,6 +356,16 @@ def customer_repair_approve(request, repair_id):
 
             repair.save()
 
+            # Create notification for technician
+            from apps.technician_portal.models import TechnicianNotification
+            if repair.technician:
+                TechnicianNotification.objects.create(
+                    technician=repair.technician,
+                    message=f"✅ Repair #{repair.id} APPROVED by {customer.name} - Unit {repair.unit_number}. You can now complete the work.",
+                    read=False,
+                    repair=repair
+                )
+
             messages.success(request, "Repair has been approved successfully. The technician can now complete the work.")
             return redirect('customer_repair_detail', repair_id=repair.id)
         
@@ -401,7 +411,20 @@ def customer_repair_deny(request, repair_id):
             # Using a special value for DENIED to distinguish from regular PENDING
             repair.queue_status = 'DENIED'  # You'll need to add this to the model choices
             repair.save()
-            
+
+            # Create notification for technician
+            from apps.technician_portal.models import TechnicianNotification
+            if repair.technician:
+                denial_message = f"❌ Repair #{repair.id} DENIED by {customer.name} - Unit {repair.unit_number}."
+                if reason:
+                    denial_message += f" Reason: {reason}"
+                TechnicianNotification.objects.create(
+                    technician=repair.technician,
+                    message=denial_message,
+                    read=False,
+                    repair=repair
+                )
+
             messages.success(request, "Repair request has been denied.")
             return redirect('customer_repair_detail', repair_id=repair.id)
         
