@@ -36,11 +36,12 @@ class TechnicianAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         """Validate and save technician, clearing managed_technicians for non-managers"""
-        # If not a manager, clear managed technicians
+        # Save first to ensure object has a pk for M2M access
+        super().save_model(request, obj, form, change)
+
+        # Clear managed technicians for non-managers (must happen after save)
         if not obj.is_manager:
             obj.managed_technicians.clear()
-
-        super().save_model(request, obj, form, change)
 
     def get_email(self, obj):
         return obj.user.email
