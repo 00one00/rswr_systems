@@ -1,7 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from core.models import Customer
-from apps.technician_portal.models import Repair, UnitRepairCount, TechnicianNotification
+from apps.technician_portal.models import Repair, UnitRepairCount, TechnicianNotification, Technician
+from apps.rewards_referrals.models import ReferralCode, RewardOption, RewardRedemption, Referral
+from apps.rewards_referrals.services import ReferralService, RewardService
 from .forms import RepairPreferenceForm
 from .models import CustomerRepairPreference
 from .models import CustomerUser, RepairApproval
@@ -18,6 +20,7 @@ from datetime import datetime, timedelta
 from django.db import transaction
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
+import logging
 import re
 
 # Custom decorator to ensure only customers can access views
@@ -72,7 +75,6 @@ def customer_dashboard(request):
         
         # Check if we need to rebuild unit repair counts for this customer
         # This is done once per customer
-        from apps.technician_portal.models import UnitRepairCount
         unit_count = UnitRepairCount.objects.filter(customer=customer).count()
         
         if unit_count == 0:
@@ -120,9 +122,6 @@ def customer_dashboard(request):
         }
         
         # Get referral and reward information
-        from apps.rewards_referrals.services import ReferralService, RewardService
-        from apps.rewards_referrals.models import ReferralCode
-        
         # Get user's referral code (or None if they don't have one)
         referral_code = ReferralCode.objects.filter(customer_user=customer_user).first()
         referral_code_value = referral_code.code if referral_code else None
@@ -202,9 +201,6 @@ def profile_creation(request):
             # Process referral code if it exists in the session
             referral_code = request.session.get('referral_code')
             if referral_code:
-                # Import the referral service
-                from apps.rewards_referrals.services import ReferralService
-                
                 # Validate and process the referral
                 referral_code_obj = ReferralService.validate_referral_code(referral_code)
                 if referral_code_obj:
@@ -350,7 +346,6 @@ def customer_repair_approve(request, repair_id):
             # This prevents NULL technician errors later
             if not repair.technician:
                 # This shouldn't happen, but log it for debugging
-                import logging
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Repair #{repair.id} approved but has no technician assigned")
 
@@ -627,9 +622,6 @@ def request_repair(request):
                     return render(request, 'customer_portal/request_repair.html')
             
             # Find an available technician using round-robin assignment
-            from apps.technician_portal.models import Technician
-            from django.db.models import Count
-            
             # Get technicians ordered by their current repair load (ascending)
             technicians = Technician.objects.annotate(
                 active_repairs=Count('repair', filter=Q(repair__queue_status__in=['REQUESTED', 'PENDING', 'APPROVED', 'IN_PROGRESS']))
@@ -780,8 +772,6 @@ def unit_repair_data_api(request):
         
         # If no unit repair counts exist, create them from repairs data
         if not unit_repairs.exists():
-            from django.db.models import Count
-            
             # Get counts directly from Repair model
             repair_counts = Repair.objects.filter(
                 customer=customer,
@@ -883,11 +873,8 @@ def customer_rewards_redirect(request):
     """Customer rewards and referrals dashboard"""
     try:
         customer_user = CustomerUser.objects.get(user=request.user)
-        
+
         # Get referral and reward information
-        from apps.rewards_referrals.services import ReferralService, RewardService
-        from apps.rewards_referrals.models import ReferralCode, RewardOption, RewardRedemption, Referral
-        
         # Get user's referral code (or None if they don't have one)
         referral_code = ReferralCode.objects.filter(customer_user=customer_user).first()
         referral_code_value = referral_code.code if referral_code else None

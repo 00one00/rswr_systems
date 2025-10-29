@@ -3,16 +3,19 @@ from django.contrib.auth.decorators import login_required
 from .models import Technician, Repair, UnitRepairCount, TechnicianNotification
 from core.models import Customer
 from .forms import TechnicianForm, RepairForm, CustomerForm, TechnicianRegistrationForm
-from django.db.models import Count, F
+from django.db.models import Count, F, Q
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.utils import timezone
 from django.http import JsonResponse
 from datetime import timedelta
-from apps.customer_portal.models import RepairApproval
+from collections import defaultdict
+from apps.customer_portal.models import RepairApproval, CustomerUser, CustomerRepairPreference
+from apps.rewards_referrals.models import RewardRedemption
+from apps.rewards_referrals.services import RewardFulfillmentService
 import logging
 from django.core.paginator import Paginator
 from functools import wraps
-from django.db.models import Q
 
 # Add a helper function to safely check if a user has technician access
 def has_technician_access(user):
@@ -97,7 +100,6 @@ def technician_dashboard(request):
             customer_requested_repairs = Repair.objects.none()
         
         # Get assigned reward redemptions for this technician
-        from apps.rewards_referrals.models import RewardRedemption
         assigned_redemptions = RewardRedemption.objects.filter(
             assigned_technician=technician,
             status='PENDING'
@@ -131,7 +133,6 @@ def technician_dashboard(request):
         ).order_by('-repair_date')
 
         # For admins, show all pending redemptions
-        from apps.rewards_referrals.models import RewardRedemption
         assigned_redemptions = []
         all_pending_redemptions = RewardRedemption.objects.filter(
             status='PENDING'
@@ -214,7 +215,6 @@ def repair_list(request):
     requested_repairs_count = repairs.filter(queue_status='REQUESTED').count()
     
     # Group repairs by customer and unit number for better organization
-    from collections import defaultdict
     grouped_repairs = defaultdict(lambda: defaultdict(list))
     
     # Order repairs by date (newest first) for grouping
@@ -329,7 +329,6 @@ def create_repair(request):
                     # SECURITY: Check customer preferences for ALL tech-created repairs
                     # Technicians cannot bypass approval by setting status to anything other than PENDING
                     # Only customer REQUESTED repairs (created by customers) should skip this check
-                    from apps.customer_portal.models import CustomerRepairPreference
 
                     # Force check customer preferences regardless of what status tech tried to set
                     try:
@@ -385,7 +384,6 @@ def create_repair(request):
 
 @technician_required
 def update_repair(request, repair_id):
-    import logging
     logger = logging.getLogger(__name__)
 
     # For regular technicians, they can only edit their own repairs
@@ -530,8 +528,6 @@ def update_queue_status(request, repair_id):
                 repair.save()
                 
                 # Create an automatic approval record since the customer already implicitly approved it
-                from apps.customer_portal.models import CustomerUser, RepairApproval
-                from django.utils import timezone
                 
                 # Find the customer user who would be the primary contact
                 customer_users = CustomerUser.objects.filter(customer=repair.customer)
@@ -554,7 +550,6 @@ def update_queue_status(request, repair_id):
                 repair.queue_status = new_status
                 # Auto-update repair date when marking as completed
                 if new_status == 'COMPLETED':
-                    from django.utils import timezone
                     repair.repair_date = timezone.now()
 
                     # Handle price override if provided
@@ -586,7 +581,6 @@ def update_technician_profile(request):
 
             # If password was changed, update session to prevent logout
             if form.cleaned_data.get('password1'):
-                from django.contrib.auth import update_session_auth_hash
                 update_session_auth_hash(request, request.user)
                 messages.info(request, 'Your password has been changed successfully.')
 
@@ -701,7 +695,6 @@ def mark_unit_replaced(request, customer_id, unit_number):
     messages.success(request, f"Unit #{unit_number} for {customer.name} has been marked as replaced. Repair count reset to 0.")
     return redirect('customer_detail', customer_id=customer_id)
 
-from django.http import JsonResponse
 
 @technician_required
 def check_existing_repair(request):
@@ -729,7 +722,6 @@ def reward_fulfillment_detail(request, redemption_id):
     technician = get_object_or_404(Technician, user=request.user)
     
     # Get the redemption
-    from apps.rewards_referrals.models import RewardRedemption
     
     # Any technician can view reward details, but actions depend on assignment
     redemption = get_object_or_404(RewardRedemption, id=redemption_id)
@@ -778,7 +770,6 @@ def reward_fulfillment_detail(request, redemption_id):
             except Repair.DoesNotExist:
                 pass
         
-        from apps.rewards_referrals.services import RewardFulfillmentService
         RewardFulfillmentService.mark_as_fulfilled(redemption, technician, notes)
         
         messages.success(request, f'Reward {redemption.reward_option.name} has been marked as fulfilled.')
@@ -851,8 +842,6 @@ def assign_repair(request, repair_id):
             repair.save()
 
             # Create approval record
-            from apps.customer_portal.models import CustomerUser, RepairApproval
-            from django.utils import timezone
 
             customer_users = CustomerUser.objects.filter(customer=repair.customer)
             customer_user = customer_users.filter(is_primary_contact=True).first()
@@ -869,7 +858,6 @@ def assign_repair(request, repair_id):
                 )
 
             # Create notification for assigned technician
-            from .models import TechnicianNotification
             TechnicianNotification.objects.create(
                 technician=assigned_tech,
                 message=f"You have been assigned Repair #{repair.id} for {repair.customer.name} - Unit {repair.unit_number}",
@@ -920,11 +908,9 @@ def apply_reward_to_repair(request, repair_id):
             return redirect('repair_detail', repair_id=repair.id)
         
         # Get the redemption
-        from apps.rewards_referrals.models import RewardRedemption
         redemption = get_object_or_404(RewardRedemption, id=redemption_id)
         
         # Validate that the reward belongs to the customer of this repair
-        from apps.customer_portal.models import CustomerUser
         customer_users = CustomerUser.objects.filter(customer=repair.customer)
         reward_customer_user = redemption.reward.customer_user
         
@@ -947,8 +933,6 @@ def apply_reward_to_repair(request, repair_id):
         return redirect('repair_detail', repair_id=repair.id)
     
     # GET request - show available rewards for this customer
-    from apps.rewards_referrals.models import RewardRedemption
-    from apps.customer_portal.models import CustomerUser
     
     # Find CustomerUser records for this customer
     customer_users = CustomerUser.objects.filter(customer=repair.customer)
