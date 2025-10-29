@@ -270,12 +270,6 @@ class Repair(models.Model):
                     # Use the new pricing service for customer-specific pricing
                     from .services.pricing_service import calculate_repair_cost
                     self.cost = calculate_repair_cost(self.customer, unit_repair_count.repair_count)
-
-                # Check for available rewards to apply automatically
-                self.apply_available_rewards()
-
-                # Award points to customer for completed repair
-                self.award_completion_points()
             else:
                 # For non-completed repairs, show expected cost for preview
                 if self.cost_override is not None:
@@ -291,6 +285,14 @@ class Repair(models.Model):
 
             # Update the original status after saving
             self.original_status = self.queue_status
+
+            # Apply rewards and award points AFTER save (requires pk to access relationships)
+            if self.queue_status == 'COMPLETED':
+                # Check for available rewards to apply automatically
+                self.apply_available_rewards()
+
+                # Award points to customer for completed repair
+                self.award_completion_points()
         else:
             # Just save without updating repair counts
             super().save(*args, **kwargs)
