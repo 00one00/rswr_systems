@@ -332,8 +332,9 @@ Configure scheduled lot walking service for customers:
 ```
 
 **Field Validation**:
-- If lot walking is enabled, frequency and time are required
-- Days are optional (default to all days if none selected)
+- If lot walking is enabled, only frequency is required
+- Time is optional (can be left blank if no preferred time)
+- Days are optional (can be left blank if no preferred days)
 - Time uses 24-hour format in admin (e.g., 14:00 for 2:00 PM)
 
 **List View Shows**:

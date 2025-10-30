@@ -163,7 +163,7 @@ class CustomerRepairPreferenceForm(forms.ModelForm):
 
         2. Lot Walking Service:
            - lot_walking_frequency required when lot_walking_enabled is True
-           - lot_walking_time required when lot_walking_enabled is True
+           - lot_walking_time optional (preferred time for lot walks)
            - lot_walking_days optional (defaults to empty list if not selected)
 
         Returns:
@@ -189,16 +189,13 @@ class CustomerRepairPreferenceForm(forms.ModelForm):
         if approval_mode != 'UNIT_THRESHOLD' and threshold is not None:
             cleaned_data['units_per_visit_threshold'] = None
 
-        # Validate lot walking settings - frequency and time required if service enabled
+        # Validate lot walking settings - only frequency required if service enabled
         if lot_walking_enabled:
             if not lot_walking_frequency:
                 raise forms.ValidationError({
                     'lot_walking_frequency': 'Frequency is required when lot walking is enabled.'
                 })
-            if not lot_walking_time:
-                raise forms.ValidationError({
-                    'lot_walking_time': 'Preferred time is required when lot walking is enabled.'
-                })
+            # Note: lot_walking_time and lot_walking_days are optional
 
         return cleaned_data
 

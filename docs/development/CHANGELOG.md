@@ -23,7 +23,7 @@ All notable changes to the RS Systems windshield repair management platform.
   - **Day Selection**: Checkbox widget for selecting preferred days of the week (Monday-Sunday)
   - **Time Picker**: Time input widget with Django admin styling for preferred time selection
   - **Frequency Dropdown**: Select from Weekly, Bi-weekly, Monthly, or Quarterly schedules
-  - **Form Validation**: Automatic validation ensures frequency and time are required when lot walking is enabled
+  - **Form Validation**: Automatic validation ensures frequency is required when lot walking is enabled (time and days are optional)
   - **Data Storage**: Preferences stored in existing `CustomerRepairPreference.lot_walking_days` JSONField
   - **Location**: `apps/customer_portal/admin.py:88-202`
 
@@ -57,7 +57,7 @@ All notable changes to the RS Systems windshield repair management platform.
 - **Form Widget Pattern**: Converts between JSONField storage and checkbox UI seamlessly
 - **Validation Rules**:
   - `lot_walking_frequency` required when `lot_walking_enabled` is True
-  - `lot_walking_time` required when `lot_walking_enabled` is True
+  - `lot_walking_time` optional (preferred time can be left blank)
   - `lot_walking_days_choices` optional (defaults to empty list if not selected)
 - **Admin Integration**: Fully integrated with Django admin using standard ModelAdmin patterns
 
