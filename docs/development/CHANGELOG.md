@@ -12,6 +12,76 @@ All notable changes to the RS Systems windshield repair management platform.
 
 ---
 
+## [1.6.1] - October 29, 2025
+
+### 🔧 ADMIN ENHANCEMENTS
+
+#### Added
+- **Lot Walking Admin Configuration**: Full admin dashboard support for configuring customer lot walking preferences
+  - **New Admin Fieldset**: "Lot Walking Service Settings" section in CustomerRepairPreference admin
+  - **Enhanced Form**: `CustomerRepairPreferenceForm` now includes lot walking fields with custom widgets
+  - **Day Selection**: Checkbox widget for selecting preferred days of the week (Monday-Sunday)
+  - **Time Picker**: Time input widget with Django admin styling for preferred time selection
+  - **Frequency Dropdown**: Select from Weekly, Bi-weekly, Monthly, or Quarterly schedules
+  - **Form Validation**: Automatic validation ensures frequency and time are required when lot walking is enabled
+  - **Data Storage**: Preferences stored in existing `CustomerRepairPreference.lot_walking_days` JSONField
+  - **Location**: `apps/customer_portal/admin.py:88-202`
+
+- **Enhanced Admin List Display**: Better visibility of lot walking settings at a glance
+  - Added `lot_walking_enabled` column to list view (✓/✗ indicator)
+  - Added `lot_walking_frequency` column showing schedule (Weekly/Bi-weekly/Monthly/Quarterly)
+  - List view now shows: Customer | Approval Mode | Threshold | Lot Walking | Frequency | Updated
+
+- **Advanced Filtering**: Quick filters for lot walking configuration
+  - Filter by lot walking enabled (Yes/No)
+  - Filter by lot walking frequency (Weekly/Bi-weekly/Monthly/Quarterly)
+  - Combined with existing approval mode and date filters
+  - Enables quick searches like "Show all customers with weekly lot walking"
+
+#### Changed
+- **CustomerRepairPreferenceForm**: Extended with lot walking UI components
+  - Added `lot_walking_days_choices` field with checkbox widget
+  - Custom `__init__()` method pre-populates checkboxes from JSON data
+  - Custom `save()` method converts checkbox selections to JSON list
+  - Enhanced `clean()` method validates lot walking dependencies
+  - Time field widget styled with Django admin classes (`vTimeField`)
+
+- **CustomerRepairPreferenceAdmin**: Reorganized with lot walking section
+  - New fieldset between "Field Repair Approval Settings" and "Tracking"
+  - Clear section description explaining lot walking configuration
+  - Updated list_display to show lot walking status
+  - Updated list_filter for lot walking options
+
+#### Technical Details
+- **No Database Changes**: Uses existing `lot_walking_enabled`, `lot_walking_frequency`, `lot_walking_time`, and `lot_walking_days` fields from `CustomerRepairPreference` model (added in v1.5.0)
+- **Form Widget Pattern**: Converts between JSONField storage and checkbox UI seamlessly
+- **Validation Rules**:
+  - `lot_walking_frequency` required when `lot_walking_enabled` is True
+  - `lot_walking_time` required when `lot_walking_enabled` is True
+  - `lot_walking_days_choices` optional (defaults to empty list if not selected)
+- **Admin Integration**: Fully integrated with Django admin using standard ModelAdmin patterns
+
+#### Benefits
+- ✅ Admins can configure lot walking schedules without database access
+- ✅ User-friendly checkboxes replace manual JSON editing
+- ✅ Time picker provides consistent time format
+- ✅ Form validation prevents incomplete configurations
+- ✅ List filters enable quick overview of lot walking customers
+- ✅ Complements customer-facing lot walking UI from v1.5.0
+
+#### Documentation Updates
+- **Admin Guide**: Added "Lot Walking Service Configuration" section (lines 302-351)
+- **Admin Guide**: Added Example 4 showing lot walking customer workflow (lines 391-406)
+- **Admin Guide**: Added Task 6 for configuring lot walking service (lines 535-552)
+- **Admin Guide**: Updated version to 1.6.1 and date to October 29, 2025
+
+### Files Modified
+2 files changed, ~140 additions:
+- `apps/customer_portal/admin.py` - Enhanced form and admin configuration
+- `docs/user-guides/ADMIN_GUIDE.md` - Documentation updates
+
+---
+
 ## [1.6.0] - October 29, 2025
 
 ### 📸 IMAGE UPLOAD ENHANCEMENTS
@@ -427,6 +497,7 @@ All notable changes to the RS Systems windshield repair management platform.
 
 | Version | Date | Focus | Status |
 |---------|------|-------|--------|
+| 1.6.1 | Oct 29, 2025 | Admin Lot Walking Configuration | ✅ Complete |
 | 1.6.0 | Oct 29, 2025 | Image Upload Enhancements | ✅ Complete |
 | 1.5.0 | Oct 25, 2025 | UI/UX Redesign & Lot Walking | ✅ Complete |
 | 1.4.0 | Oct 21, 2025 | Critical Security Fixes & Workflow | ✅ Deployed |
@@ -543,6 +614,6 @@ python manage.py migrate
 
 ---
 
-**Latest Version**: 1.6.0
+**Latest Version**: 1.6.1
 **Last Updated**: October 29, 2025
 **Status**: Production Ready ✅

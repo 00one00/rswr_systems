@@ -299,6 +299,56 @@ Calculation:
 4. Save
 ```
 
+### Lot Walking Service Configuration
+
+**Same Interface**: Admin → Customer Portal → Customer Repair Preferences
+
+Configure scheduled lot walking service for customers:
+
+```
+1. Edit existing preference or create new
+2. Scroll to "Lot Walking Service Settings" section
+3. Configure service:
+   ☑ Enable lot walking service
+
+   Frequency: [Dropdown]
+   - Weekly
+   - Bi-weekly (Every 2 weeks)
+   - Monthly
+   - Quarterly (Every 3 months)
+
+   Preferred time: 09:00 AM    (Time picker)
+
+   Preferred Days for Lot Walking:
+   ☑ Monday
+   ☑ Wednesday
+   ☑ Friday
+   ☐ Tuesday
+   ☐ Thursday
+   ☐ Saturday
+   ☐ Sunday
+
+4. Save
+```
+
+**Field Validation**:
+- If lot walking is enabled, frequency and time are required
+- Days are optional (default to all days if none selected)
+- Time uses 24-hour format in admin (e.g., 14:00 for 2:00 PM)
+
+**List View Shows**:
+- Customer name
+- Approval mode
+- Lot walking enabled (✓/✗)
+- Lot walking frequency
+- Last updated
+
+**Filtering Options**:
+- Filter by lot walking enabled (Yes/No)
+- Filter by frequency (Weekly/Bi-weekly/Monthly/Quarterly)
+- Filter by approval mode
+- Filter by update date
+
 ### Examples
 
 **Example 1: Trusted Customer**
@@ -336,6 +386,23 @@ Result:
 - First 3: Auto-approved (under threshold)
 - Units 4-5: PENDING (require approval)
 - Customer approves additional 2
+```
+
+**Example 4: Lot Walking Customer**
+```
+Customer: Enterprise Fleet Services
+Mode: AUTO_APPROVE
+Lot Walking: Enabled
+Frequency: Weekly
+Preferred Time: 9:00 AM
+Preferred Days: Monday, Wednesday, Friday
+
+Result:
+- Scheduled lot walks on Mon/Wed/Fri at 9:00 AM
+- Tech walks lot and identifies damage
+- All repairs auto-approved (AUTO_APPROVE mode)
+- Tech completes work same visit
+- Customer billed weekly
 ```
 
 ---
@@ -463,6 +530,25 @@ Result:
 - Won't appear in assignment lists
 - Can't login to portal
 - Existing assignments preserved
+```
+
+### Task 6: Configure Lot Walking Service for Customer
+
+```
+1. Customer Portal → Customer Repair Preferences
+2. Find or create preference for customer
+3. Scroll to "Lot Walking Service Settings"
+4. Enable and configure:
+   ☑ Enable lot walking service
+   Frequency: Weekly
+   Preferred time: 09:00
+   Days: ☑ Monday ☑ Wednesday ☑ Friday
+5. Save
+
+Result:
+- Customer preferences saved in database
+- Settings visible in customer portal (if implemented)
+- Ready for scheduling system integration (future feature)
 ```
 
 ---
@@ -593,6 +679,6 @@ for p in CustomerPricing.objects.filter(use_custom_pricing=True):
 
 ---
 
-**Last Updated**: October 21, 2025
-**For**: RS Systems v1.4.0
+**Last Updated**: October 29, 2025
+**For**: RS Systems v1.6.1
 **Target Users**: System Administrators

@@ -87,14 +87,97 @@ class CustomerPricingAdmin(admin.ModelAdmin):
 
 # Custom form for CustomerRepairPreference with conditional validation
 class CustomerRepairPreferenceForm(forms.ModelForm):
+    """
+    Enhanced form for CustomerRepairPreference model with lot walking configuration.
+
+    Features:
+    - Field repair approval mode selection (AUTO_APPROVE, REQUIRE_APPROVAL, UNIT_THRESHOLD)
+    - Unit threshold validation (required only when using UNIT_THRESHOLD mode)
+    - Lot walking service configuration with user-friendly widgets
+    - Automatic conversion between JSONField storage and checkbox UI
+
+    Lot Walking Fields:
+    - lot_walking_enabled: Boolean checkbox to enable/disable service
+    - lot_walking_frequency: Dropdown (Weekly/Bi-weekly/Monthly/Quarterly)
+    - lot_walking_time: Time picker for preferred time
+    - lot_walking_days_choices: Checkbox widget for selecting days (converts to/from JSON)
+    """
+
+    # Days of week for lot walking (multi-select checkboxes)
+    DAYS_OF_WEEK = [
+        ('Monday', 'Monday'),
+        ('Tuesday', 'Tuesday'),
+        ('Wednesday', 'Wednesday'),
+        ('Thursday', 'Thursday'),
+        ('Friday', 'Friday'),
+        ('Saturday', 'Saturday'),
+        ('Sunday', 'Sunday'),
+    ]
+
+    # Override the lot_walking_days JSONField to make it checkbox-friendly in admin
+    # This field is NOT in the model - it's a UI-only field that converts to/from JSON
+    lot_walking_days_choices = forms.MultipleChoiceField(
+        choices=DAYS_OF_WEEK,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Preferred Days for Lot Walking",
+        help_text="Select all days that work for your schedule"
+    )
+
     class Meta:
         model = CustomerRepairPreference
         fields = '__all__'
+        widgets = {
+            'lot_walking_time': forms.TimeInput(attrs={
+                'type': 'time',
+                'class': 'vTimeField'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        """
+        Custom initialization to pre-populate the days checkboxes from JSONField data.
+
+        When editing an existing CustomerRepairPreference, this converts the
+        lot_walking_days JSONField (e.g., ['Monday', 'Wednesday', 'Friday'])
+        into initial checkbox selections for the admin UI.
+
+        Args:
+            *args: Positional arguments passed to parent form
+            **kwargs: Keyword arguments including 'instance' for existing objects
+        """
+        super().__init__(*args, **kwargs)
+
+        # If editing existing preference, populate the days checkboxes from JSON data
+        if self.instance and self.instance.pk and self.instance.lot_walking_days:
+            self.fields['lot_walking_days_choices'].initial = self.instance.lot_walking_days
 
     def clean(self):
+        """
+        Validate form data with conditional requirements for approval and lot walking settings.
+
+        Validation Rules:
+        1. Field Repair Approval:
+           - units_per_visit_threshold required when mode is UNIT_THRESHOLD
+           - units_per_visit_threshold cleared when mode is not UNIT_THRESHOLD
+
+        2. Lot Walking Service:
+           - lot_walking_frequency required when lot_walking_enabled is True
+           - lot_walking_time required when lot_walking_enabled is True
+           - lot_walking_days optional (defaults to empty list if not selected)
+
+        Returns:
+            dict: Cleaned and validated form data
+
+        Raises:
+            ValidationError: If required fields are missing based on mode selection
+        """
         cleaned_data = super().clean()
         approval_mode = cleaned_data.get('field_repair_approval_mode')
         threshold = cleaned_data.get('units_per_visit_threshold')
+        lot_walking_enabled = cleaned_data.get('lot_walking_enabled')
+        lot_walking_frequency = cleaned_data.get('lot_walking_frequency')
+        lot_walking_time = cleaned_data.get('lot_walking_time')
 
         # Require threshold only when mode is UNIT_THRESHOLD
         if approval_mode == 'UNIT_THRESHOLD' and not threshold:
@@ -102,17 +185,87 @@ class CustomerRepairPreferenceForm(forms.ModelForm):
                 'units_per_visit_threshold': 'This field is required when using Unit Threshold mode.'
             })
 
-        # Clear threshold when not using UNIT_THRESHOLD mode
+        # Clear threshold when not using UNIT_THRESHOLD mode (prevents confusion)
         if approval_mode != 'UNIT_THRESHOLD' and threshold is not None:
             cleaned_data['units_per_visit_threshold'] = None
 
+        # Validate lot walking settings - frequency and time required if service enabled
+        if lot_walking_enabled:
+            if not lot_walking_frequency:
+                raise forms.ValidationError({
+                    'lot_walking_frequency': 'Frequency is required when lot walking is enabled.'
+                })
+            if not lot_walking_time:
+                raise forms.ValidationError({
+                    'lot_walking_time': 'Preferred time is required when lot walking is enabled.'
+                })
+
         return cleaned_data
+
+    def save(self, commit=True):
+        """
+        Custom save method to convert checkbox selections to JSONField storage.
+
+        This method bridges the gap between the checkbox UI (lot_walking_days_choices)
+        and the database JSONField (lot_walking_days). It converts selected days from
+        the checkbox widget into a JSON list for storage.
+
+        Example:
+            User selects: [Monday, Wednesday, Friday] (checkboxes)
+            Stored as: ['Monday', 'Wednesday', 'Friday'] (JSON)
+
+        Args:
+            commit (bool): Whether to save to database immediately (default: True)
+
+        Returns:
+            CustomerRepairPreference: The saved instance
+        """
+        instance = super().save(commit=False)
+
+        # Convert checkbox selections to list and store in JSONField
+        # lot_walking_days_choices is UI-only, lot_walking_days is the actual model field
+        instance.lot_walking_days = self.cleaned_data.get('lot_walking_days_choices', [])
+
+        if commit:
+            instance.save()
+
+        return instance
 
 # Custom admin class for CustomerRepairPreference model
 class CustomerRepairPreferenceAdmin(admin.ModelAdmin):
+    """
+    Django admin configuration for CustomerRepairPreference model.
+
+    Features:
+    - Field repair approval workflow configuration (AUTO_APPROVE, REQUIRE_APPROVAL, UNIT_THRESHOLD)
+    - Lot walking service scheduling preferences
+    - Enhanced list view showing approval mode and lot walking status
+    - Filtering by approval mode, lot walking enabled/frequency
+    - Organized fieldsets for better UX
+
+    List Display Columns:
+    - Customer name
+    - Approval mode (with display name)
+    - Unit threshold (if applicable)
+    - Lot walking enabled (✓/✗)
+    - Lot walking frequency (Weekly/Bi-weekly/Monthly/Quarterly)
+    - Last updated timestamp
+
+    Filtering Options:
+    - Field repair approval mode
+    - Lot walking enabled (Yes/No)
+    - Lot walking frequency
+    - Update date
+
+    Fieldsets:
+    1. Customer - Select which customer this preference applies to
+    2. Field Repair Approval Settings - Configure approval workflow
+    3. Lot Walking Service Settings - Configure lot walking schedule (NEW in v1.6.1)
+    4. Tracking - Created/updated timestamps (collapsed)
+    """
     form = CustomerRepairPreferenceForm
-    list_display = ['customer', 'field_repair_approval_mode', 'units_per_visit_threshold', 'updated_at']
-    list_filter = ['field_repair_approval_mode', 'updated_at']
+    list_display = ['customer', 'field_repair_approval_mode', 'units_per_visit_threshold', 'lot_walking_enabled', 'lot_walking_frequency', 'updated_at']
+    list_filter = ['field_repair_approval_mode', 'lot_walking_enabled', 'lot_walking_frequency', 'updated_at']
     search_fields = ['customer__name']
     list_select_related = ['customer']
     readonly_fields = ['created_at', 'updated_at']
@@ -124,6 +277,10 @@ class CustomerRepairPreferenceAdmin(admin.ModelAdmin):
         ('Field Repair Approval Settings', {
             'fields': ('field_repair_approval_mode', 'units_per_visit_threshold'),
             'description': 'Configure how field-discovered repairs should be handled for this customer.'
+        }),
+        ('Lot Walking Service Settings', {
+            'fields': ('lot_walking_enabled', 'lot_walking_frequency', 'lot_walking_time', 'lot_walking_days_choices'),
+            'description': 'Configure scheduled lot walking service for this customer. Enable the service and set the frequency, preferred time, and days.'
         }),
         ('Tracking', {
             'fields': ('created_at', 'updated_at'),
