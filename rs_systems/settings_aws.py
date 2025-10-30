@@ -221,7 +221,7 @@ if USE_S3:
     # S3 media settings - for repair photos and uploads
     MEDIA_LOCATION = 'media'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3.S3Storage'  # Updated for django-storages 1.14+
 else:
     # Local media files settings for development
     MEDIA_URL = '/media/'
