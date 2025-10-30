@@ -210,18 +210,32 @@ USE_S3 = os.environ.get('USE_S3', 'False').lower() == 'true'
 if USE_S3:
     # AWS S3 settings for MEDIA files only (photos)
     # Static files (CSS/JS) continue to use WhiteNoise
-    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    AWS_S3_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+    AWS_S3_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
     AWS_DEFAULT_ACL = None  # Don't use ACLs, use bucket policy instead
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
-    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
-    # S3 media settings - for repair photos and uploads
-    AWS_LOCATION = 'media'  # Subfolder in S3 bucket for media files
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3.S3Storage'
+    # S3 media settings - Django 4.2+ STORAGES format
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "access_key": AWS_S3_ACCESS_KEY_ID,
+                "secret_key": AWS_S3_SECRET_ACCESS_KEY,
+                "bucket_name": AWS_STORAGE_BUCKET_NAME,
+                "region_name": AWS_S3_REGION_NAME,
+                "default_acl": None,
+                "location": "media",
+                "object_parameters": {"CacheControl": "max-age=86400"},
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 else:
     # Local media files settings for development
     MEDIA_URL = '/media/'
