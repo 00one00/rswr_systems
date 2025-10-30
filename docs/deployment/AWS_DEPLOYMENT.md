@@ -78,7 +78,7 @@ eb create rs-systems-prod \
 - **Username**: `rswradmin`
 - **Database Name**: `rswr_db`
 - **Encryption**: Enabled (AWS KMS)
-- **Backups**: 7-day retention
+- **Backups**: 30-day automated retention (RDS)
 
 ### Environment Variables
 
@@ -294,72 +294,218 @@ eb logs --stream
 
 ### Automated Backup System
 
-**Backup Schedule:**
-- **Frequency**: Daily at 2:00 AM UTC
-- **Retention**: 30 days
-- **Storage**: S3 bucket `rs-systems-backups-20250823`
+**Last Updated**: October 30, 2025 (Migrated to AWS-managed backups)
 
-**Components Backed Up:**
-1. PostgreSQL database (full dump)
-2. Media files (repair photos)
-3. Application configuration
+RS Systems uses AWS-managed backup solutions for data protection:
 
-### Manual Backup
+#### 1. RDS Automated Backups (Database)
 
+**Configuration:**
+- **Database**: `rs-systems-production-db` (PostgreSQL 15.14)
+- **Backup Window**: Daily at 3:29-3:59 AM UTC
+- **Retention**: 30 days (configurable)
+- **Storage**: Automated in AWS-managed storage
+- **Recovery**: Point-in-time restore to any second within retention period
+
+**Backup Status:**
 ```bash
-# Immediate database backup
-eb ssh rs-systems-prod
-pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME > backup_$(date +%Y%m%d).sql
-aws s3 cp backup_*.sql s3://rs-systems-backups-20250823/manual/
+# Check current backup configuration
+aws rds describe-db-instances \
+  --db-instance-identifier rs-systems-production-db \
+  --query 'DBInstances[0].[BackupRetentionPeriod,PreferredBackupWindow,LatestRestorableTime]' \
+  --output table
 
-# Media files backup
-aws s3 sync /var/app/current/media/ s3://rs-systems-backups-20250823/media/
+# List available snapshots
+aws rds describe-db-snapshots \
+  --db-instance-identifier rs-systems-production-db
+```
+
+#### 2. S3 Versioning (Media Files)
+
+**Configuration:**
+- **Bucket**: `rs-systems-media-20251029`
+- **Versioning**: Enabled (protects against accidental deletion)
+- **Lifecycle Policy**:
+  - Previous versions retained for 30 days
+  - Automatic cleanup after 30 days
+  - Expired delete markers removed automatically
+- **Cost Control**: Old versions auto-deleted to prevent storage bloat
+
+**Photo Protection:**
+- Current photos stored indefinitely
+- Deleted/replaced photos recoverable for 30 days
+- Application delete operations work normally
+- Hidden version history for recovery
+
+**Check Versioning Status:**
+```bash
+# Verify versioning is enabled
+aws s3api get-bucket-versioning --bucket rs-systems-media-20251029
+
+# View lifecycle policies
+aws s3api get-bucket-lifecycle-configuration --bucket rs-systems-media-20251029
+
+# List all versions of a file
+aws s3api list-object-versions \
+  --bucket rs-systems-media-20251029 \
+  --prefix media/repair_photos/
 ```
 
 ### Recovery Procedures
 
-**Full System Recovery:**
+#### Database Recovery
+
+**Point-in-Time Restore (Recommended):**
+
+Restore database to any point within the last 30 days:
 
 ```bash
-# 1. Create new environment
-eb create rs-systems-recovery --cfg rs-systems-prod
+# Restore to specific timestamp
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier rs-systems-production-db \
+  --target-db-instance-identifier rs-systems-recovery-db \
+  --restore-time 2025-10-25T14:30:00Z
 
-# 2. Restore database
-aws s3 cp s3://rs-systems-backups-20250823/database/latest.sql ./
-eb ssh rs-systems-recovery
-psql -h $DB_HOST -U $DB_USER -d $DB_NAME < latest.sql
-
-# 3. Restore media files
-aws s3 sync s3://rs-systems-backups-20250823/media/ /var/app/current/media/
-
-# 4. Update DNS to point to recovery environment
+# Or restore to latest restorable time
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier rs-systems-production-db \
+  --target-db-instance-identifier rs-systems-recovery-db \
+  --use-latest-restorable-time
 ```
 
-**Partial Data Recovery:**
+**Snapshot Restore:**
 
 ```bash
-# Restore specific table
-pg_restore -h $DB_HOST -U $DB_USER -d $DB_NAME -t table_name backup.sql
+# List available snapshots
+aws rds describe-db-snapshots \
+  --db-instance-identifier rs-systems-production-db
 
-# Restore specific media files
-aws s3 cp s3://rs-systems-backups-20250823/media/path/to/file.jpg ./
+# Restore from specific snapshot
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier rs-systems-recovery-db \
+  --db-snapshot-identifier rds:rs-systems-production-db-2025-10-29-03-38
+```
+
+**After Database Restore:**
+
+1. Update application to use recovery database
+2. Test functionality thoroughly
+3. If successful, promote recovery DB to production
+4. Update DNS/environment variables
+
+#### Media File Recovery
+
+**Recover Deleted Photo:**
+
+```bash
+# 1. List all versions to find the deleted file
+aws s3api list-object-versions \
+  --bucket rs-systems-media-20251029 \
+  --prefix media/repair_photos/before/IMG_0433.jpeg
+
+# 2. Copy specific version back (making it current)
+aws s3api copy-object \
+  --copy-source "rs-systems-media-20251029/media/repair_photos/before/IMG_0433.jpeg?versionId=VERSION_ID" \
+  --bucket rs-systems-media-20251029 \
+  --key media/repair_photos/before/IMG_0433.jpeg
+```
+
+**Recover Multiple Files:**
+
+```bash
+# Script to restore all files in a folder to a previous date
+# This requires custom scripting based on version timestamps
+aws s3api list-object-versions \
+  --bucket rs-systems-media-20251029 \
+  --prefix media/repair_photos/ \
+  --query "Versions[?LastModified<'2025-10-25']"
+```
+
+### Manual Backup (Additional Protection)
+
+For extra protection before major changes:
+
+```bash
+# Create manual RDS snapshot (retained indefinitely)
+aws rds create-db-snapshot \
+  --db-instance-identifier rs-systems-production-db \
+  --db-snapshot-identifier manual-backup-$(date +%Y%m%d)
+
+# Sync media files to separate backup location
+aws s3 sync s3://rs-systems-media-20251029/media/ \
+  s3://your-additional-backup-bucket/media-backup-$(date +%Y%m%d)/ \
+  --storage-class GLACIER_IR  # Lower cost for archival
 ```
 
 ### Backup Validation
 
+**Monthly Recovery Test (Recommended):**
+
 ```bash
-# Check backup existence
-aws s3 ls s3://rs-systems-backups-20250823/database/ --human-readable
+# 1. Create test database from latest snapshot
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier rs-systems-test \
+  --db-snapshot-identifier rds:rs-systems-production-db-2025-10-30-03-38
 
-# Test database backup integrity
-pg_restore --list backup.sql
+# 2. Verify data integrity
+psql -h rs-systems-test.xxx.rds.amazonaws.com -U rswradmin -d rswr_db -c "SELECT COUNT(*) FROM technician_portal_repair;"
 
-# Monthly recovery test
-eb create rs-systems-test
-# ... restore from backup ...
-# ... verify functionality ...
-eb terminate rs-systems-test
+# 3. Clean up test database
+aws rds delete-db-instance \
+  --db-instance-identifier rs-systems-test \
+  --skip-final-snapshot
 ```
+
+**Monitoring:**
+
+```bash
+# Check latest restorable time (should be within 5 minutes of current time)
+aws rds describe-db-instances \
+  --db-instance-identifier rs-systems-production-db \
+  --query 'DBInstances[0].LatestRestorableTime'
+
+# Verify S3 versioning is still enabled
+aws s3api get-bucket-versioning --bucket rs-systems-media-20251029
+```
+
+### Cost Optimization
+
+**Current Estimated Costs:**
+- RDS backups (30-day retention): ~$10/month
+- S3 versioning (30-day old versions): ~$0.50-5/month (grows with photo uploads)
+- **Total**: ~$10-15/month
+
+**Cost Controls in Place:**
+- Lifecycle policies auto-delete old versions after 30 days
+- Incomplete multipart uploads cleaned up after 7 days
+- Expired delete markers removed automatically
+
+**To Reduce Costs:**
+
+```bash
+# Reduce RDS retention to 7 days (saves ~$7/month)
+aws rds modify-db-instance \
+  --db-instance-identifier rs-systems-production-db \
+  --backup-retention-period 7 \
+  --apply-immediately
+
+# Reduce S3 version retention to 7 days (minimal savings)
+# Edit lifecycle policy to set NoncurrentDays: 7
+```
+
+### Backup Strategy Migration Notes
+
+**Previous System (Deprecated):**
+- Custom backup scripts to `rs-systems-backups-20250823` bucket
+- ❌ Failed silently for 67+ days (designed for SQLite, but using PostgreSQL)
+- ❌ Bucket was empty despite daily cron jobs
+- ✅ Removed on October 30, 2025
+
+**Current System (Active):**
+- ✅ AWS RDS automated backups (30-day retention)
+- ✅ S3 versioning with lifecycle policies (30-day version retention)
+- ✅ No maintenance required
+- ✅ Integrated with AWS infrastructure
 
 ---
 

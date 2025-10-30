@@ -12,6 +12,133 @@ All notable changes to the RS Systems windshield repair management platform.
 
 ---
 
+## [1.6.2] - October 30, 2025
+
+### 🔒 BACKUP & DATA PROTECTION
+
+#### Changed
+- **Backup System Migration**: Transitioned from custom scripts to AWS-managed backup solutions
+  - **RDS Retention Increased**: Database backup retention extended from 7 to 30 days
+  - **Point-in-Time Recovery**: Can now restore database to any second within last 30 days
+  - **Backup Window**: Automated daily backups at 3:29-3:59 AM UTC
+  - **Recovery Window**: 4.3x longer protection window for data recovery
+  - **Location**: AWS RDS automated backups for `rs-systems-production-db`
+
+- **S3 Versioning Enabled**: Media files now protected against accidental deletion
+  - **Versioning**: Enabled on `rs-systems-media-20251029` bucket
+  - **Retention**: Deleted/replaced photos recoverable for 30 days
+  - **Lifecycle Policy**: Automatic cleanup of old versions after 30 days
+  - **Cost Control**: Prevents storage bloat with automated cleanup
+  - **Application Impact**: Zero - delete operations work normally
+  - **Hidden Protection**: Version history invisible to users, accessible for recovery
+
+- **Lifecycle Policies**: Three automated rules for cost optimization
+  - `DeleteOldVersionsAfter30Days`: Removes non-current versions after 30 days
+  - `CleanupExpiredDeleteMarkers`: Removes expired delete markers automatically
+  - `AbortIncompleteMultipartUploads`: Cleans up failed uploads after 7 days
+
+#### Removed
+- **Custom Backup System**: Deprecated SQLite-based backup scripts
+  - Removed `.ebextensions/07_backup_system.config` (Elastic Beanstalk cron job)
+  - Removed `scripts/backup_system.py` (custom backup script)
+  - **Reason**: Script designed for SQLite but production uses PostgreSQL
+  - **Impact**: System was failing silently for 67+ days with empty backup bucket
+  - **Replacement**: AWS RDS automated backups + S3 versioning
+
+- **Empty S3 Bucket**: Deleted unused `rs-systems-backups-20250823` bucket
+  - Bucket was completely empty (0 objects, 0 bytes)
+  - Cron job was running but failing to create backups
+  - Reduced AWS account clutter
+
+#### Fixed
+- **Silent Backup Failures**: Custom backup system was designed for SQLite but production uses PostgreSQL
+  - Daily cron job ran but failed to find `db.sqlite3` file
+  - No error alerts or notifications of failure
+  - Backup bucket remained empty since creation (August 23, 2025)
+  - Fixed by replacing with AWS-managed solutions that monitor automatically
+
+#### Security
+- **Enhanced Data Protection**: Multiple layers of backup protection
+  - Database: 30-day automated snapshots + point-in-time recovery
+  - Photos: S3 versioning with 30-day deleted file recovery
+  - Compliance: Better meets data retention requirements
+  - Disaster Recovery: Can restore to any point in last month
+
+#### Cost Impact
+- **Estimated Monthly Cost**: ~$10-15/month
+  - RDS extended retention (7→30 days): ~$10/month
+  - S3 versioning storage: ~$0.50-5/month (grows with photo uploads)
+- **Cost Controls**: Automatic cleanup prevents runaway costs
+- **Value**: 4.3x longer recovery window + accidental deletion protection
+
+#### Documentation Updates
+- **AWS Deployment Guide**: Completely rewrote Backup & Recovery section
+  - Updated database retention from 7 to 30 days (line 81)
+  - Replaced entire section with AWS-managed backup documentation (lines 293-508)
+  - Added RDS automated backup commands and procedures
+  - Added S3 versioning recovery procedures
+  - Added cost optimization guidelines
+  - Added backup validation and testing procedures
+  - Added migration notes explaining the change
+  - **Location**: `docs/deployment/AWS_DEPLOYMENT.md:293-508`
+
+#### Technical Details
+- **RDS Configuration**:
+  - Database: `rs-systems-production-db` (PostgreSQL 15.14)
+  - Backup retention: 30 days (configurable via AWS CLI)
+  - Backup window: 3:29-3:59 AM UTC daily
+  - Latest restorable time: Real-time (within 5 minutes)
+  - Storage: AWS-managed (encrypted at rest)
+
+- **S3 Versioning**:
+  - Bucket: `rs-systems-media-20251029`
+  - Status: Enabled
+  - Version retention: 30 days for non-current versions
+  - Recovery: Version-specific restore via AWS CLI
+  - Impact: Transparent to application code
+
+- **Verification Commands**:
+  ```bash
+  # Check RDS backup status
+  aws rds describe-db-instances --db-instance-identifier rs-systems-production-db
+
+  # Check S3 versioning status
+  aws s3api get-bucket-versioning --bucket rs-systems-media-20251029
+
+  # List available snapshots
+  aws rds describe-db-snapshots --db-instance-identifier rs-systems-production-db
+  ```
+
+#### Benefits
+- ✅ 30-day database recovery window (was 7 days)
+- ✅ Deleted photos recoverable for 30 days (was permanent loss)
+- ✅ AWS-managed = no maintenance required
+- ✅ Point-in-time restore to any second within 30 days
+- ✅ Automatic monitoring and alerts built into AWS
+- ✅ No custom code to maintain or debug
+- ✅ Better compliance and audit trail
+- ✅ Cost-optimized with automatic cleanup
+
+#### Recovery Procedures
+- **Database**: Point-in-time restore or snapshot restore via AWS CLI
+- **Photos**: Version-specific recovery using S3 API
+- **Testing**: Monthly recovery tests recommended
+- **Documentation**: Complete recovery procedures in AWS_DEPLOYMENT.md
+
+### Files Modified
+4 files changed:
+- `docs/deployment/AWS_DEPLOYMENT.md` - Complete Backup & Recovery section rewrite
+- `docs/development/CHANGELOG.md` - This changelog entry
+- `.ebextensions/07_backup_system.config` - Removed (deprecated)
+- `scripts/backup_system.py` - Removed (deprecated)
+
+### AWS Resources Modified
+- RDS instance `rs-systems-production-db` - Backup retention 7→30 days
+- S3 bucket `rs-systems-media-20251029` - Versioning enabled
+- S3 bucket `rs-systems-backups-20250823` - Deleted (empty)
+
+---
+
 ## [1.6.1] - October 29, 2025
 
 ### 🔧 ADMIN ENHANCEMENTS
