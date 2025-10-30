@@ -55,6 +55,8 @@ class CustomerRepairPreference(models.Model):
     # Threshold setting (only used when mode is UNIT_THRESHOLD)
     units_per_visit_threshold = models.IntegerField(
         default=5,
+        blank=True,
+        null=True,
         help_text="Max number of units technician can repair per visit without approval (only applies in Unit Threshold mode)"
     )
 

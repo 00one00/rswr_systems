@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 from .models import CustomerUser, CustomerPreference, RepairApproval, CustomerRepairPreference
 from .pricing_models import CustomerPricing
 
@@ -84,8 +85,32 @@ class CustomerPricingAdmin(admin.ModelAdmin):
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
 
+# Custom form for CustomerRepairPreference with conditional validation
+class CustomerRepairPreferenceForm(forms.ModelForm):
+    class Meta:
+        model = CustomerRepairPreference
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        approval_mode = cleaned_data.get('field_repair_approval_mode')
+        threshold = cleaned_data.get('units_per_visit_threshold')
+
+        # Require threshold only when mode is UNIT_THRESHOLD
+        if approval_mode == 'UNIT_THRESHOLD' and not threshold:
+            raise forms.ValidationError({
+                'units_per_visit_threshold': 'This field is required when using Unit Threshold mode.'
+            })
+
+        # Clear threshold when not using UNIT_THRESHOLD mode
+        if approval_mode != 'UNIT_THRESHOLD' and threshold is not None:
+            cleaned_data['units_per_visit_threshold'] = None
+
+        return cleaned_data
+
 # Custom admin class for CustomerRepairPreference model
 class CustomerRepairPreferenceAdmin(admin.ModelAdmin):
+    form = CustomerRepairPreferenceForm
     list_display = ['customer', 'field_repair_approval_mode', 'units_per_visit_threshold', 'updated_at']
     list_filter = ['field_repair_approval_mode', 'updated_at']
     search_fields = ['customer__name']
