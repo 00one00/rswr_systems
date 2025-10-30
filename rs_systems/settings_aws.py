@@ -219,9 +219,9 @@ if USE_S3:
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
     # S3 media settings - for repair photos and uploads
-    MEDIA_LOCATION = 'media'
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3.S3Storage'  # Updated for django-storages 1.14+
+    AWS_LOCATION = 'media'  # Subfolder in S3 bucket for media files
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3.S3Storage'
 else:
     # Local media files settings for development
     MEDIA_URL = '/media/'
