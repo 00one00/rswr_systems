@@ -166,6 +166,7 @@ class Repair(models.Model):
         ('Star Break', 'Star Break'),
         ('Bull\'s Eye', 'Bull\'s Eye'),
         ('Combination Break', 'Combination Break'),
+        ('Half-Moon', 'Half-Moon'),
         ('Other', 'Other'),
     ]
 
