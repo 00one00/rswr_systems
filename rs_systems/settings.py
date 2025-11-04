@@ -205,6 +205,7 @@ INSTALLED_APPS = [
     'apps.security',
     'core',
     'drf_spectacular',
+    'django_cleanup.apps.CleanupConfig',  # Must be last - automatically deletes files when models are deleted
 ]
 
 MIDDLEWARE = [

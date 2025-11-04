@@ -583,12 +583,193 @@ Result:
 - [ ] Review manager approval limits
 - [ ] Clean up inactive users
 - [ ] Update technician working hours
+- [ ] Audit S3 storage for orphaned files
 
 ### Quarterly
 - [ ] Review all pricing contracts
 - [ ] Audit manager permissions
 - [ ] Update volume discount thresholds
 - [ ] Prepare performance review data
+- [ ] Clean up orphaned repair photos in S3
+
+---
+
+## Storage Management
+
+### Auditing Repair Photos in S3
+
+**Purpose**: Identifies and removes orphaned photo files that remain in S3 storage after repairs are deleted.
+
+**When to Use**:
+- Monthly maintenance to identify storage waste
+- After bulk repair deletions
+- When investigating unexpected storage costs
+- During system audits
+
+**Command**:
+```bash
+# Audit only (dry run - safe to run anytime)
+python manage.py audit_repair_photos
+
+# Delete orphaned files (use with caution)
+python manage.py audit_repair_photos --delete
+```
+
+### How It Works
+
+The command:
+1. Connects to your S3 bucket (`AWS_STORAGE_BUCKET_NAME`)
+2. Lists all files in `media/repair_photos/` directory
+3. Compares S3 files against database photo references
+4. Identifies:
+   - **Orphaned files**: In S3 but not referenced in database (should be deleted)
+   - **Missing files**: Referenced in database but not in S3 (indicates a problem)
+
+### Example Output
+
+**Audit Run (Dry Run)**:
+```
+Starting repair photo audit...
+Fetching files from S3...
+Found 14 files in S3
+
+Fetching photo references from database...
+Found 8 photo references in database
+
+================================================================================
+AUDIT RESULTS
+================================================================================
+
+Found 6 ORPHANED files (in S3 but not in database):
+Total size: 12.45 MB
+Estimated monthly cost: $0.0003
+
+  - media/repair_photos/before/IMG_0433.jpeg (2.1 MB, modified: 2025-10-30 09:53:38)
+  - media/repair_photos/after/IMG_0434.jpeg (2.3 MB, modified: 2025-10-30 09:53:38)
+  - media/repair_photos/before/IMG_0436.jpeg (2.0 MB, modified: 2025-10-30 09:55:42)
+  - media/repair_photos/after/IMG_0437.jpeg (1.9 MB, modified: 2025-10-30 09:55:43)
+  - media/repair_photos/before/IMG_0439.jpeg (2.1 MB, modified: 2025-11-01 18:35:21)
+  - media/repair_photos/after/IMG_0440.jpeg (2.0 MB, modified: 2025-11-01 18:35:21)
+
+No missing files!
+
+================================================================================
+DRY RUN MODE: No files were deleted. Use --delete to actually remove orphaned files.
+================================================================================
+
+Audit complete!
+```
+
+**Delete Run**:
+```bash
+python manage.py audit_repair_photos --delete
+```
+```
+Starting repair photo audit...
+[... audit results ...]
+
+================================================================================
+DELETING ORPHANED FILES
+================================================================================
+
+Deleted: media/repair_photos/before/IMG_0433.jpeg
+Deleted: media/repair_photos/after/IMG_0434.jpeg
+Deleted: media/repair_photos/before/IMG_0436.jpeg
+Deleted: media/repair_photos/after/IMG_0437.jpeg
+Deleted: media/repair_photos/before/IMG_0439.jpeg
+Deleted: media/repair_photos/after/IMG_0440.jpeg
+
+Deleted 6 files
+
+Audit complete!
+```
+
+### Understanding the Results
+
+**Orphaned Files**:
+- Photos that remain after repairs are deleted
+- Before November 2025: Photos were NOT automatically deleted
+- After November 2025: `django-cleanup` automatically deletes photos
+- Safe to delete orphaned files - they're no longer referenced
+
+**Missing Files**:
+- Database references photos that don't exist in S3
+- Indicates:
+  - Manual file deletion without updating database
+  - S3 bucket misconfiguration
+  - File upload failures
+- **Action Required**: Investigate why files are missing
+
+**Storage Costs**:
+- S3 Standard Storage: ~$0.023 per GB per month
+- Command calculates estimated monthly cost of orphaned files
+- Small files have negligible cost, but accumulation matters
+
+### Safety & Best Practices
+
+**Before Deleting**:
+1. ✅ Run audit without `--delete` first
+2. ✅ Review the list of files to be deleted
+3. ✅ Check modification dates (recent files need review)
+4. ✅ Ensure you have database backups
+5. ✅ Consider taking S3 snapshot if deleting many files
+
+**When to Delete**:
+- ✅ Files are older than 30 days
+- ✅ Audit shows reasonable file count (<100 files)
+- ✅ You've verified against recent repair deletions
+- ✅ Storage costs justify cleanup effort
+
+**When NOT to Delete**:
+- ❌ Files modified in last 7 days (might be active uploads)
+- ❌ Large number of files (>500) without investigation
+- ❌ Missing files reported (indicates bigger problem)
+- ❌ During active repair operations
+
+### Task: Monthly Storage Audit
+
+**Recommended Process**:
+```bash
+# 1. Run audit to identify orphaned files
+python manage.py audit_repair_photos
+
+# 2. Review output:
+#    - Note total size and cost
+#    - Check modification dates
+#    - Look for patterns
+
+# 3. If orphaned files > 50 MB or > 30 files:
+#    - Document findings
+#    - Get approval if needed
+#    - Run deletion
+
+# 4. Delete orphaned files
+python manage.py audit_repair_photos --delete
+
+# 5. Verify deletion
+python manage.py audit_repair_photos
+
+# 6. Document in maintenance log
+```
+
+### Automatic Photo Deletion (November 2025+)
+
+**New Behavior**:
+Since November 2025, the system automatically deletes photos when repairs are deleted using the `django-cleanup` package. The `audit_repair_photos` command is now primarily for:
+- Cleaning up historical orphaned files (pre-November 2025)
+- Periodic verification that automatic deletion is working
+- Troubleshooting unexpected storage growth
+
+**Verification**:
+```bash
+# Check if django-cleanup is installed
+pip list | grep django-cleanup
+# Should show: django-cleanup==9.0.0
+
+# Check settings.py
+grep -A 20 "INSTALLED_APPS" rs_systems/settings.py | grep django_cleanup
+# Should show: 'django_cleanup.apps.CleanupConfig',
+```
 
 ---
 
@@ -675,6 +856,20 @@ python manage.py shell -c "
 from apps.customer_portal.pricing_models import CustomerPricing
 for p in CustomerPricing.objects.filter(use_custom_pricing=True):
     print(f'{p.customer.name}: Tier 1 = \${p.repair_1_price}')
+"
+
+# Audit S3 storage for orphaned files
+python manage.py audit_repair_photos              # Dry run (safe)
+python manage.py audit_repair_photos --delete     # Delete orphaned files
+
+# Count total repairs by customer
+python manage.py shell -c "
+from apps.technician_portal.models import Repair
+from core.models import Customer
+from django.db.models import Count
+repairs = Repair.objects.values('customer__name').annotate(count=Count('id')).order_by('-count')
+for r in repairs[:10]:
+    print(f'{r[\"customer__name\"]}: {r[\"count\"]} repairs')
 "
 ```
 

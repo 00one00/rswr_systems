@@ -161,7 +161,7 @@ class RewardRedemption(models.Model):
         related_name='assigned_redemptions'
     )
     fulfilled_at = models.DateTimeField(null=True, blank=True)
-    applied_to_repair = models.ForeignKey('technician_portal.Repair', on_delete=models.SET_NULL, 
+    applied_to_repair = models.ForeignKey('technician_portal.Repair', on_delete=models.SET_NULL,
                                        null=True, blank=True, related_name='applied_rewards')
 
     class Meta:

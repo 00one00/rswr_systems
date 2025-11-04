@@ -572,7 +572,7 @@ class TechnicianNotification(models.Model):
     read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     redemption = models.ForeignKey('rewards_referrals.RewardRedemption', on_delete=models.SET_NULL, null=True, blank=True)
-    repair = models.ForeignKey('Repair', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+    repair = models.ForeignKey('Repair', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
 
     def __str__(self):
         return f"Notification for {self.technician.user.username}: {self.message[:30]}..."

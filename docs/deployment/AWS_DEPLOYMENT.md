@@ -571,12 +571,14 @@ eb logs --log-group /aws/elasticbeanstalk/rs-systems-prod/var/log/web.stdout.log
 - Test backup recovery
 - Update dependencies
 - Review database performance
+- Audit S3 storage for orphaned files (`python manage.py audit_repair_photos`)
 
 **Quarterly:**
 - Security audit
 - Cost optimization review
 - SSL certificate renewal check
 - Disaster recovery test
+- Clean up orphaned repair photos (`python manage.py audit_repair_photos --delete`)
 
 ---
 

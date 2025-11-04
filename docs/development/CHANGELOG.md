@@ -12,6 +12,133 @@ All notable changes to the RS Systems windshield repair management platform.
 
 ---
 
+## [1.6.3] - November 3, 2025
+
+### 🗄️ STORAGE & DATA MANAGEMENT
+
+#### Added
+- **Automatic Photo Deletion**: Photos now automatically delete when repairs are removed
+  - **Package**: Installed `django-cleanup==9.0.0` for automatic file cleanup
+  - **Integration**: Added to `INSTALLED_APPS` as last entry (required for proper functionality)
+  - **Scope**: Applies to all ImageField models (repair photos, profile pictures, etc.)
+  - **Storage Support**: Works with both S3 (production) and local media (development)
+  - **Migration**: Database migration created for cascade behavior updates
+  - **Location**: `requirements.txt:8`, `rs_systems/settings.py:208`
+
+- **Storage Audit Command**: New management command to identify and clean orphaned files
+  - **Command**: `python manage.py audit_repair_photos`
+  - **Features**:
+    - Lists all orphaned files in S3 with sizes and modification dates
+    - Detects missing files (referenced in DB but not in S3)
+    - Calculates storage costs (~$0.023 per GB/month)
+    - Dry-run mode by default (safe to run anytime)
+    - `--delete` flag to actually remove orphaned files
+  - **Use Cases**:
+    - Monthly maintenance audits
+    - Post-bulk deletion cleanup
+    - Storage cost investigation
+    - System health checks
+  - **Location**: `core/management/commands/audit_repair_photos.py`
+
+#### Changed
+- **TechnicianNotification Cascade**: Updated to CASCADE when repairs are deleted
+  - **Previous**: `on_delete=models.SET_NULL` (notifications kept, repair link cleared)
+  - **New**: `on_delete=models.CASCADE` (notifications deleted with repair)
+  - **Rationale**: Notifications are directly tied to repairs; no value in orphaned notifications
+  - **Location**: `apps/technician_portal/models.py:575`
+
+- **RewardRedemption Cascade**: Remains SET_NULL (intentionally preserved)
+  - **Behavior**: `on_delete=models.SET_NULL` (redemption kept, repair link cleared)
+  - **Rationale**: Preserves audit trail and point balance integrity
+  - **Use Case**: If repair accidentally deleted, customer points/redemption history preserved
+  - **Location**: `apps/rewards_referrals/models.py:164`
+
+#### Fixed
+- **Orphaned Photo Files**: Photos remained in S3 after repair deletion
+  - **Issue**: Before November 2025, deleting repairs left photos in S3 storage
+  - **Root Cause**: No automatic file cleanup mechanism configured
+  - **Impact**:
+    - Storage bloat (14+ orphaned files, ~16 MB in production)
+    - Security risk (deleted repair photos still accessible via URL)
+    - Ongoing storage costs (~$0.0004/month for current orphans)
+    - GDPR/privacy concerns (deleted data remained accessible)
+  - **Fix**: `django-cleanup` now automatically deletes files on model deletion
+  - **Verification**: Use `audit_repair_photos` command to confirm cleanup
+
+- **Cascade Behavior Inconsistency**: Some related records were orphaned, others weren't
+  - **Issue**: Mixed use of CASCADE and SET_NULL without clear business logic
+  - **Fix**: Standardized cascade behavior:
+    - `RepairApproval`: CASCADE ✓ (already correct)
+    - `TechnicianNotification`: CASCADE ✓ (updated)
+    - `RewardRedemption`: SET_NULL ✓ (intentionally preserved for audit trail)
+  - **Result**: Predictable, documented deletion behavior
+
+#### Security
+- **Privacy Enhancement**: Deleted repairs now fully remove associated photos
+  - **Before**: Photos remained accessible via S3 URLs even after repair deletion
+  - **After**: Photos automatically deleted, URLs become inaccessible
+  - **Compliance**: Better GDPR compliance (data deletion requests)
+  - **Audit Trail**: Redemption records preserved for financial integrity
+
+#### Documentation Updates
+- **CLAUDE.md**: Added "Maintenance Commands" section (line 42-50)
+  - Documented `audit_repair_photos` command usage
+  - Added to essential commands for developers
+
+- **Admin Guide**: Added comprehensive "Storage Management" section
+  - Complete guide to `audit_repair_photos` command (lines 597-773)
+  - Example outputs for audit and delete operations
+  - Safety guidelines and best practices
+  - When to delete vs. when to investigate
+  - Storage cost calculation explanation
+  - Added to monthly/quarterly maintenance tasks
+  - Added to Quick Reference Commands section (line 862)
+  - **Location**: `docs/user-guides/ADMIN_GUIDE.md:597-773`
+
+- **AWS Deployment Guide**: Updated maintenance schedules
+  - Monthly: "Audit S3 storage for orphaned files" (line 574)
+  - Quarterly: "Clean up orphaned repair photos" (line 581)
+  - **Location**: `docs/deployment/AWS_DEPLOYMENT.md:574,581`
+
+#### Migration Notes
+- **Database Migration**: `apps/technician_portal/migrations/0011_alter_repair_damage_type_and_more.py`
+  - Alters `TechnicianNotification.repair` foreign key to CASCADE
+  - Safe to apply (no data loss, only affects future deletions)
+  - Run via: `python manage.py migrate`
+
+- **Cleanup Existing Orphans**: One-time cleanup recommended
+  ```bash
+  # 1. Audit first (safe, read-only)
+  python manage.py audit_repair_photos
+
+  # 2. Review output, then delete orphans
+  python manage.py audit_repair_photos --delete
+  ```
+
+#### Technical Details
+- **django-cleanup Behavior**:
+  - Hooks into Django's post_delete signal
+  - Deletes files synchronously during model deletion
+  - Works with all Django storage backends (S3, local, custom)
+  - Must be last in INSTALLED_APPS to catch all model deletes
+  - Handles failed deletions gracefully (logs error but doesn't block)
+
+- **Cascade Summary**:
+  | Related Model | Cascade Behavior | Data Preserved? | Reason |
+  |--------------|------------------|-----------------|--------|
+  | RepairApproval | CASCADE | No | Approval tied to specific repair |
+  | TechnicianNotification | CASCADE | No | Notification about specific repair |
+  | RewardRedemption | SET_NULL | Yes | Preserve audit trail & points |
+  | Photos (S3/files) | DELETE | No | Automatic cleanup via django-cleanup |
+
+- **Supported Photo Fields**:
+  - `Repair.customer_submitted_photo` → `repair_photos/customer_submitted/`
+  - `Repair.damage_photo_before` → `repair_photos/before/`
+  - `Repair.damage_photo_after` → `repair_photos/after/`
+  - All automatically deleted when parent Repair is deleted
+
+---
+
 ## [1.6.2] - October 30, 2025
 
 ### 🔒 BACKUP & DATA PROTECTION
