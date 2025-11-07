@@ -36,7 +36,7 @@ class Command(BaseCommand):
             name="Office Treats",
             category="MERCHANDISE",
             defaults={
-                'discount_type': 'FREE',
+                'discount_type': 'NONE',
                 'discount_value': 0,
                 'description': 'Complimentary office treats and team activities'
             }

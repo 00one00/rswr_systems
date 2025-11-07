@@ -447,28 +447,33 @@ class Repair(models.Model):
         for redemption in applied_rewards:
             if redemption.reward_option.reward_type:
                 reward_type = redemption.reward_option.reward_type
-                
+
+                # Only apply discounts for repair-related rewards
+                # Skip MERCHANDISE (donuts/pizza), GIFT_CARD, and OTHER categories
+                if reward_type.category not in ['REPAIR_DISCOUNT', 'FREE_SERVICE']:
+                    continue
+
                 # Apply discount based on the reward type
                 if reward_type.discount_type == 'PERCENTAGE':
                     # Percentage discount
                     discount_amount = (base_cost * Decimal(reward_type.discount_value)) / Decimal(100)
                     final_cost = base_cost - discount_amount
-                    discount_description = f"{reward_type.discount_value}% off"
+                    discount_description = f"{int(reward_type.discount_value)}% off"
                     discount_applied = True
-                    
+
                 elif reward_type.discount_type == 'FIXED_AMOUNT':
                     # Fixed amount discount
                     discount_amount = Decimal(reward_type.discount_value)
                     final_cost = max(base_cost - discount_amount, Decimal(0))
                     discount_description = f"${reward_type.discount_value} off"
                     discount_applied = True
-                    
+
                 elif reward_type.discount_type == 'FREE':
                     # Free (100% off)
                     final_cost = Decimal(0)
                     discount_description = "Free repair"
                     discount_applied = True
-                    
+
                 # Only apply one discount (the first one found)
                 break
         

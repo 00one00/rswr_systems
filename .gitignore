@@ -79,10 +79,11 @@ DOMAIN_SSL_SETUP.md
 HTTPS_SETUP_GUIDE.md
 
 # Misc.
-CLAUDE.md 
+CLAUDE.md
 next_steps.md
 notes.txt
 __pycache__/
-# Test scripts with hardcoded credentials
+
+# Test scripts with hardcoded credentials (SECURITY: DO NOT COMMIT)
 /scripts/test_database_persistence.py
 /scripts/configure_rds.sh
