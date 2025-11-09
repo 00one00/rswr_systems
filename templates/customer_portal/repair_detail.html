@@ -76,7 +76,10 @@
                             <div class="mb-2"><strong>Original Cost:</strong> <span class="text-decoration-line-through text-muted">${{ cost_info.original_cost }}</span></div>
                             <div class="mb-2"><strong>Discount:</strong> <span class="text-success">{{ cost_info.discount_description }}</span></div>
                             <div class="mb-2"><strong>Final Cost:</strong> <span class="text-primary fw-bold">${{ cost_info.final_cost }}</span></div>
-                            <div><strong>Savings:</strong> <span class="text-success">${{ cost_info.savings }}</span></div>
+                            <div class="mb-2"><strong>Savings:</strong> <span class="text-success">${{ cost_info.savings }}</span></div>
+                            <div class="mt-2 small text-muted fst-italic">
+                                <i class="fas fa-info-circle"></i> Only one reward can be applied per repair
+                            </div>
                         </div>
                         {% else %}
                         <div class="col-md-4 fw-bold">Estimated Cost:</div>

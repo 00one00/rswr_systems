@@ -310,9 +310,14 @@
                 <!-- Applied Rewards -->
                 {% if repair.applied_rewards.exists %}
                 <div class="bg-purple-50 rounded-lg p-4 border border-purple-200 mb-6">
-                    <h4 class="text-lg font-semibold text-purple-900 mb-4">
-                        <i class="fas fa-gift mr-2"></i>Applied Rewards
-                    </h4>
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-semibold text-purple-900">
+                            <i class="fas fa-gift mr-2"></i>Applied Rewards
+                        </h4>
+                        <span class="text-xs text-purple-600 italic">
+                            <i class="fas fa-info-circle mr-1"></i>Only one reward per repair
+                        </span>
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-purple-200">
                             <thead class="bg-purple-100">
@@ -432,9 +437,12 @@
                         {% endif %}
 
                         <!-- Apply Reward Button -->
-                        <a href="{% url 'apply_reward_to_repair' repair.id %}" class="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors">
+                        <a href="{% url 'apply_reward_to_repair' repair.id %}" class="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors" title="Only one reward can be applied per repair">
                             <i class="fas fa-gift mr-2"></i>Apply Reward
                         </a>
+                        <span class="text-xs text-gray-500 italic self-center">
+                            <i class="fas fa-info-circle"></i> One reward per repair
+                        </span>
                         
                         {% if is_admin %}
                         <div class="relative inline-block text-left">
