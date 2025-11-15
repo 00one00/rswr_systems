@@ -105,8 +105,22 @@ def customer_dashboard(request):
             repair.customer_initiated = repair.id in customer_initiated_approvals
         
         # Get repairs that are awaiting customer approval
-        repairs_awaiting_approval = Repair.objects.filter(customer=customer, queue_status='PENDING')
-        
+        repairs_awaiting_approval = Repair.objects.filter(customer=customer, queue_status='PENDING').order_by('-repair_date')
+
+        # Group batched repairs and separate individual repairs
+        batch_repairs = {}  # Dictionary: batch_id -> batch_summary
+        individual_repairs = []  # List of non-batched repairs
+
+        for repair in repairs_awaiting_approval:
+            if repair.is_part_of_batch:
+                # Only add batch summary once (for the first repair in batch we encounter)
+                if repair.repair_batch_id not in batch_repairs:
+                    batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
+                    if batch_summary:
+                        batch_repairs[repair.repair_batch_id] = batch_summary
+            else:
+                individual_repairs.append(repair)
+
         # Get detailed repair statistics for visualizations
         stats = {
             'active_repairs': active_repairs,
@@ -143,6 +157,9 @@ def customer_dashboard(request):
             'pending_approval_repairs': repairs_awaiting_approval,
             'customer_user': customer_user,
             'customer_initiated_repair_ids': list(customer_initiated_approvals),
+            # Batch repairs for grouped display
+            'batch_repairs': list(batch_repairs.values()),
+            'individual_repairs': individual_repairs,
             # Reward and referral data
             'referral_code': referral_code_value,
             'referral_count': referral_count,
@@ -268,13 +285,32 @@ def customer_repairs(request):
         # Add a flag to each repair indicating if it was customer initiated
         for repair in repairs:
             repair.customer_initiated = repair.id in customer_initiated_approvals
-        
+
+        # Group batched repairs and separate individual repairs
+        batch_repairs = {}  # Dictionary: batch_id -> batch_summary
+        individual_repairs = []  # List of non-batched repairs
+        processed_batch_ids = set()  # Track which batches we've already added
+
+        for repair in repairs:
+            if repair.is_part_of_batch:
+                # Only add batch summary once
+                if repair.repair_batch_id not in processed_batch_ids:
+                    batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
+                    if batch_summary:
+                        batch_repairs[repair.repair_batch_id] = batch_summary
+                        processed_batch_ids.add(repair.repair_batch_id)
+            else:
+                individual_repairs.append(repair)
+
         return render(request, 'customer_portal/repairs.html', {
             'repairs': repairs,
             'customer': customer,
             'status_filter': status_filter,
             'sort_by': sort_by,
-            'customer_initiated_repair_ids': list(customer_initiated_approvals)
+            'customer_initiated_repair_ids': list(customer_initiated_approvals),
+            # Batch grouping data
+            'batch_repairs': list(batch_repairs.values()),
+            'individual_repairs': individual_repairs,
         })
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")
@@ -428,6 +464,186 @@ def customer_repair_deny(request, repair_id):
         })
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")
+
+# Multi-Break Batch Views
+@customer_required
+def customer_batch_detail(request, batch_id):
+    """Display all repairs in a batch with batch approval options"""
+    try:
+        customer_user = CustomerUser.objects.get(user=request.user)
+        customer = customer_user.customer
+
+        # Get batch summary
+        batch_summary = Repair.get_batch_summary(batch_id)
+
+        if not batch_summary or batch_summary['customer'] != customer:
+            messages.error(request, "Batch not found or you don't have access to it.")
+            return redirect('customer_dashboard')
+
+        return render(request, 'customer_portal/batch_detail.html', {
+            'batch_summary': batch_summary,
+            'customer': customer,
+            'repairs': batch_summary['all_repairs'],
+        })
+    except CustomerUser.DoesNotExist:
+        messages.warning(request, "Please complete your profile first.")
+        return redirect('profile_creation')
+
+@customer_required
+@transaction.atomic
+def customer_batch_approve(request, batch_id):
+    """Approve all repairs in a batch (all-or-nothing transaction)"""
+    try:
+        customer_user = CustomerUser.objects.get(user=request.user)
+        customer = customer_user.customer
+
+        # Get batch summary
+        batch_summary = Repair.get_batch_summary(batch_id)
+
+        if not batch_summary or batch_summary['customer'] != customer:
+            messages.error(request, "Batch not found or you don't have access to it.")
+            return redirect('customer_dashboard')
+
+        if request.method == 'POST':
+            repairs = batch_summary['all_repairs']
+            approved_count = 0
+            technician = None
+
+            # Approve all repairs in the batch
+            for repair in repairs:
+                # Create or update approval record
+                approval, created = RepairApproval.objects.get_or_create(
+                    repair=repair,
+                    defaults={
+                        'approved': True,
+                        'approved_by': customer_user,
+                        'approval_date': timezone.now(),
+                        'notes': f'Batch approval for {batch_summary["break_count"]} breaks'
+                    }
+                )
+
+                if not created:
+                    approval.approved = True
+                    approval.approved_by = customer_user
+                    approval.approval_date = timezone.now()
+                    approval.notes = f'Batch approval for {batch_summary["break_count"]} breaks'
+                    approval.save()
+
+                # Update repair status
+                repair.queue_status = 'APPROVED'
+                repair.save()
+
+                # Track technician for batch notification
+                if repair.technician:
+                    technician = repair.technician
+
+                approved_count += 1
+
+            # Create single grouped notification for the entire batch
+            if technician:
+                TechnicianNotification.objects.create(
+                    technician=technician,
+                    message=f"✅ Batch of {batch_summary['break_count']} breaks APPROVED by {customer.name} - Unit {batch_summary['unit_number']} (${batch_summary['total_cost']:.2f} total)",
+                    read=False,
+                    repair=repairs[0],  # Link to first repair in batch
+                    repair_batch_id=batch_id  # Store batch_id for batch notification
+                )
+
+            messages.success(
+                request,
+                f"Successfully approved all {approved_count} breaks for Unit {batch_summary['unit_number']} (${batch_summary['total_cost']:.2f} total)."
+            )
+            return redirect('customer_dashboard')
+
+        # GET request - show confirmation page
+        return render(request, 'customer_portal/batch_approve_confirm.html', {
+            'batch_summary': batch_summary,
+            'customer': customer,
+        })
+
+    except CustomerUser.DoesNotExist:
+        messages.warning(request, "Please complete your profile first.")
+        return redirect('profile_creation')
+
+@customer_required
+@transaction.atomic
+def customer_batch_deny(request, batch_id):
+    """Deny all repairs in a batch (all-or-nothing transaction)"""
+    try:
+        customer_user = CustomerUser.objects.get(user=request.user)
+        customer = customer_user.customer
+
+        # Get batch summary
+        batch_summary = Repair.get_batch_summary(batch_id)
+
+        if not batch_summary or batch_summary['customer'] != customer:
+            messages.error(request, "Batch not found or you don't have access to it.")
+            return redirect('customer_dashboard')
+
+        if request.method == 'POST':
+            reason = request.POST.get('reason', '')
+            repairs = batch_summary['all_repairs']
+            denied_count = 0
+            technician = None
+
+            # Deny all repairs in the batch
+            for repair in repairs:
+                # Create or update approval record
+                approval, created = RepairApproval.objects.get_or_create(
+                    repair=repair,
+                    defaults={
+                        'approved': False,
+                        'approved_by': customer_user,
+                        'approval_date': timezone.now(),
+                        'notes': reason or f'Batch denial for {batch_summary["break_count"]} breaks'
+                    }
+                )
+
+                if not created:
+                    approval.approved = False
+                    approval.approved_by = customer_user
+                    approval.approval_date = timezone.now()
+                    approval.notes = reason or f'Batch denial for {batch_summary["break_count"]} breaks'
+                    approval.save()
+
+                # Update repair status
+                repair.queue_status = 'DENIED'
+                repair.save()
+
+                # Track technician for batch notification
+                if repair.technician:
+                    technician = repair.technician
+
+                denied_count += 1
+
+            # Create single grouped notification for the entire batch
+            if technician:
+                denial_message = f"❌ Batch of {batch_summary['break_count']} breaks DENIED by {customer.name} - Unit {batch_summary['unit_number']}"
+                if reason:
+                    denial_message += f" - Reason: {reason}"
+                TechnicianNotification.objects.create(
+                    technician=technician,
+                    message=denial_message,
+                    read=False,
+                    repair=repairs[0],  # Link to first repair in batch
+                    repair_batch_id=batch_id  # Store batch_id for batch notification
+                )
+
+            messages.success(
+                request,
+                f"Denied all {denied_count} breaks for Unit {batch_summary['unit_number']}."
+            )
+            return redirect('customer_dashboard')
+
+        # GET request - show confirmation page
+        return render(request, 'customer_portal/batch_deny_confirm.html', {
+            'batch_summary': batch_summary,
+            'customer': customer,
+        })
+
+    except CustomerUser.DoesNotExist:
+        messages.warning(request, "Please complete your profile first.")
+        return redirect('profile_creation')
 
 def is_suspicious_username(username):
     """Check if username looks like a bot/spam registration"""

@@ -1,0 +1,209 @@
+"""
+Batch Pricing Service for Multi-Break Repairs
+
+Handles progressive pricing calculation for multiple breaks on the same unit
+during a single repair session. Uses existing pricing_service.py functions
+to ensure consistency with custom pricing tiers and volume discounts.
+"""
+from decimal import Decimal
+from typing import List, Dict, Optional, Tuple
+from apps.customer_portal.pricing_models import CustomerPricing
+from apps.technician_portal.models import UnitRepairCount, Customer
+from .pricing_service import calculate_repair_cost
+
+
+def calculate_batch_pricing(
+    customer: Customer,
+    unit_number: str,
+    breaks_count: int
+) -> List[Dict]:
+    """
+    Calculate progressive pricing for a batch of breaks on the same unit.
+
+    Each break increments the repair count, so:
+    - Break 1 priced as repair #N+1
+    - Break 2 priced as repair #N+2
+    - Break 3 priced as repair #N+3
+
+    Args:
+        customer: Customer object
+        unit_number: Unit identifier
+        breaks_count: Number of breaks in this batch
+
+    Returns:
+        List of dicts with pricing info for each break:
+        [
+            {
+                'break_number': 1,
+                'repair_tier': 3,  # This will be the unit's 3rd repair
+                'price': Decimal('35.00'),
+                'price_formatted': '$35.00'
+            },
+            ...
+        ]
+    """
+    # Get current repair count for this unit
+    try:
+        unit_count = UnitRepairCount.objects.get(
+            customer=customer,
+            unit_number=unit_number
+        )
+        base_repair_count = unit_count.repair_count
+    except UnitRepairCount.DoesNotExist:
+        base_repair_count = 0
+
+    # Calculate price for each break in sequence
+    pricing_breakdown = []
+
+    for i in range(breaks_count):
+        # Each break increments the repair count
+        repair_tier = base_repair_count + i + 1
+
+        # Use existing pricing service (handles custom pricing, defaults, etc.)
+        price = calculate_repair_cost(customer, repair_tier)
+
+        pricing_breakdown.append({
+            'break_number': i + 1,
+            'repair_tier': repair_tier,
+            'price': price,
+            'price_formatted': f'${price:.2f}'
+        })
+
+    return pricing_breakdown
+
+
+def calculate_batch_total(pricing_breakdown: List[Dict]) -> Dict:
+    """
+    Calculate total cost and summary for a batch of repairs.
+
+    Args:
+        pricing_breakdown: Output from calculate_batch_pricing()
+
+    Returns:
+        Dict with batch summary:
+        {
+            'total_breaks': 3,
+            'total_cost': Decimal('110.00'),
+            'total_cost_formatted': '$110.00',
+            'price_range': '$50.00 - $35.00',
+            'breakdown': [...original pricing breakdown...]
+        }
+    """
+    if not pricing_breakdown:
+        return {
+            'total_breaks': 0,
+            'total_cost': Decimal('0.00'),
+            'total_cost_formatted': '$0.00',
+            'price_range': '$0.00',
+            'breakdown': []
+        }
+
+    total_cost = sum(item['price'] for item in pricing_breakdown)
+
+    # Get price range (highest to lowest)
+    prices = [item['price'] for item in pricing_breakdown]
+    max_price = max(prices)
+    min_price = min(prices)
+
+    if max_price == min_price:
+        price_range = f'${max_price:.2f} each'
+    else:
+        price_range = f'${max_price:.2f} - ${min_price:.2f}'
+
+    return {
+        'total_breaks': len(pricing_breakdown),
+        'total_cost': total_cost,
+        'total_cost_formatted': f'${total_cost:.2f}',
+        'price_range': price_range,
+        'breakdown': pricing_breakdown
+    }
+
+
+def get_batch_pricing_preview(
+    customer_id: int,
+    unit_number: str,
+    breaks_count: int
+) -> Optional[Dict]:
+    """
+    Get pricing preview for frontend display before batch submission.
+
+    Args:
+        customer_id: Customer ID
+        unit_number: Unit identifier
+        breaks_count: Number of breaks in batch
+
+    Returns:
+        Dict with pricing info or None if customer not found:
+        {
+            'customer_name': 'Acme Corp',
+            'unit_number': '1001',
+            'uses_custom_pricing': True,
+            'total_breaks': 3,
+            'total_cost': Decimal('110.00'),
+            'total_cost_formatted': '$110.00',
+            'price_range': '$50.00 - $35.00',
+            'breakdown': [
+                {
+                    'break_number': 1,
+                    'repair_tier': 3,
+                    'price': Decimal('35.00'),
+                    'price_formatted': '$35.00'
+                },
+                ...
+            ]
+        }
+    """
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return None
+
+    # Check if customer uses custom pricing
+    uses_custom_pricing = CustomerPricing.objects.filter(
+        customer=customer,
+        use_custom_pricing=True
+    ).exists()
+
+    # Get pricing breakdown
+    pricing_breakdown = calculate_batch_pricing(customer, unit_number, breaks_count)
+    batch_total = calculate_batch_total(pricing_breakdown)
+
+    return {
+        'customer_name': customer.name,
+        'unit_number': unit_number,
+        'uses_custom_pricing': uses_custom_pricing,
+        **batch_total
+    }
+
+
+def validate_batch_pricing_authorization(
+    technician,
+    total_cost: Decimal,
+    proposed_override: Optional[Decimal] = None
+) -> Tuple[bool, Optional[str]]:
+    """
+    Check if technician is authorized to override batch pricing.
+
+    Args:
+        technician: Technician object
+        total_cost: Calculated total batch cost
+        proposed_override: Optional proposed override amount
+
+    Returns:
+        Tuple of (is_authorized, error_message)
+    """
+    if proposed_override is None:
+        return True, None
+
+    # Check manager authorization
+    if not (technician.is_manager and technician.can_override_pricing):
+        return False, "Only managers with pricing override permission can set custom batch pricing"
+
+    # Validate override amount is reasonable (not negative, not absurdly high)
+    if proposed_override < 0:
+        return False, "Override price cannot be negative"
+
+    if proposed_override > total_cost * 2:
+        return False, f"Override price ${proposed_override:.2f} is more than 2x calculated price ${total_cost:.2f}"
+
+    return True, None

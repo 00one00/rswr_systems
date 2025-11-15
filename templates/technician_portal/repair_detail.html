@@ -54,6 +54,207 @@
                     </a>
                 </div>
             </div>
+
+            <!-- Batch Context Banner (if part of batch) -->
+            {% if repair.is_part_of_batch %}
+            <div class="px-6 py-4 bg-blue-50 border-b border-blue-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-lg font-semibold text-blue-900">Part of Multi-Break Batch</h3>
+                            <p class="text-sm text-blue-700">Break {{ repair.break_number }} of {{ repair.total_breaks_in_batch }} for Unit {{ repair.unit_number }}</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'technician_batch_detail' repair.repair_batch_id %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        View All {{ repair.total_breaks_in_batch }} Breaks
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Convert to Batch Banner (if NOT part of batch and status allows) -->
+            {% if not repair.is_part_of_batch and repair.queue_status in 'APPROVED,IN_PROGRESS' %}
+            <div class="px-6 py-4 bg-amber-50 border-b border-amber-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-sm font-semibold text-amber-900">Found More Breaks On-Site?</h3>
+                            <p class="text-xs text-amber-700">Add additional breaks to create a multi-break batch for this unit</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'convert_to_batch' repair.id %}" class="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Add More Breaks
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Actions Bar (Sticky at Top) -->
+            <div class="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200 sticky top-0 z-10 shadow-sm">
+                <div class="px-6 py-4">
+                    <div class="flex items-center justify-between gap-4 flex-wrap">
+                        <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
+                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            Quick Actions
+                        </h3>
+                        <div class="flex flex-wrap gap-2">
+                            <!-- Batch Navigation (if part of batch) -->
+                            {% if repair.is_part_of_batch and batch_info %}
+                            <a href="{% url 'technician_batch_detail' repair.repair_batch_id %}" class="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                </svg>
+                                Return to Batch
+                            </a>
+                            {% if next_break %}
+                            <a href="{% url 'update_repair' next_break.id %}?batch_id={{ repair.repair_batch_id }}" class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+                                </svg>
+                                Next Break ({{ next_break.break_number }}/{{ batch_info.break_count }})
+                            </a>
+                            {% elif batch_info.completed_count == batch_info.break_count %}
+                            <span class="inline-flex items-center px-3 py-2 bg-green-100 text-green-800 text-sm font-medium rounded">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                All Breaks Complete!
+                            </span>
+                            {% endif %}
+                            {% endif %}
+
+                            <!-- Manager Assignment (REQUESTED repairs only) -->
+                            {% if repair.queue_status == 'REQUESTED' %}
+                                {% if user.technician and user.technician.is_manager or is_admin %}
+                                <a href="{% url 'assign_repair' repair.id %}" class="inline-flex items-center px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                    <i class="fas fa-user-plus mr-1.5"></i>Assign
+                                </a>
+                                {% endif %}
+                            {% endif %}
+
+                            <!-- Edit Repair Button -->
+                            {% if is_admin %}
+                                <a href="{% url 'update_repair' repair.id %}{% if repair.is_part_of_batch %}?batch_id={{ repair.repair_batch_id }}{% endif %}" class="inline-flex items-center px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                    <i class="fas fa-edit mr-1.5"></i>Edit Repair
+                                </a>
+                            {% elif user.technician and user.technician.is_manager %}
+                                <a href="{% url 'update_repair' repair.id %}{% if repair.is_part_of_batch %}?batch_id={{ repair.repair_batch_id }}{% endif %}" class="inline-flex items-center px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                    <i class="fas fa-edit mr-1.5"></i>Edit Repair
+                                    {% if repair.queue_status == 'COMPLETED' or repair.queue_status == 'DENIED' %}
+                                    <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Manager</span>
+                                    {% endif %}
+                                </a>
+                            {% elif repair.queue_status not in 'COMPLETED,DENIED' and repair.technician and repair.technician == user.technician %}
+                                <a href="{% url 'update_repair' repair.id %}{% if repair.is_part_of_batch %}?batch_id={{ repair.repair_batch_id }}{% endif %}" class="inline-flex items-center px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                    <i class="fas fa-edit mr-1.5"></i>Edit Repair
+                                </a>
+                            {% endif %}
+
+                            <!-- Reassign to Self (managers only) -->
+                            {% if can_reassign_to_self %}
+                            <a href="{% url 'reassign_to_self' repair.id %}" class="inline-flex items-center px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                <i class="fas fa-user-check mr-1.5"></i>Reassign to Me
+                            </a>
+                            {% endif %}
+
+                            <!-- Status Update Buttons -->
+                            {% if can_update_status %}
+                                {% if repair.queue_status == 'REQUESTED' %}
+                                <form action="{% url 'update_queue_status' repair.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="status" value="APPROVED">
+                                    <button type="submit" class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                        <i class="fas fa-check mr-1.5"></i>Accept Repair
+                                    </button>
+                                </form>
+                                {% elif repair.queue_status == 'APPROVED' %}
+                                <form action="{% url 'update_queue_status' repair.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="status" value="IN_PROGRESS">
+                                    <button type="submit" class="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-play mr-1.5"></i>Start Repair
+                                    </button>
+                                </form>
+                                {% elif repair.queue_status == 'IN_PROGRESS' %}
+                                <form action="{% url 'update_queue_status' repair.id %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="status" value="COMPLETED">
+                                    <button type="submit" class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                        <i class="fas fa-check mr-1.5"></i>Complete Repair
+                                    </button>
+                                </form>
+                                {% endif %}
+                            {% endif %}
+
+                            <!-- Apply Reward -->
+                            <a href="{% url 'apply_reward_to_repair' repair.id %}" class="inline-flex items-center px-3 py-2 bg-yellow-500 text-white text-sm font-medium rounded hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors">
+                                <i class="fas fa-gift mr-1.5"></i>Apply Reward
+                            </a>
+
+                            <!-- Admin Actions Dropdown -->
+                            {% if is_admin %}
+                            <div class="relative inline-block text-left">
+                                <button type="button" class="inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-gray-700 text-sm font-medium rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors" id="adminActionsDropdown" onclick="toggleDropdown()">
+                                    <i class="fas fa-cog mr-1.5"></i>Admin
+                                    <i class="fas fa-chevron-down ml-1"></i>
+                                </button>
+                                <div id="dropdownMenu" class="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
+                                    <div class="py-1">
+                                        {% for status, label in repair.QUEUE_CHOICES %}
+                                        <form action="{% url 'update_queue_status' repair.id %}" method="post" class="block">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="status" value="{{ status }}">
+                                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Set: {{ label }}</button>
+                                        </form>
+                                        {% endfor %}
+                                        <div class="border-t border-gray-100"></div>
+                                        <a href="{% url 'admin:technician_portal_repair_change' repair.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit in Admin</a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Dashboard Link -->
+                            <a href="{% url 'technician_dashboard' %}" class="inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-gray-700 text-sm font-medium rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                                <i class="fas fa-home mr-1.5"></i>Dashboard
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Batch Progress Indicator (if part of batch) -->
+                    {% if repair.is_part_of_batch and batch_info %}
+                    <div class="mt-3 pt-3 border-t border-gray-300">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-700 font-medium">
+                                Break {{ repair.break_number }} of {{ batch_info.break_count }} - Batch Progress: {{ batch_info.progress_percentage }}%
+                            </span>
+                            <span class="text-gray-600">
+                                {{ batch_info.completed_count }} completed, {{ batch_info.in_progress_count }} in progress
+                            </span>
+                        </div>
+                        <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: {{ batch_info.progress_percentage }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
             <div class="p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                     <!-- Customer Information -->
@@ -172,24 +373,26 @@
                     </button>
                 </div>
                 
-                <div id="photoContent" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div id="photoContent" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <!-- Customer Submitted Photo (if exists) -->
                     {% if repair.customer_submitted_photo %}
                     <div class="bg-white rounded-lg border-2 border-purple-300 shadow-sm overflow-hidden">
-                        <div class="bg-purple-600 text-white px-4 py-2 text-center">
+                        <div class="bg-purple-600 text-white px-3 py-2 text-center">
                             <h6 class="text-sm font-medium flex items-center justify-center">
                                 <i class="fas fa-user mr-2"></i>Customer Photo
                             </h6>
                             <p class="text-xs text-purple-100 mt-1">Submitted with repair request</p>
                         </div>
-                        <div class="p-4 text-center">
+                        <div class="p-2 text-center">
                             <div class="photo-container">
                                 <img src="{{ repair.customer_submitted_photo.url }}"
                                      alt="Customer submitted photo"
-                                     class="w-full h-auto max-h-80 object-contain rounded-lg shadow-sm cursor-pointer transition-transform duration-200 hover:scale-105"
-                                     onclick="openImageModal('{{ repair.customer_submitted_photo.url }}', 'Customer Submitted Photo')">
+                                     class="w-full h-auto max-h-80 object-contain rounded-lg shadow-sm cursor-pointer"
+                                     onclick="openImageModal('{{ repair.customer_submitted_photo.url }}', 'Customer Submitted Photo')"
+                                     loading="lazy"
+                                     decoding="async">
                             </div>
-                            <p class="text-xs text-gray-500 mt-2">Click to view full size</p>
+                            <p class="text-xs text-gray-500 mt-1">Click to view full size</p>
                         </div>
                     </div>
                     {% endif %}
@@ -197,39 +400,43 @@
                     <!-- Technician Before Photo -->
                     {% if repair.damage_photo_before %}
                     <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                        <div class="bg-blue-600 text-white px-4 py-2 text-center">
+                        <div class="bg-blue-600 text-white px-3 py-2 text-center">
                             <h6 class="text-sm font-medium flex items-center justify-center">
                                 <i class="fas fa-camera mr-2"></i>Before Repair (Tech)
                             </h6>
                         </div>
-                        <div class="p-4 text-center">
+                        <div class="p-2 text-center">
                             <div class="photo-container">
-                                <img src="{{ repair.damage_photo_before.url }}" 
-                                     alt="Initial damage photo" 
-                                     class="w-full h-auto max-h-80 object-contain rounded-lg shadow-sm cursor-pointer transition-transform duration-200 hover:scale-105"
-                                     onclick="openImageModal('{{ repair.damage_photo_before.url }}', 'Initial Damage Photo')">
+                                <img src="{{ repair.damage_photo_before.url }}"
+                                     alt="Initial damage photo"
+                                     class="w-full h-auto max-h-80 object-contain rounded-lg shadow-sm cursor-pointer"
+                                     onclick="openImageModal('{{ repair.damage_photo_before.url }}', 'Initial Damage Photo')"
+                                     loading="lazy"
+                                     decoding="async">
                             </div>
-                            <p class="text-xs text-gray-500 mt-2">Click to view full size</p>
+                            <p class="text-xs text-gray-500 mt-1">Click to view full size</p>
                         </div>
                     </div>
                     {% endif %}
-                    
+
                     <!-- Technician After Photo -->
                     {% if repair.damage_photo_after %}
                     <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                        <div class="bg-green-600 text-white px-4 py-2 text-center">
+                        <div class="bg-green-600 text-white px-3 py-2 text-center">
                             <h6 class="text-sm font-medium flex items-center justify-center">
                                 <i class="fas fa-check-circle mr-2"></i>After Repair (Tech)
                             </h6>
                         </div>
-                        <div class="p-4 text-center">
+                        <div class="p-2 text-center">
                             <div class="photo-container">
-                                <img src="{{ repair.damage_photo_after.url }}" 
-                                     alt="Completed repair photo" 
-                                     class="w-full h-auto max-h-80 object-contain rounded-lg shadow-sm cursor-pointer transition-transform duration-200 hover:scale-105"
-                                     onclick="openImageModal('{{ repair.damage_photo_after.url }}', 'Completed Repair Photo')">
+                                <img src="{{ repair.damage_photo_after.url }}"
+                                     alt="Completed repair photo"
+                                     class="w-full h-auto max-h-80 object-contain rounded-lg shadow-sm cursor-pointer"
+                                     onclick="openImageModal('{{ repair.damage_photo_after.url }}', 'Completed Repair Photo')"
+                                     loading="lazy"
+                                     decoding="async">
                             </div>
-                            <p class="text-xs text-gray-500 mt-2">Click to view full size</p>
+                            <p class="text-xs text-gray-500 mt-1">Click to view full size</p>
                         </div>
                     </div>
                     {% endif %}
@@ -260,8 +467,8 @@
                     </div>
                     <div class="ml-3">
                         <p class="text-sm text-amber-700">
-                            <strong>Photo Documentation:</strong> Consider adding before and after photos to better document this repair. Use the 
-                            <a href="{% url 'update_repair' repair.id %}" class="underline font-medium">Edit Repair</a> button to upload photos.
+                            <strong>Photo Documentation:</strong> Consider adding before and after photos to better document this repair. Use the
+                            <a href="{% url 'update_repair' repair.id %}{% if repair.is_part_of_batch %}?batch_id={{ repair.repair_batch_id }}{% endif %}" class="underline font-medium">Edit Repair</a> button to upload photos.
                         </p>
                     </div>
                 </div>
@@ -355,127 +562,6 @@
                     </div>
                 </div>
                 {% endif %}
-            </div>
-            <!-- Action Buttons Footer -->
-            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 rounded-b-lg">
-                <div class="flex flex-wrap gap-3 justify-between items-center">
-                    <div class="flex flex-wrap gap-3">
-                        <!-- Manager Assignment Button (only for REQUESTED repairs) -->
-                        {% if repair.queue_status == 'REQUESTED' %}
-                            {% if user.technician and user.technician.is_manager or is_admin %}
-                            <a href="{% url 'assign_repair' repair.id %}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                </svg>
-                                Assign to Technician
-                            </a>
-                            {% endif %}
-                        {% endif %}
-
-                        {% if is_admin %}
-                        <!-- Admin can edit any repair regardless of status -->
-                        <a href="{% url 'update_repair' repair.id %}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                            <i class="fas fa-edit mr-2"></i>Edit Repair
-                        </a>
-                        {% else %}
-                        <!-- Managers can edit any repair including completed ones (to add photos for AI training)
-                             Regular technicians can only edit repairs that are:
-                             1. Not in COMPLETED or DENIED state (locked)
-                             2. Have a technician assigned (not customer-submitted REQUESTED)
-                             3. Assigned to them -->
-                        {% if user.technician.is_manager %}
-                            <!-- Managers can edit any repair, including completed ones -->
-                            <a href="{% url 'update_repair' repair.id %}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                                <i class="fas fa-edit mr-2"></i>Edit Repair
-                                {% if repair.queue_status == 'COMPLETED' or repair.queue_status == 'DENIED' %}
-                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Manager Access</span>
-                                {% endif %}
-                            </a>
-                        {% elif repair.queue_status != 'COMPLETED' and repair.queue_status != 'DENIED' and repair.technician and repair.technician == user.technician %}
-                            <!-- Regular technicians can only edit open repairs assigned to them -->
-                            <a href="{% url 'update_repair' repair.id %}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                                <i class="fas fa-edit mr-2"></i>Edit Repair
-                            </a>
-                        {% endif %}
-                        {% endif %}
-
-                        <!-- Reassign to Self button for managers viewing team repairs -->
-                        {% if can_reassign_to_self %}
-                        <a href="{% url 'reassign_to_self' repair.id %}" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                            <i class="fas fa-user-check mr-2"></i>Reassign to Me
-                        </a>
-                        {% endif %}
-
-                        <!-- Status update buttons - shown if user can update status -->
-                        {% if can_update_status %}
-                            {% if repair.queue_status == 'REQUESTED' %}
-                            <!-- For REQUESTED repairs, managers can accept (assigns to them, sets to APPROVED) -->
-                            <form action="{% url 'update_queue_status' repair.id %}" method="post" class="inline">
-                                {% csrf_token %}
-                                <input type="hidden" name="status" value="APPROVED">
-                                <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                                    <i class="fas fa-check mr-2"></i>Accept Repair
-                                </button>
-                            </form>
-                            {% elif repair.queue_status == 'APPROVED' %}
-                            <form action="{% url 'update_queue_status' repair.id %}" method="post" class="inline">
-                                {% csrf_token %}
-                                <input type="hidden" name="status" value="IN_PROGRESS">
-                                <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    <i class="fas fa-play mr-2"></i>Start Repair
-                                </button>
-                            </form>
-                            {% elif repair.queue_status == 'IN_PROGRESS' %}
-                            <form action="{% url 'update_queue_status' repair.id %}" method="post" class="inline">
-                                {% csrf_token %}
-                                <input type="hidden" name="status" value="COMPLETED">
-                                <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                                    <i class="fas fa-check mr-2"></i>Mark as Completed
-                                </button>
-                            </form>
-                            {% endif %}
-                        {% endif %}
-
-                        <!-- Apply Reward Button -->
-                        <a href="{% url 'apply_reward_to_repair' repair.id %}" class="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors" title="Only one reward can be applied per repair">
-                            <i class="fas fa-gift mr-2"></i>Apply Reward
-                        </a>
-                        <span class="text-xs text-gray-500 italic self-center">
-                            <i class="fas fa-info-circle"></i> One reward per repair
-                        </span>
-                        
-                        {% if is_admin %}
-                        <div class="relative inline-block text-left">
-                            <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors" id="adminActionsDropdown" onclick="toggleDropdown()">
-                                <i class="fas fa-cog mr-2"></i>Admin Actions
-                                <i class="fas fa-chevron-down ml-2"></i>
-                            </button>
-                            <div id="dropdownMenu" class="hidden absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                                <div class="py-1">
-                                    {% for status, label in repair.QUEUE_CHOICES %}
-                                    <form action="{% url 'update_queue_status' repair.id %}" method="post" class="block">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="status" value="{{ status }}">
-                                        <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Set Status: {{ label }}</button>
-                                    </form>
-                                    {% endfor %}
-                                    <div class="border-t border-gray-100"></div>
-                                    <a href="{% url 'admin:technician_portal_repair_change' repair.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit in Admin</a>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="flex flex-wrap gap-3">
-                        <a href="{% url 'create_repair' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                            <i class="fas fa-plus mr-2"></i>Create Another Repair
-                        </a>
-                        <a href="{% url 'technician_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                            <i class="fas fa-home mr-2"></i>Dashboard
-                        </a>
-                    </div>
-                </div>
             </div>
         </div>
     </div>

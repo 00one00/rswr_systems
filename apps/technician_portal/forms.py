@@ -1,6 +1,7 @@
 from django import forms
 from .models import Technician, Repair, Customer, UnitRepairCount
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 from django.forms.widgets import DateTimeInput
 import logging
 
@@ -156,12 +157,17 @@ class RepairForm(forms.ModelForm):
         help_text="Select the type of windshield damage"
     )
 
+    # Batch repair tracking fields (hidden)
+    repair_batch_id = forms.UUIDField(required=False, widget=forms.HiddenInput())
+    break_number = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    total_breaks_in_batch = forms.IntegerField(required=False, widget=forms.HiddenInput())
+
     class Meta:
         model = Repair
         fields = ['technician', 'customer', 'unit_number', 'repair_date', 'queue_status', 'damage_type',
                   'drilled_before_repair', 'windshield_temperature', 'resin_viscosity', 'customer_submitted_photo',
                   'damage_photo_before', 'damage_photo_after', 'customer_notes', 'technician_notes',
-                  'cost_override', 'override_reason']
+                  'cost_override', 'override_reason', 'repair_batch_id', 'break_number', 'total_breaks_in_batch']
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
@@ -188,13 +194,15 @@ class RepairForm(forms.ModelForm):
         # Auto-populate repair_date for all repairs (new and existing)
         current_time = timezone.now()
         if self.instance and self.instance.pk:
-            # This is an existing repair being edited - use existing date unless not completed
-            if self.instance.queue_status != 'COMPLETED':
-                self.fields['repair_date'].initial = current_time
+            # This is an existing repair being edited - keep existing date
+            # But ensure widget has proper format
+            if self.instance.repair_date:
+                self.fields['repair_date'].initial = self.instance.repair_date
+                self.fields['repair_date'].widget.attrs['value'] = self.instance.repair_date.strftime('%Y-%m-%dT%H:%M')
         else:
             # This is a new repair - set initial date to current time
             self.fields['repair_date'].initial = current_time
-            # Also set the widget value directly
+            # Also set the widget value directly for immediate display
             self.fields['repair_date'].widget.attrs['value'] = current_time.strftime('%Y-%m-%dT%H:%M')
         
         # Make customer_notes read-only for technicians - they should not modify customer input
@@ -246,7 +254,16 @@ class RepairForm(forms.ModelForm):
         if queue_status == 'COMPLETED':
             # Check if after photo exists (from form upload or existing instance)
             after_photo = cleaned_data.get('damage_photo_after')
-            has_existing_after_photo = self.instance.pk and self.instance.damage_photo_after
+
+            # Check for existing photo more robustly by reloading from database
+            has_existing_after_photo = False
+            if self.instance.pk:
+                try:
+                    # Reload from DB to ensure we have the latest state
+                    existing_repair = Repair.objects.get(pk=self.instance.pk)
+                    has_existing_after_photo = bool(existing_repair.damage_photo_after)
+                except Repair.DoesNotExist:
+                    pass
 
             # Determine if user is a manager who can override photo requirement
             is_manager = False
@@ -256,7 +273,7 @@ class RepairForm(forms.ModelForm):
                 elif hasattr(self.user, 'technician') and self.user.technician.is_manager:
                     is_manager = True
 
-            # Require after photo for non-managers
+            # Require after photo for non-managers only if no existing photo
             if not is_manager and not after_photo and not has_existing_after_photo:
                 self.add_error('damage_photo_after', 'After photo is required to complete a repair. Managers can override if needed.')
 
@@ -270,18 +287,31 @@ class RepairForm(forms.ModelForm):
                 logger.warning(f"Repair being completed without before photo. User: {self.user.username if hasattr(self, 'user') else 'Unknown'}")
 
         if customer and unit_number:
+            repair_batch_id = cleaned_data.get('repair_batch_id')
+
             existing_repairs = Repair.objects.filter(
                 customer=customer,
                 unit_number=unit_number,
                 queue_status__in=['PENDING', 'APPROVED', 'IN_PROGRESS']
             ).exclude(pk=self.instance.pk if self.instance.pk else None)
 
+            # Allow duplicates if part of same batch
+            # Case 1: Creating a new repair with a batch_id (from multi-break form)
+            if repair_batch_id:
+                existing_repairs = existing_repairs.exclude(repair_batch_id=repair_batch_id)
+            # Case 2: Updating an existing repair that's part of a batch
+            # This allows completing breaks independently within the same batch
+            elif self.instance.pk and self.instance.repair_batch_id:
+                existing_repairs = existing_repairs.exclude(repair_batch_id=self.instance.repair_batch_id)
+
             if existing_repairs.exists():
                 existing_repair = existing_repairs.first()
                 if queue_status in ['PENDING', 'APPROVED', 'IN_PROGRESS']:
                     raise forms.ValidationError(
-                        f"There is already a {existing_repair.get_queue_status_display()} repair for this unit. "
-                        f"<a href='/tech/repairs/{existing_repair.id}/'>View existing repair</a>",
+                        mark_safe(
+                            f"There is already a {existing_repair.get_queue_status_display()} repair for this unit. "
+                            f"<a href='/tech/repairs/{existing_repair.id}/'>View existing repair</a>"
+                        ),
                         code='existing_repair'
                     )
 

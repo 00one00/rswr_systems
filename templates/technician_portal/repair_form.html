@@ -35,6 +35,34 @@
                 <h1 class="text-xl font-semibold">{% if repair %}Edit{% else %}Create New{% endif %} Repair</h1>
             </div>
             <div class="p-6">
+                <!-- Batch Context Banner -->
+                {% if repair.repair_batch_id %}
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center flex-1">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-layer-group text-blue-500 text-lg"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-blue-900">
+                                    Editing Break {{ repair.break_number }} of {{ repair.total_breaks_in_batch }} for Unit {{ repair.unit_number }}
+                                </p>
+                                <p class="text-xs text-blue-700 mt-1">
+                                    You are working on a repair that is part of a multi-break batch
+                                </p>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <a href="{% url 'technician_batch_detail' repair.repair_batch_id %}"
+                               class="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                <i class="fas fa-th-list mr-2"></i>
+                                View All Breaks
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 {% if pending_repair_warning %}
                 <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
                     <div class="flex">
@@ -72,7 +100,41 @@
 
                 <form method="post" enctype="multipart/form-data" id="repairForm" class="space-y-6">
                     {% csrf_token %}
+                    <!-- Hidden field to preserve batch context during POST -->
+                    {% if batch_id %}
+                    <input type="hidden" name="batch_id" value="{{ batch_id }}">
+                    {% endif %}
 
+                    <!-- Display all form errors prominently -->
+                    {% if form.errors %}
+                    <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-md">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-red-800">Please correct the following errors:</h3>
+                                <div class="mt-2 text-sm text-red-700">
+                                    <ul class="list-disc list-inside space-y-1">
+                                        {% for field, errors in form.errors.items %}
+                                            {% for error in errors %}
+                                                <li>
+                                                    {% if field == '__all__' %}
+                                                        {{ error }}
+                                                    {% else %}
+                                                        <strong>{{ field|title }}:</strong> {{ error }}
+                                                    {% endif %}
+                                                </li>
+                                            {% endfor %}
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     {% for field in form %}
                     {% if field.field.widget.input_type != 'hidden' %}
@@ -166,6 +228,13 @@
                     {% endif %}
                     {% endfor %}
 
+                    {# Render all hidden fields (CRITICAL for batch tracking) #}
+                    {% for field in form %}
+                        {% if field.field.widget.input_type == 'hidden' %}
+                            {{ field }}
+                        {% endif %}
+                    {% endfor %}
+
                     {% if is_admin and technicians %}
                     <div>
                         <label for="technician_id" class="block text-sm font-medium text-gray-700 mb-1">
@@ -184,9 +253,18 @@
                         <button type="submit" class="inline-flex items-center px-6 py-3 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                             {% if repair %}Update{% else %}Create{% endif %} Repair
                         </button>
+
+                        <!-- Batch Navigation Buttons (only show when editing from batch) -->
+                        {% if batch_id and repair.repair_batch_id %}
+                        <a href="{% url 'technician_batch_detail' batch_id %}" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <i class="fas fa-layer-group mr-2"></i> Return to Batch
+                        </a>
+                        {% else %}
                         <a href="{% url 'repair_list' %}" class="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
                             Back to Repairs
                         </a>
+                        {% endif %}
+
                         <a href="{% url 'technician_dashboard' %}" class="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
                             Back to Dashboard
                         </a>

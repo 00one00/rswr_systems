@@ -17,9 +17,16 @@ urlpatterns = [
     path('repairs/<int:repair_id>/reassign-to-self/', views.reassign_to_self, name='reassign_to_self'),
     path('repairs/<int:repair_id>/apply-reward/', views.apply_reward_to_repair, name='apply_reward_to_repair'),
     path('repairs/create/', views.create_repair, name='create_repair'),
+    path('repairs/create-multi-break/', views.create_multi_break_repair, name='create_multi_break_repair'),
+    path('repairs/<int:repair_id>/convert-to-batch/', views.convert_to_batch, name='convert_to_batch'),
     path('repairs/<int:repair_id>/update/', views.update_repair, name='update_repair'),
     path('repairs/<int:repair_id>/update-status/', views.update_queue_status, name='update_queue_status'),
     path('check-existing-repair/', views.check_existing_repair, name='check_existing_repair'),
+    path('api/batch-pricing/', views.get_batch_pricing_json, name='get_batch_pricing'),
+
+    # Multi-break batch management (technician portal)
+    path('batch/<uuid:batch_id>/', views.technician_batch_detail, name='technician_batch_detail'),
+    path('batch/<uuid:batch_id>/start-work/', views.technician_batch_start_work, name='technician_batch_start_work'),
     
     # Customer management
     path('customers/', views.customer_list, name='technician_customers'),

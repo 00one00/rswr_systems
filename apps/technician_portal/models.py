@@ -233,7 +233,39 @@ class Repair(models.Model):
         help_text="Internal notes added by technicians during repair process"
     )
 
+    # Batch repair tracking fields
+    repair_batch_id = models.UUIDField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="UUID linking repairs created together in one multi-break session"
+    )
+    break_number = models.PositiveIntegerField(
+        default=1,
+        help_text="Break number within this batch (1, 2, 3, etc.)"
+    )
+    total_breaks_in_batch = models.PositiveIntegerField(
+        default=1,
+        help_text="Total number of breaks in this repair batch"
+    )
+
     def save(self, *args, **kwargs):
+        # BATCH INTEGRITY VALIDATION: Ensure batch data is consistent
+        if self.repair_batch_id:
+            # If part of a batch, break_number and total_breaks_in_batch must be set
+            if not self.break_number or not self.total_breaks_in_batch:
+                raise ValueError(
+                    f"Batch repairs must have break_number and total_breaks_in_batch set. "
+                    f"Got break_number={self.break_number}, total_breaks_in_batch={self.total_breaks_in_batch}"
+                )
+
+            # Validate break_number is within range
+            if self.break_number < 1 or self.break_number > self.total_breaks_in_batch:
+                raise ValueError(
+                    f"Invalid break_number {self.break_number} for batch with {self.total_breaks_in_batch} breaks. "
+                    f"break_number must be between 1 and {self.total_breaks_in_batch}."
+                )
+
         # Ensure we have a customer before trying to access UnitRepairCount
         if self.customer:
             # Check if this is a new repair (not an update)
@@ -275,8 +307,16 @@ class Repair(models.Model):
                 # For non-completed repairs, show expected cost for preview
                 if self.cost_override is not None:
                     self.cost = self.cost_override
+                # BATCH REPAIR FIX: Preserve pre-calculated batch pricing
+                # If this repair is part of a batch (has repair_batch_id), the cost
+                # has already been calculated with progressive pricing in the batch
+                # creation view. Don't recalculate or it will overwrite correct pricing.
+                elif self.repair_batch_id is not None:
+                    # Keep the pre-calculated batch price - don't recalculate
+                    pass
                 else:
                     # Calculate expected cost for next repair (current count + 1)
+                    # Only for individual repairs (not part of a batch)
                     from .services.pricing_service import calculate_repair_cost
                     next_repair_count = unit_repair_count.repair_count + 1
                     self.cost = calculate_repair_cost(self.customer, next_repair_count)
@@ -430,6 +470,71 @@ class Repair(models.Model):
             return 30
         else:
             return 25
+
+    # Batch repair helper methods
+    @property
+    def is_part_of_batch(self):
+        """Check if this repair is part of a multi-break batch."""
+        return self.repair_batch_id is not None
+
+    @classmethod
+    def get_batch_repairs(cls, batch_id):
+        """Get all repairs in a batch, ordered by break number."""
+        if not batch_id:
+            return cls.objects.none()
+        return cls.objects.filter(repair_batch_id=batch_id).order_by('break_number')
+
+    @classmethod
+    def get_batch_summary(cls, batch_id):
+        """
+        Get summary information for a batch of repairs.
+        Returns dict with: total_cost, break_count, unit_number, customer, statuses, all_repairs
+        """
+        if not batch_id:
+            return None
+
+        repairs = cls.get_batch_repairs(batch_id)
+        if not repairs.exists():
+            return None
+
+        first_repair = repairs.first()
+        total_cost = sum(repair.cost for repair in repairs)
+        statuses = list(repairs.values_list('queue_status', flat=True).distinct())
+
+        # Calculate progress
+        repairs_list = list(repairs)
+        completed_count = sum(1 for r in repairs_list if r.queue_status == 'COMPLETED')
+        in_progress_count = sum(1 for r in repairs_list if r.queue_status == 'IN_PROGRESS')
+        approved_count = sum(1 for r in repairs_list if r.queue_status == 'APPROVED')
+        total_repairs = len(repairs_list)
+        progress_percentage = int((completed_count / total_repairs * 100)) if total_repairs > 0 else 0
+
+        # Use the MAX break_number as the definitive break count (handles data inconsistencies)
+        # Fall back to total_breaks_in_batch if break_number is not set
+        max_break_number = max((r.break_number for r in repairs_list if r.break_number), default=None)
+        if max_break_number:
+            break_count = max_break_number
+        else:
+            # Fallback: use total_breaks_in_batch from first repair or count
+            break_count = first_repair.total_breaks_in_batch if first_repair.total_breaks_in_batch else repairs.count()
+
+        return {
+            'batch_id': batch_id,
+            'customer': first_repair.customer,
+            'unit_number': first_repair.unit_number,
+            'repair_date': first_repair.repair_date,
+            'break_count': break_count,
+            'total_cost': total_cost,
+            'statuses': statuses,
+            'all_same_status': len(statuses) == 1,
+            'current_status': statuses[0] if len(statuses) == 1 else 'MIXED',
+            'all_repairs': list(repairs),
+            'repairs': repairs_list,  # Add this for template access
+            'completed_count': completed_count,
+            'in_progress_count': in_progress_count,
+            'approved_count': approved_count,
+            'progress_percentage': progress_percentage,
+        }
             
     def get_discounted_cost(self):
         """Calculate the final cost with any applied rewards/discounts"""
@@ -578,9 +683,15 @@ class TechnicianNotification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     redemption = models.ForeignKey('rewards_referrals.RewardRedemption', on_delete=models.SET_NULL, null=True, blank=True)
     repair = models.ForeignKey('Repair', on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    repair_batch_id = models.UUIDField(null=True, blank=True, db_index=True, help_text="Links notification to a batch of repairs")
 
     def __str__(self):
         return f"Notification for {self.technician.user.username}: {self.message[:30]}..."
+
+    @property
+    def is_batch_notification(self):
+        """Check if this notification is for a batch of repairs."""
+        return self.repair_batch_id is not None
 
     class Meta:
         ordering = ['-created_at']

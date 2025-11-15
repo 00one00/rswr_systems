@@ -16,6 +16,11 @@ urlpatterns = [
     path('repairs/<int:repair_id>/approve/', views.customer_repair_approve, name='customer_repair_approve'),
     path('repairs/<int:repair_id>/deny/', views.customer_repair_deny, name='customer_repair_deny'),
     path('repairs/request/', views.request_repair, name='customer_request_repair'),
+
+    # Multi-break batch management
+    path('batch/<uuid:batch_id>/', views.customer_batch_detail, name='customer_batch_detail'),
+    path('batch/<uuid:batch_id>/approve/', views.customer_batch_approve, name='customer_batch_approve'),
+    path('batch/<uuid:batch_id>/deny/', views.customer_batch_deny, name='customer_batch_deny'),
     
     # Company and account management
     path('company/edit/', views.edit_company, name='edit_company'),

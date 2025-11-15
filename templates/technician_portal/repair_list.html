@@ -97,16 +97,27 @@
 
         {% if requested_repairs_count > 0 %}
         <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
+            <div class="flex items-center justify-between">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-yellow-700">
+                            <span class="font-medium">Attention Required!</span> There are {{ requested_repairs_count }} customer-requested repair{{ requested_repairs_count|pluralize }} pending your review.
+                        </p>
+                    </div>
                 </div>
-                <div class="ml-3">
-                    <p class="text-sm text-yellow-700">
-                        <span class="font-medium">Attention Required!</span> There are {{ requested_repairs_count }} customer-requested repairs pending your review.
-                    </p>
+                <div class="ml-4 flex-shrink-0">
+                    <a href="{% url 'repair_list' %}?status=REQUESTED" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        View Pending Requests
+                    </a>
                 </div>
             </div>
         </div>
@@ -179,7 +190,7 @@
                                             </thead>
                                             <tbody class="bg-white divide-y divide-gray-200">
                                                 {% for repair in repairs %}
-                                                <tr class="hover:bg-gray-50">
+                                                <tr class="hover:bg-gray-50 {% if repair.queue_status == 'REQUESTED' %}bg-yellow-50 border-l-4 border-yellow-400{% endif %}">
                                                     <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ repair.id }}</td>
                                                     <td class="px-4 py-3 text-sm text-gray-900">{{ repair.damage_type|default:"Unknown" }}</td>
                                                     <td class="px-4 py-3">
@@ -189,7 +200,7 @@
                                                             {% elif repair.queue_status == 'PENDING' %}bg-yellow-100 text-yellow-800
                                                             {% elif repair.queue_status == 'APPROVED' %}bg-indigo-100 text-indigo-800
                                                             {% elif repair.queue_status == 'DENIED' %}bg-red-100 text-red-800
-                                                            {% elif repair.queue_status == 'REQUESTED' %}bg-gray-100 text-gray-800
+                                                            {% elif repair.queue_status == 'REQUESTED' %}bg-yellow-200 text-yellow-900 font-semibold
                                                             {% else %}bg-gray-100 text-gray-800{% endif %}">
                                                             {{ repair.get_queue_status_display }}
                                                         </span>
