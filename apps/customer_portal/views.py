@@ -254,63 +254,108 @@ def customer_repairs(request):
     try:
         customer_user = CustomerUser.objects.get(user=request.user)
         customer = customer_user.customer
-        
+
         # Get filter parameters
         status_filter = request.GET.get('status', 'all')
         sort_by = request.GET.get('sort', '-repair_date')  # Default: newest first
-        
-        # Get all repairs for this customer
-        repairs = Repair.objects.filter(customer=customer)
-        
-        # Apply filters
-        if status_filter == 'pending':
-            repairs = repairs.filter(queue_status='PENDING')
-        elif status_filter == 'approved':
-            repairs = repairs.filter(queue_status='APPROVED')
-        elif status_filter == 'in_progress':
-            repairs = repairs.filter(queue_status='IN_PROGRESS')
-        elif status_filter == 'completed':
-            repairs = repairs.filter(queue_status='COMPLETED')
-        
+        unit_search = request.GET.get('unit_search', '')
+        damage_type_filter = request.GET.get('damage_type', 'all')
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+
+        # Get all repairs for this customer with optimization
+        repairs = Repair.objects.filter(customer=customer).select_related('technician__user')
+
+        # Apply status filters
+        if status_filter != 'all':
+            # Support multiple status selection (comma-separated)
+            status_list = status_filter.split(',')
+            repairs = repairs.filter(queue_status__in=status_list)
+
+        # Apply unit number filter
+        if unit_search:
+            repairs = repairs.filter(unit_number__icontains=unit_search)
+
+        # Apply damage type filter
+        if damage_type_filter != 'all':
+            repairs = repairs.filter(damage_type=damage_type_filter)
+
+        # Apply date range filter
+        if date_from:
+            try:
+                from datetime import datetime
+                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+                repairs = repairs.filter(repair_date__gte=date_from_obj)
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                from datetime import datetime
+                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+                repairs = repairs.filter(repair_date__lte=date_to_obj)
+            except ValueError:
+                pass
+
         # Apply sorting
-        repairs = repairs.order_by(sort_by)
-        
+        valid_sorts = ['repair_date', '-repair_date', 'unit_number', '-unit_number',
+                       'cost', '-cost', 'queue_status', '-queue_status']
+        if sort_by in valid_sorts:
+            repairs = repairs.order_by(sort_by)
+
+        # Calculate summary statistics
+        total_repairs = repairs.count()
+        stats = {
+            'total_repairs': total_repairs,
+            'pending_approval': repairs.filter(queue_status='PENDING').count(),
+            'in_progress': repairs.filter(queue_status__in=['APPROVED', 'IN_PROGRESS']).count(),
+            'completed_this_month': repairs.filter(
+                queue_status='COMPLETED',
+                repair_date__gte=timezone.now().date().replace(day=1)
+            ).count(),
+            'total_cost': repairs.filter(queue_status='COMPLETED').aggregate(
+                total=models.Sum('cost')
+            )['total'] or 0
+        }
+
         # Check which repairs were customer-initiated and mark them
-        repair_ids = [repair.id for repair in repairs]
+        repair_ids = list(repairs.values_list('id', flat=True))
         customer_initiated_approvals = RepairApproval.objects.filter(
-            repair_id__in=repair_ids, 
+            repair_id__in=repair_ids,
             notes="Auto-approved as customer initiated the request"
         ).values_list('repair_id', flat=True)
-        
+
         # Add a flag to each repair indicating if it was customer initiated
         for repair in repairs:
             repair.customer_initiated = repair.id in customer_initiated_approvals
 
-        # Group batched repairs and separate individual repairs
-        batch_repairs = {}  # Dictionary: batch_id -> batch_summary
-        individual_repairs = []  # List of non-batched repairs
-        processed_batch_ids = set()  # Track which batches we've already added
+        # Pagination - get page size from request or use default
+        page_size = int(request.GET.get('page_size', 50))
+        if page_size not in [20, 50, 100]:
+            page_size = 50
 
-        for repair in repairs:
-            if repair.is_part_of_batch:
-                # Only add batch summary once
-                if repair.repair_batch_id not in processed_batch_ids:
-                    batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
-                    if batch_summary:
-                        batch_repairs[repair.repair_batch_id] = batch_summary
-                        processed_batch_ids.add(repair.repair_batch_id)
-            else:
-                individual_repairs.append(repair)
+        paginator = Paginator(repairs, page_size)
+        page_number = request.GET.get('page', 1)
+        page_obj = paginator.get_page(page_number)
+
+        # Get unique damage types for filter dropdown
+        damage_types = Repair.DAMAGE_TYPE_CHOICES
 
         return render(request, 'customer_portal/repairs.html', {
-            'repairs': repairs,
+            'repairs': page_obj,
+            'page_obj': page_obj,
+            'total_repairs': total_repairs,
+            'stats': stats,
             'customer': customer,
             'status_filter': status_filter,
             'sort_by': sort_by,
+            'unit_search': unit_search,
+            'damage_type_filter': damage_type_filter,
+            'date_from': date_from,
+            'date_to': date_to,
+            'page_size': page_size,
+            'damage_types': damage_types,
             'customer_initiated_repair_ids': list(customer_initiated_approvals),
-            # Batch grouping data
-            'batch_repairs': list(batch_repairs.values()),
-            'individual_repairs': individual_repairs,
         })
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")

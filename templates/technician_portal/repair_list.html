@@ -2,82 +2,226 @@
 
 {% block extra_css %}
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    green: {
-                        50: '#f0fdf4',
-                        100: '#dcfce7',
-                        200: '#bbf7d0',
-                        300: '#86efac',
-                        400: '#4ade80',
-                        500: '#22c55e',
-                        600: '#16a34a',
-                        700: '#15803d',
-                        800: '#166534',
-                        900: '#14532d',
-                    }
-                }
-            }
-        }
+<style>
+    /* Skeleton loading animation */
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
     }
-</script>
+
+    .skeleton {
+        animation: shimmer 2s infinite linear;
+        background: linear-gradient(to right, #f0f0f0 4%, #e0e0e0 25%, #f0f0f0 36%);
+        background-size: 1000px 100%;
+    }
+
+    /* Sticky header */
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: white;
+    }
+
+    /* Custom scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    /* Active filter chips */
+    .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background: #22c55e;
+        color: white;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Table row hover effect */
+    .table-row:hover {
+        background-color: #f9fafb;
+        transition: background-color 0.15s ease;
+    }
+
+    /* Photo indicator pulse */
+    @keyframes pulse-green {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .7; }
+    }
+
+    .has-photos {
+        animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gray-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-full px-4 sm:px-6 lg:px-8 py-8">
         <!-- Page Header -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">
-                {% if is_admin %}
-                All System Repairs
-                {% else %}
-                Your Assigned Repairs
-                {% endif %}
-            </h1>
-            {% if is_admin %}
-            <div class="mt-4 bg-blue-50 border-l-4 border-blue-400 p-4">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+        <div class="mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">
+                        {% if is_admin %}
+                        All System Repairs
+                        {% else %}
+                        Your Assigned Repairs
+                        {% endif %}
+                    </h1>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ total_repairs }} repair{{ total_repairs|pluralize }}
+                    </p>
+                </div>
+                <div class="flex space-x-3">
+                    <a href="{% url 'create_repair' %}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                         </svg>
+                        New Repair
+                    </a>
+                    <button onclick="exportToCSV()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats Dashboard -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <!-- Total Active -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer" onclick="filterByStatus('all')">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Active</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.total_active }}</p>
                     </div>
-                    <div class="ml-3">
-                        <p class="text-sm text-blue-700">
-                            You're viewing this page with administrative privileges. You can see and manage all repairs in the system.
-                        </p>
+                    <div class="bg-blue-100 rounded-full p-3">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
                     </div>
                 </div>
             </div>
-            {% endif %}
+
+            <!-- Pending Approval -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer" onclick="filterByStatus('REQUESTED')">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Pending Approval</p>
+                        <p class="text-3xl font-bold text-yellow-600 mt-1">{{ stats.pending_approval }}</p>
+                    </div>
+                    <div class="bg-yellow-100 rounded-full p-3">
+                        <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- In Progress -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer" onclick="filterByStatus('IN_PROGRESS')">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">In Progress</p>
+                        <p class="text-3xl font-bold text-indigo-600 mt-1">{{ stats.in_progress }}</p>
+                    </div>
+                    <div class="bg-indigo-100 rounded-full p-3">
+                        <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completed This Week -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer" onclick="filterByStatus('COMPLETED')">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Completed This Week</p>
+                        <p class="text-3xl font-bold text-green-600 mt-1">{{ stats.completed_this_week }}</p>
+                    </div>
+                    <div class="bg-green-100 rounded-full p-3">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
         </div>
-    
-        <!-- Filter Panel -->
+
+        <!-- Advanced Filter Panel -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-            <div class="p-6">
-                <form method="get" class="space-y-4 md:space-y-0">
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div class="md:col-span-5">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-medium text-gray-900">Filters</h2>
+                    <button onclick="toggleFilters()" class="text-sm text-green-600 hover:text-green-700 font-medium">
+                        <span id="filter-toggle-text">Show Filters</span>
+                        <svg id="filter-toggle-icon" class="inline w-4 h-4 ml-1 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="filter-panel" class="hidden px-6 py-4">
+                <form method="get" id="filter-form">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Customer Search -->
+                        <div>
                             <label for="customer_search" class="block text-sm font-medium text-gray-700 mb-1">
                                 Customer Name
                             </label>
-                            <input type="text" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500" 
-                                id="customer_search" 
-                                name="customer_search" 
+                            <input type="text"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                id="customer_search"
+                                name="customer_search"
                                 value="{{ customer_search }}"
-                                placeholder="Search by customer name...">
+                                placeholder="Search customers...">
                         </div>
-                        <div class="md:col-span-5">
+
+                        <!-- Unit Number Search -->
+                        <div>
+                            <label for="unit_search" class="block text-sm font-medium text-gray-700 mb-1">
+                                Unit Number
+                            </label>
+                            <input type="text"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                id="unit_search"
+                                name="unit_search"
+                                value="{{ unit_search }}"
+                                placeholder="Search unit...">
+                        </div>
+
+                        <!-- Status Filter -->
+                        <div>
                             <label for="status" class="block text-sm font-medium text-gray-700 mb-1">
                                 Status
                             </label>
-                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500" 
-                                id="status" 
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                id="status"
                                 name="status">
                                 <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
                                 {% for status_code, status_label in queue_choices %}
@@ -85,278 +229,440 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="md:col-span-2 flex items-end">
-                            <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                                <i class="fas fa-search mr-2"></i>Filter
-                            </button>
+
+                        <!-- Damage Type Filter -->
+                        <div>
+                            <label for="damage_type" class="block text-sm font-medium text-gray-700 mb-1">
+                                Damage Type
+                            </label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                id="damage_type"
+                                name="damage_type">
+                                <option value="all" {% if damage_type_filter == 'all' %}selected{% endif %}>All Types</option>
+                                {% for damage_code, damage_label in damage_types %}
+                                <option value="{{ damage_code }}" {% if damage_type_filter == damage_code %}selected{% endif %}>{{ damage_label }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
+
+                        <!-- Date From -->
+                        <div>
+                            <label for="date_from" class="block text-sm font-medium text-gray-700 mb-1">
+                                Date From
+                            </label>
+                            <input type="date"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                id="date_from"
+                                name="date_from"
+                                value="{{ date_from }}">
+                        </div>
+
+                        <!-- Date To -->
+                        <div>
+                            <label for="date_to" class="block text-sm font-medium text-gray-700 mb-1">
+                                Date To
+                            </label>
+                            <input type="date"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                id="date_to"
+                                name="date_to"
+                                value="{{ date_to }}">
+                        </div>
+
+                        {% if is_admin or technician.is_manager %}
+                        <!-- Assignment Filter -->
+                        <div>
+                            <label for="assignment" class="block text-sm font-medium text-gray-700 mb-1">
+                                Assignment
+                            </label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                id="assignment"
+                                name="assignment">
+                                <option value="all" {% if assignment_filter == 'all' %}selected{% endif %}>All Repairs</option>
+                                <option value="mine" {% if assignment_filter == 'mine' %}selected{% endif %}>My Repairs</option>
+                                <option value="unassigned" {% if assignment_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
+                                {% if technician.is_manager %}
+                                <option value="team" {% if assignment_filter == 'team' %}selected{% endif %}>My Team</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Filter Actions -->
+                    <div class="mt-4 flex items-center justify-between">
+                        <button type="button" onclick="clearFilters()" class="text-sm text-gray-600 hover:text-gray-800">
+                            Clear all filters
+                        </button>
+                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                            </svg>
+                            Apply Filters
+                        </button>
                     </div>
                 </form>
             </div>
-        </div>
 
-        {% if requested_repairs_count > 0 %}
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-            <div class="flex items-center justify-between">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm text-yellow-700">
-                            <span class="font-medium">Attention Required!</span> There are {{ requested_repairs_count }} customer-requested repair{{ requested_repairs_count|pluralize }} pending your review.
-                        </p>
-                    </div>
-                </div>
-                <div class="ml-4 flex-shrink-0">
-                    <a href="{% url 'repair_list' %}?status=REQUESTED" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                        View Pending Requests
-                    </a>
+            <!-- Active Filter Chips -->
+            {% if customer_search or status_filter != 'all' or unit_search or damage_type_filter != 'all' or date_from or date_to or assignment_filter != 'all' %}
+            <div class="border-t border-gray-200 px-6 py-3 bg-gray-50">
+                <div class="flex items-center flex-wrap">
+                    <span class="text-sm text-gray-600 mr-2">Active filters:</span>
+                    {% if customer_search %}
+                    <span class="filter-chip">Customer: {{ customer_search }}</span>
+                    {% endif %}
+                    {% if unit_search %}
+                    <span class="filter-chip">Unit: {{ unit_search }}</span>
+                    {% endif %}
+                    {% if status_filter != 'all' %}
+                    <span class="filter-chip">Status: {{ status_filter }}</span>
+                    {% endif %}
+                    {% if damage_type_filter != 'all' %}
+                    <span class="filter-chip">Type: {{ damage_type_filter }}</span>
+                    {% endif %}
+                    {% if date_from %}
+                    <span class="filter-chip">From: {{ date_from }}</span>
+                    {% endif %}
+                    {% if date_to %}
+                    <span class="filter-chip">To: {{ date_to }}</span>
+                    {% endif %}
+                    {% if assignment_filter != 'all' %}
+                    <span class="filter-chip">Assignment: {{ assignment_filter }}</span>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
         </div>
-        {% endif %}
-    
+
         <!-- Repairs Table -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
             <div class="overflow-hidden">
-                <div class="overflow-x-auto">
-                    <!-- Repairs Grouped by Customer and Unit -->
-                    <div class="space-y-6 p-6">
-                        {% for customer, units in repair_groups.items %}
-                        <div class="border border-gray-200 rounded-lg">
-                            <!-- Customer Header -->
-                            <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <h3 class="text-lg font-medium text-gray-900">{{ customer.name }}</h3>
-                                        <p class="text-sm text-gray-500">{{ units|length }} unit{{ units|length|pluralize }} with repairs</p>
-                                    </div>
-                                    <button type="button" class="toggle-customer inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50" data-target="customer-{{ customer.id }}">
-                                        <svg class="w-4 h-4 mr-1 transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        </svg>
-                                        Expand
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Units Container -->
-                            <div id="customer-{{ customer.id }}" class="hidden">
-                                {% for unit_number, repairs in units.items %}
-                                <div class="border-b border-gray-100 last:border-b-0">
-                                    <!-- Unit Header -->
-                                    <div class="bg-blue-50 px-4 py-2 flex items-center justify-between">
-                                        <div class="flex items-center space-x-3">
-                                            <div class="flex-shrink-0">
-                                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                                </svg>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-medium text-gray-900">Unit #{{ unit_number }}</h4>
-                                                <p class="text-xs text-gray-500">{{ repairs|length }} repair{{ repairs|length|pluralize }}</p>
-                                            </div>
-                                        </div>
-                                        <button type="button" class="toggle-unit inline-flex items-center px-2 py-1 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50" data-target="unit-{{ customer.id }}-{{ unit_number|slugify }}">
-                                            <svg class="w-3 h-3 mr-1 transform transition-transform rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                            </svg>
-                                            View
-                                        </button>
-                                    </div>
-                                    
-                                    <!-- Repairs List -->
-                                    <div id="unit-{{ customer.id }}-{{ unit_number|slugify }}" class="hidden">
-                                        <table class="min-w-full">
-                                            <thead class="bg-gray-50">
-                                                <tr>
-                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Damage Type</th>
-                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
-                                                    {% if is_admin %}
-                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Technician</th>
-                                                    {% endif %}
-                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="bg-white divide-y divide-gray-200">
-                                                {% for repair in repairs %}
-                                                <tr class="hover:bg-gray-50 {% if repair.queue_status == 'REQUESTED' %}bg-yellow-50 border-l-4 border-yellow-400{% endif %}">
-                                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ repair.id }}</td>
-                                                    <td class="px-4 py-3 text-sm text-gray-900">{{ repair.damage_type|default:"Unknown" }}</td>
-                                                    <td class="px-4 py-3">
-                                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                                                            {% if repair.queue_status == 'COMPLETED' %}bg-green-100 text-green-800
-                                                            {% elif repair.queue_status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
-                                                            {% elif repair.queue_status == 'PENDING' %}bg-yellow-100 text-yellow-800
-                                                            {% elif repair.queue_status == 'APPROVED' %}bg-indigo-100 text-indigo-800
-                                                            {% elif repair.queue_status == 'DENIED' %}bg-red-100 text-red-800
-                                                            {% elif repair.queue_status == 'REQUESTED' %}bg-yellow-200 text-yellow-900 font-semibold
-                                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                                            {{ repair.get_queue_status_display }}
-                                                        </span>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-sm text-gray-900">{{ repair.repair_date|date:"M d, Y" }}</td>
-                                                    <td class="px-4 py-3 text-sm">
-                                                        {% if repair.queue_status == 'COMPLETED' %}
-                                                            {% if repair.has_price_override %}
-                                                            <span class="text-red-600 font-medium" title="Override: {{ repair.override_reason|default:'Manual override' }}">
-                                                                ${{ repair.cost|floatformat:2 }} <i class="fas fa-exclamation-triangle text-xs"></i>
-                                                            </span>
-                                                            {% else %}
-                                                            <span class="text-gray-900 font-medium">${{ repair.cost|floatformat:2 }}</span>
-                                                            {% endif %}
-                                                        {% else %}
-                                                            <span class="text-gray-400">${{ repair.get_expected_price|floatformat:2 }}</span>
-                                                        {% endif %}
-                                                    </td>
-                                                    {% if is_admin %}
-                                                    <td class="px-4 py-3 text-sm text-gray-900">
-                                                        {% if repair.technician %}
-                                                            {{ repair.technician.user.get_full_name }}
-                                                        {% else %}
-                                                            <span class="text-gray-400">Unassigned</span>
-                                                        {% endif %}
-                                                    </td>
-                                                    {% endif %}
-                                                    <td class="px-4 py-3">
-                                                        <div class="flex space-x-2">
-                                                            <a href="{% url 'repair_detail' repair.id %}" class="text-green-600 hover:text-green-900 text-sm font-medium">View</a>
-                                                            {% if is_admin %}
-                                                            <a href="{% url 'update_repair' repair.id %}" class="text-blue-600 hover:text-blue-900 text-sm font-medium">Edit</a>
-                                                            {% endif %}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
+                <!-- Table Controls -->
+                <div class="border-b border-gray-200 px-6 py-4 bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <label for="page_size" class="text-sm text-gray-700">Show:</label>
+                            <select id="page_size" name="page_size" onchange="changePageSize(this.value)" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                                <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                            </select>
+                            <span class="text-sm text-gray-500">per page</span>
                         </div>
-                        {% empty %}
-                        <div class="p-8 text-center">
-                            <div class="text-gray-500">
-                                <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <h3 class="text-lg font-medium text-gray-900 mb-2">No repairs found</h3>
-                                <p class="text-gray-500">Try adjusting your search criteria or create a new repair.</p>
-                            </div>
+
+                        <div class="flex items-center space-x-2">
+                            <label for="sort_by" class="text-sm text-gray-700">Sort by:</label>
+                            <select id="sort_by" name="sort" onchange="changeSort(this.value)" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                <option value="-repair_date" {% if sort_by == '-repair_date' %}selected{% endif %}>Newest First</option>
+                                <option value="repair_date" {% if sort_by == 'repair_date' %}selected{% endif %}>Oldest First</option>
+                                <option value="customer__name" {% if sort_by == 'customer__name' %}selected{% endif %}>Customer A-Z</option>
+                                <option value="-customer__name" {% if sort_by == '-customer__name' %}selected{% endif %}>Customer Z-A</option>
+                                <option value="unit_number" {% if sort_by == 'unit_number' %}selected{% endif %}>Unit Asc</option>
+                                <option value="-unit_number" {% if sort_by == '-unit_number' %}selected{% endif %}>Unit Desc</option>
+                                <option value="-cost" {% if sort_by == '-cost' %}selected{% endif %}>Cost High-Low</option>
+                                <option value="cost" {% if sort_by == 'cost' %}selected{% endif %}>Cost Low-High</option>
+                            </select>
                         </div>
-                        {% endfor %}
                     </div>
+                </div>
+
+                <!-- Scrollable Table Container -->
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 sticky-header">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ID
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Customer
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Unit #
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Damage Type
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Date
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Cost
+                                </th>
+                                {% if is_admin %}
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Technician
+                                </th>
+                                {% endif %}
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Photos
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for repair in repairs %}
+                            <tr class="table-row {% if repair.queue_status == 'REQUESTED' %}bg-yellow-50{% endif %}">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    #{{ repair.id }}
+                                    {% if repair.repair_batch_id %}
+                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800" title="Batch Repair">
+                                        B{{ repair.break_number }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{ repair.customer.name }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {{ repair.unit_number }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                    {{ repair.get_damage_type_display|default:"Unknown" }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                        {% if repair.queue_status == 'COMPLETED' %}bg-green-100 text-green-800
+                                        {% elif repair.queue_status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
+                                        {% elif repair.queue_status == 'PENDING' %}bg-yellow-100 text-yellow-800
+                                        {% elif repair.queue_status == 'APPROVED' %}bg-indigo-100 text-indigo-800
+                                        {% elif repair.queue_status == 'DENIED' %}bg-red-100 text-red-800
+                                        {% elif repair.queue_status == 'REQUESTED' %}bg-yellow-200 text-yellow-900
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ repair.get_queue_status_display }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                    {{ repair.repair_date|date:"M d, Y" }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    {% if repair.queue_status == 'COMPLETED' %}
+                                        {% if repair.has_price_override %}
+                                        <span class="text-red-600 font-medium" title="Override: {{ repair.override_reason|default:'Manual override' }}">
+                                            ${{ repair.cost|floatformat:2 }}
+                                            <svg class="inline w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </span>
+                                        {% else %}
+                                        <span class="text-gray-900 font-medium">${{ repair.cost|floatformat:2 }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-gray-400">${{ repair.get_expected_price|floatformat:2 }}</span>
+                                    {% endif %}
+                                </td>
+                                {% if is_admin %}
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                    {% if repair.technician %}
+                                        {{ repair.technician.user.get_full_name }}
+                                    {% else %}
+                                        <span class="text-gray-400 italic">Unassigned</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    {% if repair.damage_photo_before or repair.damage_photo_after or repair.additional_photos %}
+                                    <svg class="w-5 h-5 text-green-600 has-photos" fill="currentColor" viewBox="0 0 20 20" title="Has photos">
+                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    {% else %}
+                                    <span class="text-gray-300">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div class="flex justify-end space-x-2">
+                                        <a href="{% url 'repair_detail' repair.id %}" class="text-green-600 hover:text-green-900 transition-colors">
+                                            View
+                                        </a>
+                                        {% if is_admin %}
+                                        <span class="text-gray-300">|</span>
+                                        <a href="{% url 'update_repair' repair.id %}" class="text-blue-600 hover:text-blue-900 transition-colors">
+                                            Edit
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="{% if is_admin %}10{% else %}9{% endif %}" class="px-6 py-12 text-center">
+                                    <div class="text-gray-500">
+                                        <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <h3 class="text-lg font-medium text-gray-900 mb-2">No repairs found</h3>
+                                        <p class="text-gray-500 mb-4">Try adjusting your filters or create a new repair.</p>
+                                        <a href="{% url 'create_repair' %}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            Create New Repair
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-    
+
         <!-- Pagination -->
         {% if page_obj.has_other_pages %}
         <nav aria-label="Page navigation" class="flex justify-center mb-6">
             <div class="flex space-x-1">
                 {% if page_obj.has_previous %}
-                <a href="?page=1{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
+                <a href="?page=1&page_size={{ page_size }}&sort={{ sort_by }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if unit_search %}&unit_search={{ unit_search }}{% endif %}{% if damage_type_filter and damage_type_filter != 'all' %}&damage_type={{ damage_type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if assignment_filter and assignment_filter != 'all' %}&assignment={{ assignment_filter }}{% endif %}"
                    class="px-3 py-2 text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
-                    <span class="sr-only">First</span>
-                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                    </svg>
+                    First
                 </a>
-                <a href="?page={{ page_obj.previous_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
+                <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}&sort={{ sort_by }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if unit_search %}&unit_search={{ unit_search }}{% endif %}{% if damage_type_filter and damage_type_filter != 'all' %}&damage_type={{ damage_type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if assignment_filter and assignment_filter != 'all' %}&assignment={{ assignment_filter }}{% endif %}"
                    class="px-3 py-2 text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">
                     Previous
                 </a>
                 {% endif %}
-                
+
                 {% for i in page_obj.paginator.page_range %}
                     {% if page_obj.number == i %}
                     <span class="px-3 py-2 text-green-600 bg-green-50 border border-green-300 font-medium">{{ i }}</span>
                     {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
-                    <a href="?page={{ i }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
+                    <a href="?page={{ i }}&page_size={{ page_size }}&sort={{ sort_by }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if unit_search %}&unit_search={{ unit_search }}{% endif %}{% if damage_type_filter and damage_type_filter != 'all' %}&damage_type={{ damage_type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if assignment_filter and assignment_filter != 'all' %}&assignment={{ assignment_filter }}{% endif %}"
                        class="px-3 py-2 text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">{{ i }}</a>
                     {% endif %}
                 {% endfor %}
-                
+
                 {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
+                <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}&sort={{ sort_by }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if unit_search %}&unit_search={{ unit_search }}{% endif %}{% if damage_type_filter and damage_type_filter != 'all' %}&damage_type={{ damage_type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if assignment_filter and assignment_filter != 'all' %}&assignment={{ assignment_filter }}{% endif %}"
                    class="px-3 py-2 text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">
                     Next
                 </a>
-                <a href="?page={{ page_obj.paginator.num_pages }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}" 
+                <a href="?page={{ page_obj.paginator.num_pages }}&page_size={{ page_size }}&sort={{ sort_by }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter and status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if unit_search %}&unit_search={{ unit_search }}{% endif %}{% if damage_type_filter and damage_type_filter != 'all' %}&damage_type={{ damage_type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if assignment_filter and assignment_filter != 'all' %}&assignment={{ assignment_filter }}{% endif %}"
                    class="px-3 py-2 text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
-                    <span class="sr-only">Last</span>
-                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                    </svg>
+                    Last
                 </a>
                 {% endif %}
             </div>
         </nav>
         {% endif %}
-    
-        <!-- Action Buttons -->
-        <div class="flex flex-wrap gap-3 justify-center">
-            <a href="{% url 'create_repair' %}" class="inline-flex items-center px-6 py-3 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                <i class="fas fa-plus mr-2"></i>Create New Repair
-            </a>
+
+        <!-- Back to Dashboard -->
+        <div class="flex justify-center">
             <a href="{% url 'technician_dashboard' %}" class="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Dashboard
             </a>
         </div>
     </div>
 </div>
 
 <script>
+// Toggle filter panel
+function toggleFilters() {
+    const panel = document.getElementById('filter-panel');
+    const toggleText = document.getElementById('filter-toggle-text');
+    const toggleIcon = document.getElementById('filter-toggle-icon');
+
+    if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        toggleText.textContent = 'Hide Filters';
+        toggleIcon.style.transform = 'rotate(180deg)';
+        localStorage.setItem('filterPanelOpen', 'true');
+    } else {
+        panel.classList.add('hidden');
+        toggleText.textContent = 'Show Filters';
+        toggleIcon.style.transform = 'rotate(0deg)';
+        localStorage.setItem('filterPanelOpen', 'false');
+    }
+}
+
+// Restore filter panel state from localStorage
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle customer expand/collapse
-    document.querySelectorAll('.toggle-customer').forEach(button => {
-        button.addEventListener('click', function() {
-            const targetId = this.getAttribute('data-target');
-            const targetDiv = document.getElementById(targetId);
-            const svg = this.querySelector('svg');
-            const text = this.querySelector('span:not(.sr-only)');
-            
-            if (targetDiv.classList.contains('hidden')) {
-                targetDiv.classList.remove('hidden');
-                svg.style.transform = 'rotate(180deg)';
-                this.innerHTML = this.innerHTML.replace('Expand', 'Collapse');
-            } else {
-                targetDiv.classList.add('hidden');
-                svg.style.transform = 'rotate(0deg)';
-                this.innerHTML = this.innerHTML.replace('Collapse', 'Expand');
-            }
-        });
-    });
-    
-    // Handle unit expand/collapse
-    document.querySelectorAll('.toggle-unit').forEach(button => {
-        button.addEventListener('click', function() {
-            const targetId = this.getAttribute('data-target');
-            const targetDiv = document.getElementById(targetId);
-            const svg = this.querySelector('svg');
-            
-            if (targetDiv.classList.contains('hidden')) {
-                targetDiv.classList.remove('hidden');
-                svg.style.transform = 'rotate(180deg)';
-                this.innerHTML = this.innerHTML.replace('View', 'Hide');
-            } else {
-                targetDiv.classList.add('hidden');
-                svg.style.transform = 'rotate(0deg)';
-                this.innerHTML = this.innerHTML.replace('Hide', 'View');
-            }
-        });
-    });
+    const filterPanelOpen = localStorage.getItem('filterPanelOpen');
+    if (filterPanelOpen === 'true') {
+        toggleFilters();
+    }
 });
+
+// Clear all filters
+function clearFilters() {
+    window.location.href = '{% url "repair_list" %}';
+}
+
+// Filter by status (from stats cards)
+function filterByStatus(status) {
+    const url = new URL(window.location.href);
+    if (status === 'all') {
+        url.searchParams.delete('status');
+    } else {
+        url.searchParams.set('status', status);
+    }
+    url.searchParams.set('page', '1'); // Reset to first page
+    window.location.href = url.toString();
+}
+
+// Change page size
+function changePageSize(size) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page_size', size);
+    url.searchParams.set('page', '1'); // Reset to first page
+    window.location.href = url.toString();
+}
+
+// Change sort
+function changeSort(sortBy) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('sort', sortBy);
+    url.searchParams.set('page', '1'); // Reset to first page
+    window.location.href = url.toString();
+}
+
+// Export to CSV
+function exportToCSV() {
+    const table = document.querySelector('table');
+    let csv = [];
+
+    // Get headers
+    const headers = [];
+    table.querySelectorAll('thead th').forEach(th => {
+        headers.push(th.textContent.trim());
+    });
+    csv.push(headers.join(','));
+
+    // Get rows
+    table.querySelectorAll('tbody tr').forEach(tr => {
+        if (tr.querySelector('td[colspan]')) return; // Skip empty state row
+        const row = [];
+        tr.querySelectorAll('td').forEach(td => {
+            let text = td.textContent.trim().replace(/\n/g, ' ').replace(/\s+/g, ' ');
+            // Escape commas
+            if (text.includes(',')) {
+                text = '"' + text + '"';
+            }
+            row.push(text);
+        });
+        csv.push(row.join(','));
+    });
+
+    // Create download
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'repairs_' + new Date().toISOString().split('T')[0] + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
 </script>
 {% endblock %}

@@ -320,60 +320,119 @@ def repair_list(request):
         # For admins, show all repairs
         repairs = Repair.objects.all()
         technician = None
-    
+
+    # Optimize query with select_related and prefetch_related for better performance
+    repairs = repairs.select_related('customer', 'technician__user').order_by('-repair_date')
+
     # Get filter parameters
     customer_search = request.GET.get('customer_search', '')
     status_filter = request.GET.get('status', 'all')
-    
+    unit_search = request.GET.get('unit_search', '')
+    damage_type_filter = request.GET.get('damage_type', 'all')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    assignment_filter = request.GET.get('assignment', 'all')
+
     # Apply customer filter if provided
     if customer_search:
         repairs = repairs.filter(customer__name__icontains=customer_search)
-    
+
     # Apply status filter if provided
     if status_filter != 'all':
-        repairs = repairs.filter(queue_status=status_filter)
-    
-    # Get unique customers from filtered repairs
-    customer_ids = repairs.values_list('customer_id', flat=True).distinct()
-    customers = Customer.objects.filter(id__in=customer_ids)
-    
-    # Count customer-requested repairs
-    requested_repairs_count = repairs.filter(queue_status='REQUESTED').count()
-    
-    # Group repairs by customer and unit number for better organization
-    grouped_repairs = defaultdict(lambda: defaultdict(list))
-    
-    # Order repairs by date (newest first) for grouping
-    ordered_repairs = repairs.order_by('-repair_date')
-    
-    for repair in ordered_repairs:
-        grouped_repairs[repair.customer][repair.unit_number].append(repair)
-    
-    # Convert to regular dict for template
-    repair_groups = {}
-    for customer, units in grouped_repairs.items():
-        repair_groups[customer] = dict(units)
-    
-    # For pagination, we'll paginate the customers instead of individual repairs
-    customers_with_repairs = list(repair_groups.keys())
-    paginator = Paginator(customers_with_repairs, 10)  # Show 10 customers per page
-    page_number = request.GET.get('page')
+        # Support multiple status selection (comma-separated)
+        status_list = status_filter.split(',')
+        repairs = repairs.filter(queue_status__in=status_list)
+
+    # Apply unit number filter
+    if unit_search:
+        repairs = repairs.filter(unit_number__icontains=unit_search)
+
+    # Apply damage type filter
+    if damage_type_filter != 'all':
+        repairs = repairs.filter(damage_type=damage_type_filter)
+
+    # Apply date range filter
+    if date_from:
+        try:
+            from datetime import datetime
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+            repairs = repairs.filter(repair_date__gte=date_from_obj)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            from datetime import datetime
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+            repairs = repairs.filter(repair_date__lte=date_to_obj)
+        except ValueError:
+            pass
+
+    # Apply assignment filter (only for admins/managers)
+    if technician and (request.user.is_staff or technician.is_manager):
+        if assignment_filter == 'mine':
+            repairs = repairs.filter(technician=technician)
+        elif assignment_filter == 'unassigned':
+            repairs = repairs.filter(technician__isnull=True)
+        elif assignment_filter == 'team' and technician.is_manager:
+            managed_tech_ids = list(technician.managed_technicians.values_list('id', flat=True))
+            repairs = repairs.filter(technician_id__in=managed_tech_ids)
+
+    # Calculate summary statistics
+    total_repairs = repairs.count()
+    stats = {
+        'total_active': repairs.exclude(queue_status='COMPLETED').count(),
+        'pending_approval': repairs.filter(queue_status='REQUESTED').count(),
+        'in_progress': repairs.filter(queue_status='IN_PROGRESS').count(),
+        'completed_this_week': repairs.filter(
+            queue_status='COMPLETED',
+            repair_date__gte=timezone.now().date() - timezone.timedelta(days=7)
+        ).count()
+    }
+
+    # Get sorting parameters
+    sort_by = request.GET.get('sort', '-repair_date')  # Default: newest first
+
+    # Validate sort field
+    valid_sorts = ['repair_date', '-repair_date', 'customer__name', '-customer__name',
+                   'unit_number', '-unit_number', 'cost', '-cost', 'queue_status', '-queue_status']
+    if sort_by in valid_sorts:
+        repairs = repairs.order_by(sort_by)
+
+    # Pagination - get page size from request or use default
+    page_size = int(request.GET.get('page_size', 50))
+    if page_size not in [20, 50, 100]:
+        page_size = 50
+
+    paginator = Paginator(repairs, page_size)
+    page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
-    
-    # Get repair groups for current page customers
-    page_repair_groups = {customer: repair_groups[customer] for customer in page_obj}
-    
-    return render(request, 'technician_portal/repair_list.html', {
-        'repair_groups': page_repair_groups,
-        'customers': customers,
+
+    # Get unique damage types for filter dropdown
+    damage_types = Repair.DAMAGE_TYPE_CHOICES
+
+    # Build context
+    context = {
+        'repairs': page_obj,
+        'page_obj': page_obj,
+        'total_repairs': total_repairs,
+        'stats': stats,
         'customer_search': customer_search,
         'status_filter': status_filter,
-        'requested_repairs_count': requested_repairs_count,
+        'unit_search': unit_search,
+        'damage_type_filter': damage_type_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+        'assignment_filter': assignment_filter,
+        'sort_by': sort_by,
+        'page_size': page_size,
         'queue_choices': Repair.QUEUE_CHOICES,
+        'damage_types': damage_types,
         'is_admin': request.user.is_staff,
-        'page_obj': page_obj,  # For pagination
-        'total_repairs': ordered_repairs.count()
-    })
+        'technician': technician,
+    }
+
+    return render(request, 'technician_portal/repair_list.html', context)
 
 @technician_required
 def repair_detail(request, repair_id):
