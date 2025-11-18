@@ -586,8 +586,8 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
     submitBtn.disabled = true;
     submitBtn.innerHTML = 'Submitting...';
 
-    // Get CSRF token for headers
-    const csrfToken = getCookie('csrftoken');
+    // Get CSRF token from form field (more reliable than cookie in production)
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
     // Submit form
     fetch(window.location.href, {
