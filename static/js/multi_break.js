@@ -586,11 +586,15 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
     submitBtn.disabled = true;
     submitBtn.innerHTML = 'Submitting...';
 
+    // Get CSRF token for headers
+    const csrfToken = getCookie('csrftoken');
+
     // Submit form
     fetch(window.location.href, {
         method: 'POST',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',  // Mark as AJAX request
+            'X-CSRFToken': csrfToken,  // CSRF token in header for Django
         },
         body: formData,
     })
