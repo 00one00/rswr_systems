@@ -2,6 +2,31 @@
 MULTI-BREAK REPAIR SYSTEM - ISSUE TRACKER
 ===========================================
 
+📅 LAST UPDATED: 2025-11-17
+🎯 CURRENT STATUS: Phase 1 Complete + Critical Bugs Fixed
+
+SUMMARY:
+--------
+✅ Multi-break batch repair system fully functional (Issues 1-13)
+✅ Customer portal Phase 1 improvements complete (Issues 14-17)
+✅ Critical bug fixes applied (Issues 18-19)
+⏳ Ready for Phase 2 enhancements
+
+NEXT STEPS:
+-----------
+→ Phase 2: High-value enhancements (Issues 20-23)
+  - Reward application indicators
+  - Improved batch badges
+  - Mobile-responsive card view
+  - "Request Repair" CTA button
+
+→ Phase 3: Polish features (Issues 24-26)
+  - Quick preview modal
+  - Recent activity indicators
+  - Enhanced empty state
+
+===========================================
+
 ✅ FIXED ISSUES (as of 2025-11-14):
 ---------------------------------
 
@@ -137,7 +162,7 @@ CUSTOMER PORTAL "MY REPAIRS" - IMPROVEMENTS
 📅 Started: 2025-11-15
 🎯 Goal: Modernize customer repairs page with better UX
 
-🔧 PHASE 1: CRITICAL FIXES (In Progress)
+🔧 PHASE 1: CRITICAL FIXES (COMPLETED 2025-11-17)
 -----------------------------------------
 
 14. ✅ Batch Repair Visual Grouping (COMPLETED 2025-11-16)
@@ -161,40 +186,101 @@ CUSTOMER PORTAL "MY REPAIRS" - IMPROVEMENTS
      * apps/customer_portal/views.py (batch grouping logic + pagination)
    - Status: ✅ COMPLETE & ENHANCED
 
-15. ⏳ Bulk Selection & Actions
+15. ✅ Bulk Selection & Actions (COMPLETED 2025-11-17)
    - Issue: Cannot approve/deny multiple pending repairs at once
    - Impact: Fleet managers must click approve 20+ times for many repairs
    - Solution: Checkbox selection + bulk action toolbar
-   - Features:
-     * Checkbox column for multi-select
-     * Floating toolbar when repairs selected
+   - Features Implemented:
+     * Checkbox column for multi-select (only shown for PENDING repairs)
+     * "Select All" checkbox in header with indeterminate state support
+     * Sticky toolbar at bottom when repairs selected
      * "Approve Selected (X)" and "Deny Selected (X)" buttons
-     * Include batch repairs in bulk actions
-   - Files: templates/customer_portal/repairs.html, apps/customer_portal/views.py
-   - Status: PENDING
+     * "Deselect All" option in toolbar
+     * Batch repairs fully supported - selecting batch selects all breaks
+     * Transaction-safe backend with proper validation
+     * Success/error messaging with counts
+   - Files Modified:
+     * templates/customer_portal/repairs.html (checkbox UI + JavaScript)
+     * apps/customer_portal/views.py (customer_bulk_action view)
+     * apps/customer_portal/urls.py (bulk-action URL)
+   - Status: ✅ COMPLETE
 
-16. ⏳ Show Assigned Technician
+16. ✅ Show Assigned Technician (COMPLETED 2025-11-17)
    - Issue: Customers can't see which technician is assigned
    - Impact: Can't contact technician or know who to follow up with
    - Solution: Add "Technician" column
-   - Features:
-     * Show technician name for all repairs
-     * Add phone/email on hover for contact info
-     * Show "Unassigned" for repairs without technician
-   - Files: templates/customer_portal/repairs.html
-   - Status: PENDING
+   - Features Implemented:
+     * "Technician" column added between "Damage Type" and "Description"
+     * Shows technician full name for all repairs
+     * Hover tooltip displays email and phone contact info
+     * Shows "Unassigned" in gray italic for unassigned repairs
+   - Files Modified:
+     * templates/customer_portal/repairs.html (new column + tooltips)
+   - Status: ✅ COMPLETE
 
-17. ⏳ Better Cost Visibility
+17. ✅ Better Cost Visibility (COMPLETED 2025-11-17)
    - Issue: Cost only shown for PENDING and COMPLETED repairs
    - Impact: Can't track expected costs for IN_PROGRESS repairs
    - Solution: Show cost for ALL repair statuses
-   - Features:
-     * Gray text for estimates (APPROVED, IN_PROGRESS)
-     * Blue text for pending approval
-     * Green text for completed
-     * Add "(Est.)" suffix for non-final costs
-   - Files: templates/customer_portal/repairs.html
-   - Status: PENDING
+   - Features Implemented:
+     * REQUESTED: Gray italic "Pending estimate"
+     * PENDING: Blue bold price (needs approval)
+     * APPROVED/IN_PROGRESS: Gray price with "(Est.)" suffix
+     * COMPLETED: Green bold price (final)
+     * DENIED: Gray strikethrough price
+   - Files Modified:
+     * templates/customer_portal/repairs.html (enhanced cost display logic)
+   - Status: ✅ COMPLETE
+
+🐛 CRITICAL BUG FIXES (2025-11-17)
+-----------------------------------
+
+18. ✅ Template Scope and Rendering Bugs (FIXED 2025-11-17)
+   - Issue 1: Template variable scope broken - cells outside {% with %} block
+     * All table cells (lines 606-685) were improperly indented
+     * Variables like {{ repair.id }}, {{ repair.unit_number }} were undefined
+     * New features (technician column, cost visibility) not rendering
+     * Fix: Corrected indentation to place all cells inside {% with repair=item.repair %} block
+
+   - Issue 2: Individual repair rows not clickable
+     * Only "View" link was clickable, not entire row (inconsistent with batch rows)
+     * No visual indication row is clickable (missing cursor-pointer)
+     * Fix: Added onclick="window.location.href='...'" and cursor-pointer class to <tr>
+     * Fix: Added event.stopPropagation() to checkbox and action buttons cells
+
+   - Issue 3: Data structure check vulnerability
+     * Template checked {% if item.batch_id %} which could fail
+     * Fix: Changed to {% if 'batch_id' in item %} for explicit key checking
+
+   - Impact: CRITICAL - Page was completely broken, new features invisible
+   - Files Modified:
+     * templates/customer_portal/repairs.html (lines 453, 590-686)
+   - Status: ✅ FIXED & TESTED
+
+19. ✅ Break Number NOT NULL Constraint (FIXED 2025-11-17)
+   - Issue: Single repair creation failing via /tech/repairs/create/
+     * Error: "NOT NULL constraint failed: technician_portal_repair.break_number"
+     * break_number and total_breaks_in_batch fields required for multi-break batches
+     * BUT single repairs don't need these fields (not part of a batch)
+     * Form had hidden fields that were omitted from submission
+     * Database rejected NULL values due to NOT NULL constraint
+
+   - Root Cause:
+     * Model had default=1 but no null=True/blank=True
+     * Database had NOT NULL constraint without database-level default
+     * Form.save(commit=False) didn't apply model defaults for omitted fields
+
+   - Fix: Made break_number and total_breaks_in_batch nullable
+     * Added null=True, blank=True to both fields
+     * Created migration 0014_fix_break_number_null_constraint
+     * Single repairs now have break_number=NULL (semantically correct)
+     * Batch repairs continue to set these fields explicitly
+
+   - Impact: CRITICAL - Single repair creation was completely broken
+   - Files Modified:
+     * apps/technician_portal/models.py (lines 243-254)
+     * apps/technician_portal/migrations/0014_fix_break_number_null_constraint.py
+   - Status: ✅ FIXED & MIGRATED
 
 
 🚀 PHASE 2: HIGH-VALUE ENHANCEMENTS (Planned)

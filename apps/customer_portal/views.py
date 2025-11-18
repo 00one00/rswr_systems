@@ -381,6 +381,7 @@ def customer_repairs(request):
                     'pending_count': pending_count,
                     'completed_count': completed_count,
                     'can_approve_all': pending_count == len(batch_repairs) and pending_count > 0,
+                    'repair_ids': ','.join(str(r.id) for r in batch_repairs),  # For bulk actions
                 })
 
         # Sort batch summaries by date (newest first)
@@ -1249,4 +1250,125 @@ def customer_rewards_redirect(request):
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")
         return redirect('profile_creation')
-    
+
+@customer_required
+def customer_bulk_action(request):
+    """Handle bulk approve or deny actions for multiple repairs"""
+    if request.method != 'POST':
+        messages.error(request, "Invalid request method.")
+        return redirect('customer_repairs')
+
+    try:
+        customer_user = CustomerUser.objects.get(user=request.user)
+        customer = customer_user.customer
+
+        # Get action type (approve or deny)
+        action = request.POST.get('action')
+        if action not in ['approve', 'deny']:
+            messages.error(request, "Invalid action specified.")
+            return redirect('customer_repairs')
+
+        # Get repair IDs (comes as list from form)
+        repair_ids = request.POST.getlist('repair_ids')
+
+        if not repair_ids:
+            messages.error(request, "No repairs selected.")
+            return redirect('customer_repairs')
+
+        # Validate and process repairs with transaction safety
+        with transaction.atomic():
+            # Get all repairs and ensure they belong to this customer
+            repairs = Repair.objects.filter(
+                id__in=repair_ids,
+                customer=customer,
+                queue_status='PENDING'
+            ).select_related('technician')
+
+            if not repairs.exists():
+                messages.error(request, "No valid repairs found to process.")
+                return redirect('customer_repairs')
+
+            processed_count = 0
+
+            for repair in repairs:
+                if action == 'approve':
+                    # Create or update approval
+                    approval, created = RepairApproval.objects.get_or_create(
+                        repair=repair,
+                        defaults={
+                            'approved': True,
+                            'approved_by': customer_user,
+                            'approval_date': timezone.now(),
+                            'notes': f'Bulk approved via multi-select'
+                        }
+                    )
+
+                    if not created:
+                        approval.approved = True
+                        approval.approved_by = customer_user
+                        approval.approval_date = timezone.now()
+                        approval.notes = f'Bulk approved via multi-select'
+                        approval.save()
+
+                    # Update repair status
+                    repair.queue_status = 'APPROVED'
+                    repair.save()
+
+                    # Create notification for technician
+                    if repair.technician:
+                        TechnicianNotification.objects.create(
+                            technician=repair.technician,
+                            message=f"✅ Repair #{repair.id} APPROVED by {customer.name} - Unit {repair.unit_number}. You can now complete the work.",
+                            read=False,
+                            repair=repair
+                        )
+
+                else:  # deny
+                    # Create or update approval record to mark as denied
+                    approval, created = RepairApproval.objects.get_or_create(
+                        repair=repair,
+                        defaults={
+                            'approved': False,
+                            'approved_by': customer_user,
+                            'approval_date': timezone.now(),
+                            'notes': f'Bulk denied via multi-select'
+                        }
+                    )
+
+                    if not created:
+                        approval.approved = False
+                        approval.approved_by = customer_user
+                        approval.approval_date = timezone.now()
+                        approval.notes = f'Bulk denied via multi-select'
+                        approval.save()
+
+                    # Update repair status
+                    repair.queue_status = 'DENIED'
+                    repair.save()
+
+                    # Create notification for technician
+                    if repair.technician:
+                        TechnicianNotification.objects.create(
+                            technician=repair.technician,
+                            message=f"❌ Repair #{repair.id} DENIED by {customer.name} - Unit {repair.unit_number}.",
+                            read=False,
+                            repair=repair
+                        )
+
+                processed_count += 1
+
+            # Success message
+            action_word = "approved" if action == 'approve' else "denied"
+            messages.success(
+                request,
+                f"Successfully {action_word} {processed_count} repair{'' if processed_count == 1 else 's'}."
+            )
+
+        return redirect('customer_repairs')
+
+    except CustomerUser.DoesNotExist:
+        messages.warning(request, "Please complete your profile first.")
+        return redirect('profile_creation')
+    except Exception as e:
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('customer_repairs')

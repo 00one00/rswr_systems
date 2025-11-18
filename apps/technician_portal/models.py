@@ -242,10 +242,14 @@ class Repair(models.Model):
     )
     break_number = models.PositiveIntegerField(
         default=1,
+        null=True,
+        blank=True,
         help_text="Break number within this batch (1, 2, 3, etc.)"
     )
     total_breaks_in_batch = models.PositiveIntegerField(
         default=1,
+        null=True,
+        blank=True,
         help_text="Total number of breaks in this repair batch"
     )
 

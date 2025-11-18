@@ -123,6 +123,39 @@
             </div>
         </div>
 
+        <!-- Bulk Action Toolbar (Hidden by default, shown via JavaScript) -->
+        <div id="bulk-toolbar" class="hidden fixed bottom-0 left-0 right-0 bg-blue-600 shadow-lg border-t-4 border-blue-700 z-50 transition-all">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-white font-medium">
+                            <span id="selected-count">0</span> repair<span id="plural-s">s</span> selected
+                        </span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="bulkApprove()" class="inline-flex items-center px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors shadow-md">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            Approve Selected (<span id="approve-count">0</span>)
+                        </button>
+                        <button onclick="bulkDeny()" class="inline-flex items-center px-6 py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors shadow-md">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            Deny Selected (<span id="deny-count">0</span>)
+                        </button>
+                        <button onclick="deselectAll()" class="inline-flex items-center px-4 py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            Deselect All
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Messages -->
         {% if messages %}
         <div class="mb-6 space-y-4">
@@ -380,6 +413,9 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50 sticky-header">
                             <tr>
+                                <th scope="col" class="px-4 py-3 text-left">
+                                    <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                </th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     ID
                                 </th>
@@ -391,6 +427,9 @@
                                 </th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Damage Type
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Technician
                                 </th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Description
@@ -411,9 +450,16 @@
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             {% for item in items %}
-                                {% if item.batch_id %}
+                                {% if 'batch_id' in item %}
                                     {# This is a batch summary row #}
                                     <tr class="batch-summary-row cursor-pointer hover:bg-gray-100 {% if item.overall_status == 'PENDING' %}bg-yellow-50{% endif %}" onclick="toggleBatchExpand('{{ item.batch_id }}')">
+                                        <td class="px-4 py-4 whitespace-nowrap" onclick="event.stopPropagation()">
+                                            {% if item.overall_status == 'PENDING' %}
+                                            <input type="checkbox" class="repair-checkbox batch-checkbox w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-batch-id="{{ item.batch_id }}" data-repair-ids="{{ item.repair_ids }}" onchange="updateBulkToolbar()">
+                                            {% else %}
+                                            <span class="text-gray-300">—</span>
+                                            {% endif %}
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             <div class="flex items-center">
                                                 <svg id="expand-icon-{{ item.batch_id }}" class="w-4 h-4 mr-2 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -434,7 +480,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             Unit #{{ item.unit_number }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700" colspan="2">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700" colspan="3">
                                             <span class="text-gray-600 italic">{{ item.completed_count }} of {{ item.break_count }} complete</span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -473,7 +519,7 @@
                                     </tr>
                                     {# Expandable batch details (hidden by default) #}
                                     <tr id="batch-details-{{ item.batch_id }}" class="hidden batch-details bg-gray-50">
-                                        <td colspan="9" class="px-6 py-4">
+                                        <td colspan="11" class="px-6 py-4">
                                             <div class="space-y-2">
                                                 <h4 class="text-sm font-medium text-gray-700 mb-3">Individual Breaks:</h4>
                                                 {% for repair in item.repairs %}
@@ -541,7 +587,14 @@
                                 {% else %}
                                     {# This is an individual repair row #}
                                     {% with repair=item.repair %}
-                                    <tr class="table-row {% if repair.queue_status == 'PENDING' %}bg-yellow-50{% endif %}">
+                                    <tr class="table-row cursor-pointer {% if repair.queue_status == 'PENDING' %}bg-yellow-50{% endif %}" onclick="window.location.href='{% url 'customer_repair_detail' repair.id %}'">
+                                        <td class="px-4 py-4 whitespace-nowrap" onclick="event.stopPropagation()">
+                                            {% if repair.queue_status == 'PENDING' %}
+                                            <input type="checkbox" class="repair-checkbox w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-repair-id="{{ repair.id }}" onchange="updateBulkToolbar()">
+                                            {% else %}
+                                            <span class="text-gray-300">—</span>
+                                            {% endif %}
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             #{{ repair.id }}
                                             {% if repair.customer_initiated %}
@@ -550,77 +603,92 @@
                                             </span>
                                             {% endif %}
                                         </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                    {{ repair.repair_date|date:"M d, Y" }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {{ repair.unit_number }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                    {{ repair.get_damage_type_display|default:"Unknown" }}
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-700">
-                                    {{ repair.description|truncatechars:50 }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                        {% if repair.queue_status == 'COMPLETED' %}bg-green-100 text-green-800
-                                        {% elif repair.queue_status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
-                                        {% elif repair.queue_status == 'PENDING' %}bg-yellow-100 text-yellow-800
-                                        {% elif repair.queue_status == 'APPROVED' %}bg-indigo-100 text-indigo-800
-                                        {% elif repair.queue_status == 'DENIED' %}bg-red-100 text-red-800
-                                        {% elif repair.queue_status == 'REQUESTED' %}bg-gray-100 text-gray-800
-                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                        {% if repair.queue_status == 'REQUESTED' %}
-                                        Submitted
-                                        {% elif repair.queue_status == 'APPROVED' and repair.customer_initiated %}
-                                        Scheduled
-                                        {% else %}
-                                        {{ repair.get_queue_status_display }}
-                                        {% endif %}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    {% if repair.queue_status == 'COMPLETED' %}
-                                        <span class="text-gray-900 font-medium">${{ repair.cost|floatformat:2 }}</span>
-                                    {% elif repair.queue_status == 'PENDING' %}
-                                        <span class="text-blue-600 font-medium">${{ repair.cost|floatformat:2 }}</span>
-                                    {% else %}
-                                        <span class="text-gray-400">—</span>
-                                    {% endif %}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    {% if repair.damage_photo_before or repair.damage_photo_after or repair.additional_photos or repair.customer_submitted_photo %}
-                                    <svg class="w-5 h-5 text-blue-600 has-photos" fill="currentColor" viewBox="0 0 20 20" title="Has photos">
-                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    {% else %}
-                                    <span class="text-gray-300">—</span>
-                                    {% endif %}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div class="flex justify-end space-x-2">
-                                        <a href="{% url 'customer_repair_detail' repair.id %}" class="text-blue-600 hover:text-blue-900 transition-colors">
-                                            View
-                                        </a>
-                                        {% if repair.queue_status == 'PENDING' %}
-                                        <span class="text-gray-300">|</span>
-                                        <button onclick="approveRepair({{ repair.id }})" class="text-green-600 hover:text-green-900 transition-colors">
-                                            Approve
-                                        </button>
-                                        <span class="text-gray-300">|</span>
-                                        <button onclick="denyRepair({{ repair.id }})" class="text-red-600 hover:text-red-900 transition-colors">
-                                            Deny
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            {{ repair.repair_date|date:"M d, Y" }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {{ repair.unit_number }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            {{ repair.get_damage_type_display|default:"Unknown" }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            {% if repair.technician %}
+                                                <span class="text-gray-900" title="Contact: {{ repair.technician.user.email }}{% if repair.technician.phone %} | {{ repair.technician.phone }}{% endif %}">
+                                                    {{ repair.technician.user.get_full_name }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-gray-400 italic">Unassigned</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-700">
+                                            {{ repair.description|truncatechars:50 }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                {% if repair.queue_status == 'COMPLETED' %}bg-green-100 text-green-800
+                                                {% elif repair.queue_status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
+                                                {% elif repair.queue_status == 'PENDING' %}bg-yellow-100 text-yellow-800
+                                                {% elif repair.queue_status == 'APPROVED' %}bg-indigo-100 text-indigo-800
+                                                {% elif repair.queue_status == 'DENIED' %}bg-red-100 text-red-800
+                                                {% elif repair.queue_status == 'REQUESTED' %}bg-gray-100 text-gray-800
+                                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                {% if repair.queue_status == 'REQUESTED' %}
+                                                Submitted
+                                                {% elif repair.queue_status == 'APPROVED' and repair.customer_initiated %}
+                                                Scheduled
+                                                {% else %}
+                                                {{ repair.get_queue_status_display }}
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                            {% if repair.queue_status == 'COMPLETED' %}
+                                                <span class="text-green-600 font-bold">${{ repair.cost|floatformat:2 }}</span>
+                                            {% elif repair.queue_status == 'PENDING' %}
+                                                <span class="text-blue-600 font-bold">${{ repair.cost|floatformat:2 }}</span>
+                                            {% elif repair.queue_status == 'APPROVED' or repair.queue_status == 'IN_PROGRESS' %}
+                                                <span class="text-gray-500">${{ repair.cost|floatformat:2 }} <span class="text-xs">(Est.)</span></span>
+                                            {% elif repair.queue_status == 'REQUESTED' %}
+                                                <span class="text-gray-400 italic text-xs">Pending estimate</span>
+                                            {% elif repair.queue_status == 'DENIED' %}
+                                                <span class="text-gray-400 line-through">${{ repair.cost|floatformat:2 }}</span>
+                                            {% else %}
+                                                <span class="text-gray-400">—</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                            {% if repair.damage_photo_before or repair.damage_photo_after or repair.additional_photos or repair.customer_submitted_photo %}
+                                            <svg class="w-5 h-5 text-blue-600 has-photos" fill="currentColor" viewBox="0 0 20 20" title="Has photos">
+                                                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            {% else %}
+                                            <span class="text-gray-300">—</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onclick="event.stopPropagation()">
+                                            <div class="flex justify-end space-x-2">
+                                                <a href="{% url 'customer_repair_detail' repair.id %}" class="text-blue-600 hover:text-blue-900 transition-colors">
+                                                    View
+                                                </a>
+                                                {% if repair.queue_status == 'PENDING' %}
+                                                <span class="text-gray-300">|</span>
+                                                <button onclick="approveRepair({{ repair.id }})" class="text-green-600 hover:text-green-900 transition-colors">
+                                                    Approve
+                                                </button>
+                                                <span class="text-gray-300">|</span>
+                                                <button onclick="denyRepair({{ repair.id }})" class="text-red-600 hover:text-red-900 transition-colors">
+                                                    Deny
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
                             </tr>
                             {% endwith %}
                             {% endif %}
                             {% empty %}
                             <tr>
-                                <td colspan="9" class="px-6 py-12 text-center">
+                                <td colspan="11" class="px-6 py-12 text-center">
                                     <div class="text-gray-500">
                                         <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -797,6 +865,144 @@ function approveBatch(batchId) {
 function denyBatch(batchId) {
     if (confirm('Are you sure you want to deny all repairs in this batch?')) {
         window.location.href = `/app/batch/${batchId}/deny/`;
+    }
+}
+
+// Bulk selection management
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.repair-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    updateBulkToolbar();
+}
+
+function updateBulkToolbar() {
+    const checkboxes = document.querySelectorAll('.repair-checkbox:checked');
+    const count = checkboxes.length;
+    const toolbar = document.getElementById('bulk-toolbar');
+
+    if (count > 0) {
+        toolbar.classList.remove('hidden');
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('approve-count').textContent = count;
+        document.getElementById('deny-count').textContent = count;
+        document.getElementById('plural-s').textContent = count === 1 ? '' : 's';
+    } else {
+        toolbar.classList.add('hidden');
+    }
+
+    // Update select-all checkbox state
+    const allCheckboxes = document.querySelectorAll('.repair-checkbox');
+    const selectAllCheckbox = document.getElementById('select-all');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = allCheckboxes.length > 0 && count === allCheckboxes.length;
+        selectAllCheckbox.indeterminate = count > 0 && count < allCheckboxes.length;
+    }
+}
+
+function deselectAll() {
+    const checkboxes = document.querySelectorAll('.repair-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+    document.getElementById('select-all').checked = false;
+    updateBulkToolbar();
+}
+
+function getSelectedRepairIds() {
+    const repairIds = [];
+    const checkboxes = document.querySelectorAll('.repair-checkbox:checked');
+
+    checkboxes.forEach(cb => {
+        if (cb.dataset.repairId) {
+            // Individual repair
+            repairIds.push(cb.dataset.repairId);
+        } else if (cb.dataset.repairIds) {
+            // Batch - split the comma-separated list
+            const batchIds = cb.dataset.repairIds.split(',');
+            repairIds.push(...batchIds);
+        }
+    });
+
+    return repairIds;
+}
+
+function bulkApprove() {
+    const repairIds = getSelectedRepairIds();
+    if (repairIds.length === 0) return;
+
+    if (confirm(`Are you sure you want to approve ${repairIds.length} repair${repairIds.length === 1 ? '' : 's'}?`)) {
+        // Create form and submit
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "customer_bulk_action" %}';
+
+        // Add CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        // Add action
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'approve';
+        form.appendChild(actionInput);
+
+        // Add repair IDs
+        repairIds.forEach(id => {
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'repair_ids';
+            idInput.value = id;
+            form.appendChild(idInput);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function bulkDeny() {
+    const repairIds = getSelectedRepairIds();
+    if (repairIds.length === 0) return;
+
+    if (confirm(`Are you sure you want to deny ${repairIds.length} repair${repairIds.length === 1 ? '' : 's'}?`)) {
+        // Create form and submit
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "customer_bulk_action" %}';
+
+        // Add CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        // Add action
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'deny';
+        form.appendChild(actionInput);
+
+        // Add repair IDs
+        repairIds.forEach(id => {
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'repair_ids';
+            idInput.value = id;
+            form.appendChild(idInput);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
     }
 }
 
