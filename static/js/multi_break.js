@@ -544,6 +544,14 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
         return;
     }
 
+    // DIAGNOSTIC: Log submission details BEFORE creating FormData
+    console.log('[MULTI-BREAK] Submitting batch:', {
+        breaks_count: breaks.length,
+        customer: customer,
+        unit_number: unitNumber,
+        repair_date: repairDate
+    });
+
     const formData = new FormData();
 
     // Add base fields
@@ -577,14 +585,6 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
     const submitBtn = document.getElementById('submitAllBtn');
     submitBtn.disabled = true;
     submitBtn.innerHTML = 'Submitting...';
-
-    // DIAGNOSTIC: Log submission details
-    console.log('[MULTI-BREAK] Submitting batch:', {
-        breaks_count: breaks.length,
-        customer: formData.get('customer'),
-        unit_number: formData.get('unit_number'),
-        repair_date: formData.get('repair_date')
-    });
 
     // Submit form
     fetch(window.location.href, {
