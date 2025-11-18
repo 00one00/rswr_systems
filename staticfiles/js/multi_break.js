@@ -265,25 +265,79 @@ document.getElementById('saveBreakBtn').addEventListener('click', () => {
 // Photo Preview Handlers
 document.getElementById('modal_photo_before').addEventListener('change', (e) => {
     const file = e.target.files[0];
+    const preview = document.getElementById('preview_before');
+
     if (file) {
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+        if (!validTypes.includes(file.type.toLowerCase())) {
+            preview.innerHTML = `<div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                <i class="fas fa-exclamation-triangle mr-1"></i> Invalid file type. Please upload JPG, PNG, WebP, or HEIC images.
+            </div>`;
+            e.target.value = ''; // Clear the input
+            return;
+        }
+
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            preview.innerHTML = `<div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                <i class="fas fa-exclamation-triangle mr-1"></i> File too large. Maximum size is 5MB.
+            </div>`;
+            e.target.value = ''; // Clear the input
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (event) => {
-            const preview = document.getElementById('preview_before');
             preview.innerHTML = `<img src="${event.target.result}" alt="Preview" class="mt-2 max-w-full h-32 rounded border border-gray-300">`;
         };
+        reader.onerror = () => {
+            preview.innerHTML = `<div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                <i class="fas fa-exclamation-triangle mr-1"></i> Error loading photo preview.
+            </div>`;
+        };
         reader.readAsDataURL(file);
+    } else {
+        preview.innerHTML = '';
     }
 });
 
 document.getElementById('modal_photo_after').addEventListener('change', (e) => {
     const file = e.target.files[0];
+    const preview = document.getElementById('preview_after');
+
     if (file) {
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+        if (!validTypes.includes(file.type.toLowerCase())) {
+            preview.innerHTML = `<div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                <i class="fas fa-exclamation-triangle mr-1"></i> Invalid file type. Please upload JPG, PNG, WebP, or HEIC images.
+            </div>`;
+            e.target.value = ''; // Clear the input
+            return;
+        }
+
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            preview.innerHTML = `<div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                <i class="fas fa-exclamation-triangle mr-1"></i> File too large. Maximum size is 5MB.
+            </div>`;
+            e.target.value = ''; // Clear the input
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (event) => {
-            const preview = document.getElementById('preview_after');
             preview.innerHTML = `<img src="${event.target.result}" alt="Preview" class="mt-2 max-w-full h-32 rounded border border-gray-300">`;
         };
+        reader.onerror = () => {
+            preview.innerHTML = `<div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                <i class="fas fa-exclamation-triangle mr-1"></i> Error loading photo preview.
+            </div>`;
+        };
         reader.readAsDataURL(file);
+    } else {
+        preview.innerHTML = '';
     }
 });
 
@@ -377,7 +431,7 @@ function renderBreaksList() {
 
 function createBreakCard(breakData, index) {
     const card = document.createElement('div');
-    card.className = 'break-card bg-white border border-gray-300 rounded-lg p-4 hover:shadow-md transition-all';
+    card.className = 'break-card bg-white border border-gray-300 rounded-lg p-3 hover:shadow-md transition-all';
 
     const damageTypeLabel = document.querySelector(`#modal_damage_type option[value="${breakData.damage_type}"]`)?.text || breakData.damage_type;
 
@@ -433,17 +487,33 @@ function createBreakCard(breakData, index) {
             </div>
         </div>
         ${technicalDetailsHTML}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="grid grid-cols-2 gap-3 mt-3">
             <div>
-                <p class="text-xs text-gray-500 mb-1">Photo Before:</p>
-                <div class="h-24 bg-gray-100 rounded overflow-hidden">
-                    ${breakData.photo_before ? `<img src="${URL.createObjectURL(breakData.photo_before)}" alt="Before" class="h-full w-full object-cover">` : '<div class="flex items-center justify-center h-full text-gray-400 text-xs">No photo</div>'}
+                <p class="text-xs font-medium text-gray-700 mb-1.5">Photo Before:</p>
+                <div class="aspect-[4/3] bg-gray-100 rounded border border-gray-300 overflow-hidden flex items-center justify-center">
+                    ${breakData.photo_before ? (() => {
+                        try {
+                            const url = URL.createObjectURL(breakData.photo_before);
+                            return `<img src="${url}" alt="Before photo" class="h-full w-full object-cover" onerror="this.parentElement.innerHTML='<span class=\\'text-red-500 text-xs\\'>Failed to load</span>'">`;
+                        } catch(e) {
+                            console.error('Error creating preview for photo_before:', e);
+                            return '<span class="text-red-500 text-xs">Preview error</span>';
+                        }
+                    })() : '<span class="text-gray-400 text-xs">No photo</span>'}
                 </div>
             </div>
             <div>
-                <p class="text-xs text-gray-500 mb-1">Photo After:</p>
-                <div class="h-24 bg-gray-100 rounded overflow-hidden">
-                    ${breakData.photo_after ? `<img src="${URL.createObjectURL(breakData.photo_after)}" alt="After" class="h-full w-full object-cover">` : '<div class="flex items-center justify-center h-full text-gray-400 text-xs">No photo</div>'}
+                <p class="text-xs font-medium text-gray-700 mb-1.5">Photo After:</p>
+                <div class="aspect-[4/3] bg-gray-100 rounded border border-gray-300 overflow-hidden flex items-center justify-center">
+                    ${breakData.photo_after ? (() => {
+                        try {
+                            const url = URL.createObjectURL(breakData.photo_after);
+                            return `<img src="${url}" alt="After photo" class="h-full w-full object-cover" onerror="this.parentElement.innerHTML='<span class=\\'text-red-500 text-xs\\'>Failed to load</span>'">`;
+                        } catch(e) {
+                            console.error('Error creating preview for photo_after:', e);
+                            return '<span class="text-red-500 text-xs">Preview error</span>';
+                        }
+                    })() : '<span class="text-gray-400 text-xs">No photo</span>'}
                 </div>
             </div>
         </div>
@@ -508,38 +578,61 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
     submitBtn.disabled = true;
     submitBtn.innerHTML = 'Submitting...';
 
+    // DIAGNOSTIC: Log submission details
+    console.log('[MULTI-BREAK] Submitting batch:', {
+        breaks_count: breaks.length,
+        customer: formData.get('customer'),
+        unit_number: formData.get('unit_number'),
+        repair_date: formData.get('repair_date')
+    });
+
     // Submit form
     fetch(window.location.href, {
         method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',  // Mark as AJAX request
+        },
         body: formData,
-        redirect: 'manual'  // Handle redirects manually
     })
     .then(response => {
-        console.log('Response status:', response.status);
-        // Success includes both 200 OK and 302 redirects
-        if (response.ok || response.type === 'opaqueredirect' || response.status === 302) {
+        console.log('[MULTI-BREAK] Response status:', response.status, response.statusText);
+
+        if (response.ok) {
+            return response.json();
+        } else {
+            // Try to parse error JSON
+            return response.json().then(errorData => {
+                console.error('[MULTI-BREAK] Server error response:', errorData);
+                const errorMsg = errorData.error || `Submission failed (HTTP ${response.status})`;
+                const errorType = errorData.error_type || 'Unknown';
+                throw new Error(`${errorMsg} [${errorType}]`);
+            }).catch(parseError => {
+                console.error('[MULTI-BREAK] Failed to parse error response:', parseError);
+                // If we can't parse the JSON, return text
+                return response.text().then(text => {
+                    console.error('[MULTI-BREAK] Raw error response:', text);
+                    throw new Error(`Submission failed (HTTP ${response.status}). Check console for details.`);
+                });
+            });
+        }
+    })
+    .then(data => {
+        console.log('[MULTI-BREAK] Server response data:', data);
+
+        if (data.success) {
+            console.log('[MULTI-BREAK] Batch created successfully:', data.batch_id);
             // Clear localStorage on success
             localStorage.removeItem('multiBreakDraft');
 
-            // For redirects, we need to follow manually
-            if (response.redirected || response.type === 'opaqueredirect') {
-                window.location.href = response.url || '/tech/repairs/';
-            } else {
-                // Check response headers for redirect location
-                response.text().then(html => {
-                    // If it's a redirect, the Django view returns 302
-                    // Since we used redirect: 'manual', we need to extract the location
-                    // For now, just redirect to repairs list
-                    window.location.href = '/tech/repairs/';
-                });
-            }
+            // Show success modal with batch data
+            showSuccessModal(data);
         } else {
-            throw new Error('Submission failed');
+            throw new Error(data.error || 'Submission failed');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('Error submitting repairs. Please try again.');
+        console.error('[MULTI-BREAK] Submission error:', error);
+        alert('Error submitting repairs: ' + error.message);
         submitBtn.disabled = false;
         submitBtn.innerHTML = `Submit All Repairs (${breaks.length})`;
     });
@@ -590,3 +683,89 @@ function restoreFromLocalStorage() {
         console.warn('Could not restore from localStorage:', e);
     }
 }
+
+// Success Modal Functions
+function showSuccessModal(batchData) {
+    const modal = document.getElementById('successModal');
+
+    // Populate modal with batch data
+    document.getElementById('success_unit').textContent = batchData.unit_number;
+    document.getElementById('success_break_count').textContent = batchData.break_count;
+    document.getElementById('success_total_cost').textContent = `$${batchData.total_cost.toFixed(2)}`;
+
+    // Set status badge with appropriate styling
+    const statusBadge = document.getElementById('success_status');
+    if (batchData.is_auto_approved) {
+        statusBadge.textContent = 'Auto-Approved';
+        statusBadge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800';
+    } else {
+        statusBadge.textContent = 'Pending Approval';
+        statusBadge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800';
+    }
+
+    // Store batch_id for button handlers
+    modal.dataset.batchId = batchData.batch_id;
+
+    // Show modal
+    modal.classList.add('active');
+}
+
+// Success Modal Button Handlers
+document.getElementById('startWorkNowBtn').addEventListener('click', function() {
+    const modal = document.getElementById('successModal');
+    const batchId = modal.dataset.batchId;
+
+    // Start work on all breaks in the batch
+    fetch(`/tech/batch/${batchId}/start-work/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Redirect to batch detail page
+            window.location.href = `/tech/batch/${batchId}/`;
+        } else {
+            alert('Error starting work: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error starting work on batch');
+    });
+});
+
+document.getElementById('viewBatchBtn').addEventListener('click', function() {
+    const modal = document.getElementById('successModal');
+    const batchId = modal.dataset.batchId;
+    window.location.href = `/tech/batch/${batchId}/`;
+});
+
+document.getElementById('createAnotherBatchBtn').addEventListener('click', function() {
+    const modal = document.getElementById('successModal');
+    modal.classList.remove('active');
+
+    // Keep customer selection but clear everything else
+    const customer = document.getElementById('customer').value;
+    const date = document.getElementById('repair_date').value;
+
+    // Reset form
+    document.getElementById('unit_number').value = '';
+    breaks = [];
+    renderBreaksList();
+    updateSubmitButton();
+    updatePricingPreview();
+
+    // Restore customer and date
+    document.getElementById('customer').value = customer;
+    document.getElementById('repair_date').value = date;
+
+    // Re-enable submit button
+    const submitBtn = document.getElementById('submitAllBtn');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = 'Submit All Repairs (0)';
+});

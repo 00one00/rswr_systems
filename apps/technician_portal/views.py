@@ -745,20 +745,41 @@ def create_multi_break_repair(request):
             repair_date_str = request.POST.get('repair_date')
             breaks_count = int(request.POST.get('breaks_count', 0))
 
+            # DIAGNOSTIC: Log incoming request
+            logger.info(f"[MULTI-BREAK] Request received - customer_id={customer_id}, unit={unit_number}, date={repair_date_str}, breaks={breaks_count}")
+
             # Validate required fields
             if not all([customer_id, unit_number, repair_date_str, breaks_count > 0]):
-                messages.error(request, "Missing required information. Please ensure you've added at least one break.")
+                error_msg = "Missing required information. Please ensure you've added at least one break."
+                logger.warning(f"[MULTI-BREAK] Validation failed - customer_id={customer_id}, unit={unit_number}, date={repair_date_str}, breaks={breaks_count}")
+                messages.error(request, error_msg)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
                 return redirect('create_multi_break_repair')
 
             # Get customer and validate
             try:
                 customer = Customer.objects.get(id=customer_id)
+                logger.info(f"[MULTI-BREAK] Customer found: {customer.name} (ID: {customer.id})")
             except Customer.DoesNotExist:
-                messages.error(request, "Invalid customer selected.")
+                error_msg = f"Invalid customer selected (ID: {customer_id})."
+                logger.error(f"[MULTI-BREAK] Customer not found - ID={customer_id}")
+                messages.error(request, error_msg)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
                 return redirect('create_multi_break_repair')
 
             # Parse repair date
-            repair_date = timezone.datetime.fromisoformat(repair_date_str.replace('Z', '+00:00'))
+            try:
+                repair_date = timezone.datetime.fromisoformat(repair_date_str.replace('Z', '+00:00'))
+                logger.info(f"[MULTI-BREAK] Repair date parsed: {repair_date}")
+            except (ValueError, AttributeError) as date_error:
+                error_msg = f"Invalid date format: {repair_date_str}. Error: {str(date_error)}"
+                logger.error(f"[MULTI-BREAK] Date parsing failed - date_str={repair_date_str}, error={date_error}")
+                messages.error(request, error_msg)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                return redirect('create_multi_break_repair')
 
             # Get current repair count for pricing calculation
             try:
@@ -795,11 +816,24 @@ def create_multi_break_repair(request):
                     return redirect('technician_dashboard')
 
             # Create all repairs atomically (all or nothing)
+            logger.info(f"[MULTI-BREAK] Starting atomic transaction for {breaks_count} breaks")
             with transaction.atomic():
                 for i in range(breaks_count):
                     # Extract data for this break
                     damage_type = request.POST.get(f'breaks[{i}][damage_type]', '')
                     notes = request.POST.get(f'breaks[{i}][notes]', '')
+
+                    # DIAGNOSTIC: Log break data
+                    logger.debug(f"[MULTI-BREAK] Break {i+1}/{breaks_count} - damage_type='{damage_type}', notes_length={len(notes)}")
+
+                    # Validate damage_type is not empty
+                    if not damage_type or damage_type.strip() == '':
+                        error_msg = f"Break {i+1} is missing damage type. All breaks must have a damage type selected."
+                        logger.error(f"[MULTI-BREAK] Validation failed - Break {i+1} has empty damage_type")
+                        messages.error(request, error_msg)
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                        return redirect('create_multi_break_repair')
 
                     # Extract technical fields
                     drilled_before = request.POST.get(f'breaks[{i}][drilled_before_repair]', 'false').lower() == 'true'
@@ -886,13 +920,21 @@ def create_multi_break_repair(request):
                     except CustomerRepairPreference.DoesNotExist:
                         pass  # Stay as PENDING
 
-                    repair.save()
-                    created_repairs.append(repair)
-
-                    logger.info(f"Created repair {repair.id} - Break {i+1}/{breaks_count} in batch {batch_id}")
+                    try:
+                        repair.save()
+                        created_repairs.append(repair)
+                        logger.info(f"[MULTI-BREAK] Created repair {repair.id} - Break {i+1}/{breaks_count} in batch {batch_id}, cost=${repair.cost}")
+                    except Exception as save_error:
+                        error_msg = f"Failed to save Break {i+1}: {str(save_error)}"
+                        logger.error(f"[MULTI-BREAK] Repair.save() failed for break {i+1} - error={save_error}", exc_info=True)
+                        messages.error(request, error_msg)
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return JsonResponse({'success': False, 'error': error_msg}, status=500)
+                        raise  # Re-raise to trigger transaction rollback
 
             # Calculate total cost for message
             total_cost = sum(r.cost for r in created_repairs)
+            logger.info(f"[MULTI-BREAK] Transaction complete - {len(created_repairs)} repairs created, total_cost=${total_cost}")
 
             # Determine status for response
             status = created_repairs[0].queue_status
@@ -929,17 +971,28 @@ def create_multi_break_repair(request):
             return redirect(f"{'/tech/repairs/'}?customer={customer.name}")
 
         except ValueError as e:
-            logger.error(f"Value error in multi-break creation: {e}")
-            messages.error(request, f"Invalid data provided: {str(e)}")
+            error_detail = str(e)
+            logger.error(f"[MULTI-BREAK] ValueError in batch creation: {error_detail}", exc_info=True)
+            messages.error(request, f"Invalid data provided: {error_detail}")
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': str(e)}, status=400)
+                return JsonResponse({
+                    'success': False,
+                    'error': f"Invalid data: {error_detail}",
+                    'error_type': 'ValueError'
+                }, status=400)
             return redirect('create_multi_break_repair')
 
         except Exception as e:
-            logger.error(f"Error creating multi-break batch: {e}", exc_info=True)
-            messages.error(request, f"Error creating repairs: {str(e)}")
+            error_detail = str(e)
+            error_type = type(e).__name__
+            logger.error(f"[MULTI-BREAK] {error_type} in batch creation: {error_detail}", exc_info=True)
+            messages.error(request, f"Error creating repairs: {error_detail}")
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': str(e)}, status=500)
+                return JsonResponse({
+                    'success': False,
+                    'error': f"{error_type}: {error_detail}",
+                    'error_type': error_type
+                }, status=500)
             return redirect('create_multi_break_repair')
 
     else:

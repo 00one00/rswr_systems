@@ -578,6 +578,14 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
     submitBtn.disabled = true;
     submitBtn.innerHTML = 'Submitting...';
 
+    // DIAGNOSTIC: Log submission details
+    console.log('[MULTI-BREAK] Submitting batch:', {
+        breaks_count: breaks.length,
+        customer: formData.get('customer'),
+        unit_number: formData.get('unit_number'),
+        repair_date: formData.get('repair_date')
+    });
+
     // Submit form
     fetch(window.location.href, {
         method: 'POST',
@@ -587,20 +595,32 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
         body: formData,
     })
     .then(response => {
-        console.log('Response status:', response.status);
+        console.log('[MULTI-BREAK] Response status:', response.status, response.statusText);
+
         if (response.ok) {
             return response.json();
         } else {
             // Try to parse error JSON
             return response.json().then(errorData => {
-                throw new Error(errorData.error || 'Submission failed');
-            }).catch(() => {
-                throw new Error('Submission failed');
+                console.error('[MULTI-BREAK] Server error response:', errorData);
+                const errorMsg = errorData.error || `Submission failed (HTTP ${response.status})`;
+                const errorType = errorData.error_type || 'Unknown';
+                throw new Error(`${errorMsg} [${errorType}]`);
+            }).catch(parseError => {
+                console.error('[MULTI-BREAK] Failed to parse error response:', parseError);
+                // If we can't parse the JSON, return text
+                return response.text().then(text => {
+                    console.error('[MULTI-BREAK] Raw error response:', text);
+                    throw new Error(`Submission failed (HTTP ${response.status}). Check console for details.`);
+                });
             });
         }
     })
     .then(data => {
+        console.log('[MULTI-BREAK] Server response data:', data);
+
         if (data.success) {
+            console.log('[MULTI-BREAK] Batch created successfully:', data.batch_id);
             // Clear localStorage on success
             localStorage.removeItem('multiBreakDraft');
 
@@ -611,7 +631,7 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        console.error('[MULTI-BREAK] Submission error:', error);
         alert('Error submitting repairs: ' + error.message);
         submitBtn.disabled = false;
         submitBtn.innerHTML = `Submit All Repairs (${breaks.length})`;
