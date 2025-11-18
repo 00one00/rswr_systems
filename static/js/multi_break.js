@@ -560,9 +560,6 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
     formData.append('repair_date', repairDate);
     formData.append('breaks_count', breaks.length);
 
-    // Add CSRF token
-    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
-
     // Add each break's data
     breaks.forEach((breakData, index) => {
         formData.append(`breaks[${index}][damage_type]`, breakData.damage_type);

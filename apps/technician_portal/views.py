@@ -730,7 +730,6 @@ def create_repair(request):
     })
 
 
-@csrf_exempt
 @technician_required
 def create_multi_break_repair(request):
     """
