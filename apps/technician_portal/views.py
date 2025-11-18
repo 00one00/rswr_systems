@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from .models import Technician, Repair, UnitRepairCount, TechnicianNotification
 from core.models import Customer
 from .forms import TechnicianForm, RepairForm, CustomerForm, TechnicianRegistrationForm
@@ -729,6 +730,7 @@ def create_repair(request):
     })
 
 
+@csrf_exempt
 @technician_required
 def create_multi_break_repair(request):
     """
