@@ -597,6 +597,9 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
     .then(response => {
         console.log('[MULTI-BREAK] Response status:', response.status, response.statusText);
 
+        // Clone response so we can read it multiple times if needed
+        const clonedResponse = response.clone();
+
         if (response.ok) {
             return response.json();
         } else {
@@ -607,9 +610,9 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
                 const errorType = errorData.error_type || 'Unknown';
                 throw new Error(`${errorMsg} [${errorType}]`);
             }).catch(parseError => {
-                console.error('[MULTI-BREAK] Failed to parse error response:', parseError);
-                // If we can't parse the JSON, return text
-                return response.text().then(text => {
+                console.error('[MULTI-BREAK] Failed to parse JSON, trying text:', parseError);
+                // Use cloned response to read as text
+                return clonedResponse.text().then(text => {
                     console.error('[MULTI-BREAK] Raw error response:', text);
                     throw new Error(`Submission failed (HTTP ${response.status}). Check console for details.`);
                 });
