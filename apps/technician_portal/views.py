@@ -607,7 +607,10 @@ def technician_batch_start_work(request, batch_id):
     batch_summary = Repair.get_batch_summary(batch_id)
 
     if not batch_summary:
-        messages.error(request, "Batch not found.")
+        error_msg = "Batch not found."
+        messages.error(request, error_msg)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=404)
         return redirect('technician_dashboard')
 
     repairs = batch_summary['all_repairs']
@@ -747,14 +750,20 @@ def create_multi_break_repair(request):
 
             # Validate required fields
             if not all([customer_id, unit_number, repair_date_str, breaks_count > 0]):
-                messages.error(request, "Missing required information. Please ensure you've added at least one break.")
+                error_msg = "Missing required information. Please ensure you've added at least one break."
+                messages.error(request, error_msg)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
                 return redirect('create_multi_break_repair')
 
             # Get customer and validate
             try:
                 customer = Customer.objects.get(id=customer_id)
             except Customer.DoesNotExist:
-                messages.error(request, "Invalid customer selected.")
+                error_msg = "Invalid customer selected."
+                messages.error(request, error_msg)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
                 return redirect('create_multi_break_repair')
 
             # Parse repair date
@@ -779,19 +788,28 @@ def create_multi_break_repair(request):
                 # Admin must provide technician
                 tech_id = request.POST.get('technician_id')
                 if not tech_id:
-                    messages.error(request, "As an admin, you must select a technician.")
+                    error_msg = "As an admin, you must select a technician."
+                    messages.error(request, error_msg)
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'error': error_msg}, status=400)
                     return redirect('create_multi_break_repair')
                 try:
                     technician = Technician.objects.get(id=tech_id)
                 except Technician.DoesNotExist:
-                    messages.error(request, "Invalid technician selected.")
+                    error_msg = "Invalid technician selected."
+                    messages.error(request, error_msg)
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'error': error_msg}, status=400)
                     return redirect('create_multi_break_repair')
             else:
                 # Regular technician creates repairs for themselves
                 try:
                     technician = request.user.technician
                 except AttributeError:
-                    messages.error(request, "You don't have a technician profile to create repairs.")
+                    error_msg = "You don't have a technician profile to create repairs."
+                    messages.error(request, error_msg)
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'error': error_msg}, status=400)
                     return redirect('technician_dashboard')
 
             # Create all repairs atomically (all or nothing)
@@ -833,27 +851,36 @@ def create_multi_break_repair(request):
 
                             # Validate manager authorization
                             if not (technician.is_manager and technician.can_override_pricing):
-                                messages.error(request, f"Break {i+1}: You don't have permission to override prices.")
+                                error_msg = f"Break {i+1}: You don't have permission to override prices."
+                                messages.error(request, error_msg)
+                                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
                                 return redirect('create_multi_break_repair')
 
                             # Require override reason
                             if not override_reason:
-                                messages.error(request, f"Break {i+1}: Override reason is required when setting a custom price.")
+                                error_msg = f"Break {i+1}: Override reason is required when setting a custom price."
+                                messages.error(request, error_msg)
+                                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
                                 return redirect('create_multi_break_repair')
 
                             # Check approval limit if set
                             if technician.approval_limit and override_amount > technician.approval_limit:
-                                messages.error(
-                                    request,
-                                    f"Break {i+1}: Override amount ${override_amount} exceeds your approval limit of ${technician.approval_limit}."
-                                )
+                                error_msg = f"Break {i+1}: Override amount ${override_amount} exceeds your approval limit of ${technician.approval_limit}."
+                                messages.error(request, error_msg)
+                                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
                                 return redirect('create_multi_break_repair')
 
                             # Use override price
                             break_price = override_amount
 
                         except (ValueError, InvalidOperation):
-                            messages.error(request, f"Break {i+1}: Invalid override price format.")
+                            error_msg = f"Break {i+1}: Invalid override price format."
+                            messages.error(request, error_msg)
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                return JsonResponse({'success': False, 'error': error_msg}, status=400)
                             return redirect('create_multi_break_repair')
 
                     # Create repair instance
