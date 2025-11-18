@@ -128,3 +128,128 @@ Run this command to fix any existing data inconsistencies:
 5. Progress bar shows accurate count (e.g., "1 of 3 complete") ✅
 6. Repeat for all breaks → Seamless navigation throughout ✅
 7. All repairs show proper status on dashboard ✅
+
+
+===========================================
+CUSTOMER PORTAL "MY REPAIRS" - IMPROVEMENTS
+===========================================
+
+📅 Started: 2025-11-15
+🎯 Goal: Modernize customer repairs page with better UX
+
+🔧 PHASE 1: CRITICAL FIXES (In Progress)
+-----------------------------------------
+
+14. ✅ Batch Repair Visual Grouping (COMPLETED 2025-11-16)
+   - Issue: Batch repairs appear as separate rows with only "B1", "B2" badges
+   - Impact: Confusing for customers - see 3 rows instead of 1 batch
+   - Solution: Expandable batch summary rows with clickable individual breaks
+   - Features Implemented:
+     * Summary row: "BATCH - 3 Breaks - $450 total - Pending Approval"
+     * Click to expand and see individual breaks with full details
+     * Batch-level "Approve All" / "Deny All" buttons in summary row
+     * Individual repairs remain as regular rows
+     * LocalStorage remembers expanded/collapsed state
+     * Smart status determination (PENDING if any pending, etc.)
+     * Progress indicator: "2 of 3 complete"
+     * **ENHANCED**: Each break row is fully clickable with hover effects
+     * **ENHANCED**: Prominent "View Details" button with eye icon
+     * **ENHANCED**: Quick approve/deny buttons on PENDING breaks
+     * **ENHANCED**: Visual feedback with border highlight and shadow on hover
+   - Files Modified:
+     * templates/customer_portal/repairs.html (batch summary rows + JavaScript + break row UX)
+     * apps/customer_portal/views.py (batch grouping logic + pagination)
+   - Status: ✅ COMPLETE & ENHANCED
+
+15. ⏳ Bulk Selection & Actions
+   - Issue: Cannot approve/deny multiple pending repairs at once
+   - Impact: Fleet managers must click approve 20+ times for many repairs
+   - Solution: Checkbox selection + bulk action toolbar
+   - Features:
+     * Checkbox column for multi-select
+     * Floating toolbar when repairs selected
+     * "Approve Selected (X)" and "Deny Selected (X)" buttons
+     * Include batch repairs in bulk actions
+   - Files: templates/customer_portal/repairs.html, apps/customer_portal/views.py
+   - Status: PENDING
+
+16. ⏳ Show Assigned Technician
+   - Issue: Customers can't see which technician is assigned
+   - Impact: Can't contact technician or know who to follow up with
+   - Solution: Add "Technician" column
+   - Features:
+     * Show technician name for all repairs
+     * Add phone/email on hover for contact info
+     * Show "Unassigned" for repairs without technician
+   - Files: templates/customer_portal/repairs.html
+   - Status: PENDING
+
+17. ⏳ Better Cost Visibility
+   - Issue: Cost only shown for PENDING and COMPLETED repairs
+   - Impact: Can't track expected costs for IN_PROGRESS repairs
+   - Solution: Show cost for ALL repair statuses
+   - Features:
+     * Gray text for estimates (APPROVED, IN_PROGRESS)
+     * Blue text for pending approval
+     * Green text for completed
+     * Add "(Est.)" suffix for non-final costs
+   - Files: templates/customer_portal/repairs.html
+   - Status: PENDING
+
+
+🚀 PHASE 2: HIGH-VALUE ENHANCEMENTS (Planned)
+----------------------------------------------
+
+18. ⏳ Reward Application Indicators
+   - Add icon/badge when repair had reward discount applied
+   - Tooltip: "50% Discount Applied - Saved $75"
+   - Show total savings in stats dashboard
+   - Status: PENDING
+
+19. ⏳ Improved Batch Badges
+   - Change "B1" to "Break 1/3" or visual batch indicator
+   - Group consecutive batch repairs visually (background color)
+   - Add batch ID tooltip for reference
+   - Status: PENDING
+
+20. ⏳ Mobile-Responsive Card View
+   - Add CSS @media queries for mobile devices
+   - Convert table to card layout on screens < 768px
+   - Show critical info only (Unit, Status, Cost, Actions)
+   - Status: PENDING
+
+21. ⏳ "Request Repair" CTA Button
+   - Add prominent button in page header
+   - Link to repair request form
+   - Show in empty state as primary action
+   - Status: PENDING
+
+
+✨ PHASE 3: NICE-TO-HAVE FEATURES (Future)
+-------------------------------------------
+
+22. ⏳ Quick Preview Modal
+   - "Quick View" button in actions
+   - Slide-over panel shows key details without navigation
+   - Include photos, description, technician notes
+   - Status: PENDING
+
+23. ⏳ Recent Activity Indicators
+   - Show "Updated 2h ago" for repairs with recent changes
+   - "NEW" badge for repairs created in last 24h
+   - Highlight pending approvals > 3 days old
+   - Status: PENDING
+
+24. ⏳ Enhanced Empty State
+   - Add helpful links when no repairs found
+   - "Request Your First Repair" CTA
+   - "Clear Filters" suggestion
+   - Status: PENDING
+
+
+📊 IMPLEMENTATION TIMELINE:
+---------------------------
+- Phase 1: 8-10 hours (Critical fixes)
+- Phase 2: 6-8 hours (High-value enhancements)
+- Phase 3: 4-6 hours (Polish features)
+- Total: 18-24 hours

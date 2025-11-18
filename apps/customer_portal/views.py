@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from core.models import Customer
 from apps.technician_portal.models import Repair, UnitRepairCount, TechnicianNotification, Technician
 from apps.rewards_referrals.models import ReferralCode, RewardOption, RewardRedemption, Referral
@@ -12,12 +13,12 @@ from django.contrib.auth.models import User
 from django.contrib.auth import login, authenticate
 from django.utils import timezone
 from django.db.models import Sum, Q, Count
+from django.db import models, transaction
 from django.contrib.auth import update_session_auth_hash
 from functools import wraps
 from django.http import JsonResponse
 from collections import defaultdict
 from datetime import datetime, timedelta
-from django.db import transaction
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 import logging
@@ -329,12 +330,71 @@ def customer_repairs(request):
         for repair in repairs:
             repair.customer_initiated = repair.id in customer_initiated_approvals
 
-        # Pagination - get page size from request or use default
+        # Group batch repairs for better presentation
+        batch_groups = {}  # batch_id -> list of repairs
+        individual_repairs_list = []
+
+        for repair in repairs:
+            if repair.is_part_of_batch:
+                batch_id = str(repair.repair_batch_id)
+                if batch_id not in batch_groups:
+                    batch_groups[batch_id] = []
+                batch_groups[batch_id].append(repair)
+            else:
+                individual_repairs_list.append(repair)
+
+        # Create batch summaries for display
+        batch_summaries = []
+        for batch_id, batch_repairs in batch_groups.items():
+            if batch_repairs:
+                # Sort by break number
+                batch_repairs.sort(key=lambda r: r.break_number)
+                first_repair = batch_repairs[0]
+
+                # Calculate totals
+                total_cost = sum(r.cost or 0 for r in batch_repairs)
+                pending_count = sum(1 for r in batch_repairs if r.queue_status == 'PENDING')
+                completed_count = sum(1 for r in batch_repairs if r.queue_status == 'COMPLETED')
+
+                # Determine overall status
+                if all(r.queue_status == 'COMPLETED' for r in batch_repairs):
+                    overall_status = 'COMPLETED'
+                elif all(r.queue_status == 'DENIED' for r in batch_repairs):
+                    overall_status = 'DENIED'
+                elif pending_count > 0:
+                    overall_status = 'PENDING'
+                elif any(r.queue_status == 'IN_PROGRESS' for r in batch_repairs):
+                    overall_status = 'IN_PROGRESS'
+                elif all(r.queue_status == 'APPROVED' for r in batch_repairs):
+                    overall_status = 'APPROVED'
+                else:
+                    overall_status = batch_repairs[0].queue_status
+
+                batch_summaries.append({
+                    'batch_id': batch_id,
+                    'unit_number': first_repair.unit_number,
+                    'repair_date': first_repair.repair_date,
+                    'break_count': len(batch_repairs),
+                    'total_cost': total_cost,
+                    'overall_status': overall_status,
+                    'repairs': batch_repairs,
+                    'pending_count': pending_count,
+                    'completed_count': completed_count,
+                    'can_approve_all': pending_count == len(batch_repairs) and pending_count > 0,
+                })
+
+        # Sort batch summaries by date (newest first)
+        batch_summaries.sort(key=lambda b: b['repair_date'], reverse=True)
+
+        # Pagination - combine batches and individual repairs for display
+        # Each batch counts as 1 item, each individual repair counts as 1 item
+        all_items = batch_summaries + [{'type': 'individual', 'repair': r} for r in individual_repairs_list]
+
         page_size = int(request.GET.get('page_size', 50))
         if page_size not in [20, 50, 100]:
             page_size = 50
 
-        paginator = Paginator(repairs, page_size)
+        paginator = Paginator(all_items, page_size)
         page_number = request.GET.get('page', 1)
         page_obj = paginator.get_page(page_number)
 
@@ -342,7 +402,7 @@ def customer_repairs(request):
         damage_types = Repair.DAMAGE_TYPE_CHOICES
 
         return render(request, 'customer_portal/repairs.html', {
-            'repairs': page_obj,
+            'items': page_obj,  # Mixed batch summaries and individual repairs
             'page_obj': page_obj,
             'total_repairs': total_repairs,
             'stats': stats,
@@ -356,6 +416,8 @@ def customer_repairs(request):
             'page_size': page_size,
             'damage_types': damage_types,
             'customer_initiated_repair_ids': list(customer_initiated_approvals),
+            'batch_count': len(batch_summaries),
+            'individual_count': len(individual_repairs_list),
         })
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")
