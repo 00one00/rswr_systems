@@ -12,6 +12,147 @@ All notable changes to the RS Systems windshield repair management platform.
 
 ---
 
+## [1.7.0] - November 18, 2025
+
+### 🎛️ MANAGER SETTINGS PORTAL
+
+#### Added
+- **Manager Settings Dashboard**: Centralized configuration hub for managers (`/tech/settings/`)
+  - **Card-Based Navigation**: Modern tile layout for feature discovery
+  - **Permission Control**: Accessible to managers (`is_manager=True`) and staff users only
+  - **User Dropdown Link**: "Manager Settings" option added to navigation menu (templates/base.html:102-106)
+  - **Future Feature Placeholders**: Visual indicators for Pricing Configuration and Audit Log (planned Phase 2-3)
+  - **Admin Badge**: Special indicator for staff users with elevated privileges
+
+- **Viscosity Rules Management**: Configure temperature-based resin viscosity recommendations (`/tech/settings/viscosity/`)
+  - **Card-Based Interface**: Visual display of each rule with all key information
+  - **Modal Editing**: Click "Edit" to modify rules in overlay form without page refresh
+  - **Toggle Switches**: Quick enable/disable functionality in card header
+  - **Add New Rules**: Green "Add New Rule" button opens creation modal
+  - **Delete Confirmation**: Safety dialog before removing rules
+  - **Badge Previews**: See exactly how viscosity recommendations appear to technicians
+  - **Real-Time Updates**: AJAX operations with toast notifications for all actions
+  - **Mobile Responsive**: Fully functional on all screen sizes
+
+- **Team Overview**: Performance dashboard for managed technicians (`/tech/settings/team/`)
+  - **Team Summary Stats**: Overall repairs, pending count, completed count across all managed technicians
+  - **Individual Performance Cards**: Detailed stats for each managed technician
+    - Total repairs assigned
+    - Pending repairs count
+    - Completed repairs count
+    - Completion rate percentage with visual progress bars
+  - **Recent Repairs List**: Last 5 repairs for each team member with status badges
+  - **Contact Information**: Email and phone for each technician
+  - **Access Control**: Only shows technicians in manager's `managed_technicians` M2M relationship
+
+- **Manager Permission Decorator**: New `@manager_required` decorator for view-level access control
+  - **Location**: `apps/technician_portal/decorators.py`
+  - **Functionality**: Restricts access to managers (`is_manager=True`) and staff users
+  - **Usage**: Stack with `@technician_required` for double protection
+  - **Redirect**: Non-managers redirected to dashboard with warning message
+
+#### Technical Implementation
+
+**Files Created** (11 files):
+1. `apps/technician_portal/decorators.py` - Permission decorators
+2. `templates/technician_portal/settings/settings_dashboard.html` - Main settings hub
+3. `templates/technician_portal/settings/viscosity_rules.html` - Viscosity rules management
+4. `templates/technician_portal/settings/team_overview.html` - Team performance dashboard
+5. `templates/technician_portal/settings/partials/` - Directory for reusable components
+6. `static/js/manager_settings.js` - AJAX modal handling (9.3KB)
+7. `static/css/components/manager-settings.css` - Professional styling (16KB)
+8. `docs/development/MANAGER_SETTINGS_ROADMAP.md` - Feature roadmap and planning document
+
+**Files Modified**:
+1. `apps/technician_portal/views.py` - Added 7 new view functions:
+   - `manager_settings_dashboard()` - Main settings hub (line 2003)
+   - `manage_viscosity_rules()` - List and manage rules (line 2029)
+   - `create_viscosity_rule()` - AJAX create endpoint (line 2051)
+   - `update_viscosity_rule()` - AJAX update endpoint (line 2108)
+   - `delete_viscosity_rule()` - AJAX delete endpoint (line 2165)
+   - `toggle_viscosity_rule()` - AJAX toggle active status (line 2191)
+   - `team_overview()` - Team performance dashboard (line 2218)
+
+2. `apps/technician_portal/urls.py` - Added 8 new URL patterns:
+   - `/tech/settings/` - Main dashboard
+   - `/tech/settings/viscosity/` - Viscosity rules page
+   - `/tech/settings/team/` - Team overview page
+   - `/tech/settings/api/viscosity/create/` - Create API endpoint
+   - `/tech/settings/api/viscosity/<id>/update/` - Update API endpoint
+   - `/tech/settings/api/viscosity/<id>/delete/` - Delete API endpoint
+   - `/tech/settings/api/viscosity/<id>/toggle/` - Toggle API endpoint
+
+3. `apps/technician_portal/models.py` - Added public method for template access:
+   - `ViscosityRecommendation.get_temp_range_display()` - Public wrapper for template usage (line 780)
+
+4. `templates/base.html` - Navigation integration (lines 102-106):
+   - Added "Manager Settings" link to user dropdown menu
+   - Conditional display based on manager status
+
+5. `docs/user-guides/VISCOSITY_CONFIGURATION_GUIDE.md` - Updated for manager access:
+   - Added "For Managers (Recommended)" section with step-by-step instructions
+   - Documented card-based interface features
+   - Updated all CRUD operation procedures
+   - Clarified admin vs manager access differences
+
+**URL Structure**:
+```
+/tech/settings/                         → Manager Settings Dashboard
+/tech/settings/viscosity/               → Viscosity Rules Management
+/tech/settings/team/                    → Team Overview
+/tech/settings/api/viscosity/create/    → Create Rule API
+/tech/settings/api/viscosity/<id>/update/ → Update Rule API
+/tech/settings/api/viscosity/<id>/delete/ → Delete Rule API
+/tech/settings/api/viscosity/<id>/toggle/ → Toggle Rule API
+```
+
+**Frontend Stack**:
+- Pure JavaScript (no frameworks) with Fetch API for AJAX
+- Custom CSS with card-based design system matching repair form aesthetic
+- Mobile-first responsive layout
+- Toast notifications for user feedback
+
+**Backend Stack**:
+- Django views with permission decorators
+- RESTful AJAX API endpoints
+- JSON responses for all API calls
+- Transaction safety for database operations
+
+#### Changed
+- **ViscosityRecommendation Model**: Added public `get_temp_range_display()` method
+  - **Previous**: Only private `_get_temp_range_display()` method (inaccessible from templates)
+  - **New**: Public wrapper method for Django template access
+  - **Rationale**: Django templates cannot call methods starting with underscore
+  - **Location**: `apps/technician_portal/models.py:780-785`
+
+#### Fixed
+- **Template Syntax Error**: Fixed `Variables and attributes may not begin with underscores` error
+  - **Issue**: Templates tried to call `rule._get_temp_range_display` (private method)
+  - **Fix**: Created public `get_temp_range_display()` method, updated template to use it
+  - **Impact**: Viscosity rules page now renders without errors
+  - **Location**: `templates/technician_portal/settings/viscosity_rules.html:51`
+
+#### Documentation Updates
+- **Manager Settings Roadmap**: Comprehensive planning document created
+  - **Phase 1 (Completed)**: Documented all current features with technical details
+  - **Phase 2 (Planned)**: Pricing Management features (tiers, overrides, approvals)
+  - **Phase 3 (Planned)**: Audit & Reporting features (logs, history, analytics)
+  - **Phase 4 (Future)**: Advanced features (scheduling, integrations, notifications)
+  - **Location**: `docs/development/MANAGER_SETTINGS_ROADMAP.md`
+
+- **Viscosity Configuration Guide**: Updated for manager access
+  - Added manager-specific instructions
+  - Documented card-based interface features
+  - Updated CRUD operation procedures
+  - **Location**: `docs/user-guides/VISCOSITY_CONFIGURATION_GUIDE.md`
+
+#### Future Enhancements (Documented in Roadmap)
+- **Pricing Configuration** (Phase 2): Custom pricing tiers, per-customer rules, volume discounts, override approval workflow
+- **Audit Log** (Phase 3): Pricing override tracking, manager action history, team performance reports
+- **Advanced Features** (Phase 4): Team scheduling, performance analytics, custom notifications, integration settings
+
+---
+
 ## [1.6.3] - November 3, 2025
 
 ### 🗄️ STORAGE & DATA MANAGEMENT

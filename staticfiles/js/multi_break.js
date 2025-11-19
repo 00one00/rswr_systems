@@ -9,6 +9,8 @@ let editingIndex = null;
 
 // Initialize datetime field with current time
 document.addEventListener('DOMContentLoaded', function() {
+    // Set default datetime to now
+    // Note: Flatpickr is initialized in base.html and will enhance this input
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -17,7 +19,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const minutes = String(now.getMinutes()).padStart(2, '0');
 
     const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
-    document.getElementById('repair_date').value = dateTimeString;
+    const repairDateInput = document.getElementById('repair_date');
+
+    // Set the initial value
+    repairDateInput.value = dateTimeString;
+
+    // If Flatpickr is available, set the default date through its API
+    // This ensures Flatpickr shows the correct date in its UI
+    setTimeout(() => {
+        if (repairDateInput._flatpickr) {
+            repairDateInput._flatpickr.setDate(now, false);
+        }
+    }, 100);
 
     // Set up pricing preview listeners
     setupPricingPreview();

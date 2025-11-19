@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manager Settings{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/components/manager-settings.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <!-- Header -->
+    <div class="settings-header">
+        <div class="header-content">
+            <div class="header-icon">
+                <i class="fas fa-sliders-h"></i>
+            </div>
+            <div>
+                <h1 class="settings-title">Manager Settings</h1>
+                <p class="settings-subtitle">Configure system settings and manage your team</p>
+            </div>
+        </div>
+        {% if is_admin %}
+        <div class="admin-badge">
+            <i class="fas fa-shield-alt"></i> Administrator
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Settings Grid -->
+    <div class="settings-grid">
+        <!-- Viscosity Rules Card -->
+        <a href="{% url 'manage_viscosity_rules' %}" class="settings-card">
+            <div class="card-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);">
+                <i class="fas fa-tint"></i>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">Viscosity Rules</h3>
+                <p class="card-description">Configure temperature-based resin viscosity recommendations</p>
+                <div class="card-stats">
+                    <span class="stat-badge">
+                        <i class="fas fa-list-check"></i>
+                        {{ viscosity_rules_count }} active rule{{ viscosity_rules_count|pluralize }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-arrow">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        </a>
+
+        <!-- Team Overview Card -->
+        <a href="{% url 'team_overview' %}" class="settings-card">
+            <div class="card-icon" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">Team Overview</h3>
+                <p class="card-description">View managed technicians and their performance stats</p>
+                <div class="card-stats">
+                    <span class="stat-badge">
+                        <i class="fas fa-user-group"></i>
+                        {{ team_count }} team member{{ team_count|pluralize }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-arrow">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        </a>
+
+        <!-- Pricing Configuration Card (Future) -->
+        <div class="settings-card disabled">
+            <div class="card-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
+                <i class="fas fa-dollar-sign"></i>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">Pricing Configuration</h3>
+                <p class="card-description">Manage custom pricing rules and tier adjustments</p>
+                <div class="card-stats">
+                    <span class="stat-badge coming-soon">
+                        <i class="fas fa-clock"></i>
+                        Coming Soon
+                    </span>
+                </div>
+            </div>
+            <div class="card-arrow">
+                <i class="fas fa-lock"></i>
+            </div>
+        </div>
+
+        <!-- Audit Log Card (Future) -->
+        <div class="settings-card disabled">
+            <div class="card-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);">
+                <i class="fas fa-history"></i>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">Audit Log</h3>
+                <p class="card-description">Track pricing overrides and system changes</p>
+                <div class="card-stats">
+                    <span class="stat-badge coming-soon">
+                        <i class="fas fa-clock"></i>
+                        Coming Soon
+                    </span>
+                </div>
+            </div>
+            <div class="card-arrow">
+                <i class="fas fa-lock"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Section -->
+    <div class="settings-help">
+        <div class="help-icon">
+            <i class="fas fa-info-circle"></i>
+        </div>
+        <div class="help-content">
+            <h4>Need Help?</h4>
+            <p>Manager settings allow you to configure system-wide parameters and manage your team. Changes take effect immediately for all technicians.</p>
+        </div>
+    </div>
+
+    <!-- Back to Dashboard -->
+    <div class="settings-actions">
+        <a href="{% url 'technician_dashboard' %}" class="btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            Back to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

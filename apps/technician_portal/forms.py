@@ -219,7 +219,32 @@ class RepairForm(forms.ModelForm):
         # Add helpful labels for the note fields
         if 'technician_notes' in self.fields:
             self.fields['technician_notes'].help_text = "Add your internal notes about the repair process"
-        
+
+        # Add professional widget attributes for better UX
+        self.fields['unit_number'].widget.attrs.update({
+            'placeholder': 'e.g., TRUCK-1045',
+            'class': 'icon-field-input'
+        })
+
+        self.fields['windshield_temperature'].widget.attrs.update({
+            'placeholder': 'e.g., 72.5',
+            'step': '0.1',
+            'class': 'icon-field-input'
+        })
+
+        self.fields['resin_viscosity'].widget.attrs.update({
+            'placeholder': 'e.g., Low(l), Medium(m), High(h)',
+            'maxlength': '50',
+            'class': 'icon-field-input'
+        })
+
+        if 'technician_notes' in self.fields:
+            self.fields['technician_notes'].widget.attrs.update({
+                'placeholder': 'Add any internal notes about the repair process, challenges encountered, or follow-up needed...',
+                'rows': '4',
+                'class': 'icon-field-input'
+            })
+
     def clean(self):
         cleaned_data = super().clean()
         customer = cleaned_data.get('customer')

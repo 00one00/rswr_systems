@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Viscosity Rules{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/components/manager-settings.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <!-- Header -->
+    <div class="settings-header">
+        <div class="header-content">
+            <div class="header-icon">
+                <i class="fas fa-tint"></i>
+            </div>
+            <div>
+                <h1 class="settings-title">Viscosity Rules</h1>
+                <p class="settings-subtitle">Configure temperature-based resin viscosity recommendations</p>
+            </div>
+        </div>
+        <button class="btn-primary" id="addRuleBtn">
+            <i class="fas fa-plus"></i>
+            Add New Rule
+        </button>
+    </div>
+
+    <!-- Rules Grid -->
+    <div id="rulesGrid" class="rules-grid">
+        {% for rule in rules %}
+        <div class="rule-card {% if not rule.is_active %}inactive{% endif %}" data-rule-id="{{ rule.id }}">
+            <div class="rule-card-header">
+                <div class="rule-name">
+                    <i class="fas fa-thermometer-half"></i>
+                    {{ rule.name }}
+                </div>
+                <div class="rule-status-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" {% if rule.is_active %}checked{% endif %}
+                               onchange="toggleRule({{ rule.id }}, this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="rule-card-body">
+                <!-- Temperature Range -->
+                <div class="rule-detail">
+                    <span class="detail-label">Temperature Range</span>
+                    <span class="detail-value">{{ rule.get_temp_range_display }}</span>
+                </div>
+
+                <!-- Recommended Viscosity Badge -->
+                <div class="rule-detail">
+                    <span class="detail-label">Recommended Viscosity</span>
+                    <span class="viscosity-badge badge-{{ rule.badge_color }}">
+                        <i class="fas fa-tint"></i>
+                        {{ rule.recommended_viscosity }}
+                    </span>
+                </div>
+
+                <!-- Suggestion Text -->
+                <div class="rule-detail full-width">
+                    <span class="detail-label">Suggestion Text</span>
+                    <span class="detail-value">{{ rule.suggestion_text }}</span>
+                </div>
+
+                <!-- Display Order -->
+                <div class="rule-detail">
+                    <span class="detail-label">Priority</span>
+                    <span class="detail-value">#{{ rule.display_order }}</span>
+                </div>
+            </div>
+
+            <div class="rule-card-footer">
+                <button class="btn-edit" onclick="editRule({{ rule.id }})">
+                    <i class="fas fa-edit"></i>
+                    Edit
+                </button>
+                <button class="btn-delete" onclick="deleteRule({{ rule.id }}, '{{ rule.name }}')">
+                    <i class="fas fa-trash-alt"></i>
+                    Delete
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h3>No Viscosity Rules Found</h3>
+            <p>Click "Add New Rule" to create your first temperature-based viscosity recommendation.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Back Button -->
+    <div class="settings-actions">
+        <a href="{% url 'manager_settings_dashboard' %}" class="btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            Back to Settings
+        </a>
+    </div>
+</div>
+
+<!-- Add/Edit Rule Modal -->
+<div id="ruleModal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Rule</h2>
+            <button class="modal-close" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="ruleForm" class="modal-body">
+            {% csrf_token %}
+            <input type="hidden" id="ruleId" name="rule_id">
+
+            <div class="form-section">
+                <h3 class="section-title">Basic Information</h3>
+                <div class="field-grid field-grid-2">
+                    <div class="form-group">
+                        <label for="ruleName">Rule Name <span class="required">*</span></label>
+                        <input type="text" id="ruleName" name="name" class="form-input"
+                               placeholder="e.g., Cold Weather" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="displayOrder">Priority (lower = higher priority)</label>
+                        <input type="number" id="displayOrder" name="display_order"
+                               class="form-input" value="999" min="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3 class="section-title">Temperature Range</h3>
+                <p class="section-description">Leave min blank for "all temps below max". Leave max blank for "all temps above min".</p>
+                <div class="field-grid field-grid-2">
+                    <div class="form-group">
+                        <label for="minTemp">Minimum Temperature (°F)</label>
+                        <input type="number" id="minTemp" name="min_temperature"
+                               class="form-input" step="0.1" placeholder="e.g., 60.0">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxTemp">Maximum Temperature (°F)</label>
+                        <input type="number" id="maxTemp" name="max_temperature"
+                               class="form-input" step="0.1" placeholder="e.g., 84.9">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3 class="section-title">Recommendation</h3>
+                <div class="field-grid field-grid-2">
+                    <div class="form-group">
+                        <label for="viscosity">Recommended Viscosity <span class="required">*</span></label>
+                        <input type="text" id="viscosity" name="recommended_viscosity"
+                               class="form-input" placeholder="e.g., Low, Medium, High" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="badgeColor">Badge Color <span class="required">*</span></label>
+                        <select id="badgeColor" name="badge_color" class="form-input" required>
+                            {% for value, label in badge_colors %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="suggestionText">Suggestion Text <span class="required">*</span></label>
+                    <textarea id="suggestionText" name="suggestion_text" class="form-input"
+                              rows="2" placeholder="e.g., Low viscosity recommended for cold conditions" required></textarea>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="isActive" name="is_active" checked>
+                    <span>Active (recommendation will be shown to technicians)</span>
+                </label>
+            </div>
+        </form>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeModal()">
+                Cancel
+            </button>
+            <button type="submit" class="btn-primary" form="ruleForm" id="saveRuleBtn">
+                <i class="fas fa-save"></i>
+                Save Rule
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Messages -->
+<div id="messageToast" class="message-toast" style="display: none;">
+    <i class="fas fa-check-circle"></i>
+    <span id="messageText"></span>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/manager_settings.js' %}"></script>
+{% endblock %}

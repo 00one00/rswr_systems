@@ -5,7 +5,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
 from django.utils.html import format_html
 from django import forms
-from .models import Technician, Repair, UnitRepairCount, Customer
+from .models import Technician, Repair, UnitRepairCount, Customer, ViscosityRecommendation
 
 class TechnicianAdmin(admin.ModelAdmin):
     list_display = ['user', 'get_email', 'get_full_name', 'phone_number', 'expertise', 'is_manager', 'is_active', 'repairs_completed']
@@ -155,8 +155,69 @@ class UnitRepairCountAdmin(admin.ModelAdmin):
     list_filter = ['customer']
     search_fields = ['customer__name', 'unit_number']
 
+class ViscosityRecommendationAdmin(admin.ModelAdmin):
+    list_display = ['name', 'get_temp_range_display', 'recommended_viscosity', 'get_badge_preview', 'display_order', 'is_active']
+    list_filter = ['badge_color', 'is_active']
+    search_fields = ['name', 'recommended_viscosity', 'suggestion_text']
+    list_editable = ['display_order', 'is_active']
+    ordering = ['display_order', 'id']
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'is_active', 'display_order'),
+            'description': 'Give this rule a descriptive name and set its priority (lower number = higher priority)'
+        }),
+        ('Temperature Range', {
+            'fields': ('min_temperature', 'max_temperature'),
+            'description': 'Set the temperature range in °F. Leave blank for no limit (e.g., blank min = applies to all temps below max)'
+        }),
+        ('Recommendation', {
+            'fields': ('recommended_viscosity', 'suggestion_text', 'badge_color'),
+            'description': 'Configure what viscosity to recommend and the message technicians will see'
+        }),
+    )
+
+    def get_temp_range_display(self, obj):
+        """Display temperature range in a readable format"""
+        return obj._get_temp_range_display()
+    get_temp_range_display.short_description = 'Temperature Range'
+
+    def get_badge_preview(self, obj):
+        """Show a preview of the badge color"""
+        color_map = {
+            'blue': '#1e40af',
+            'green': '#065f46',
+            'orange': '#9a3412',
+            'red': '#991b1b',
+            'yellow': '#92400e',
+            'purple': '#6b21a8',
+        }
+        bg_color_map = {
+            'blue': '#dbeafe',
+            'green': '#d1fae5',
+            'orange': '#fed7aa',
+            'red': '#fee2e2',
+            'yellow': '#fef3c7',
+            'purple': '#e9d5ff',
+        }
+        color = color_map.get(obj.badge_color, '#4b5563')
+        bg = bg_color_map.get(obj.badge_color, '#f3f4f6')
+
+        return format_html(
+            '<span style="display: inline-block; padding: 4px 12px; background-color: {}; color: {}; border-radius: 4px; font-size: 12px; font-weight: 500;">{}</span>',
+            bg, color, obj.recommended_viscosity
+        )
+    get_badge_preview.short_description = 'Badge Preview'
+
+    def save_model(self, request, obj, form, change):
+        """Add helpful validation messages"""
+        super().save_model(request, obj, form, change)
+        if not change:  # New object
+            self.message_user(request, f'Created viscosity rule: {obj.name}', level='success')
+
 # Register the models
 admin.site.register(Technician, TechnicianAdmin)
 admin.site.register(Repair, RepairAdmin)
 admin.site.register(UnitRepairCount, UnitRepairCountAdmin)
 admin.site.register(Customer, CustomerAdmin)
+admin.site.register(ViscosityRecommendation, ViscosityRecommendationAdmin)

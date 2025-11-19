@@ -225,6 +225,158 @@ This flexibility allows you to balance management duties with hands-on repair wo
 - Every repair (unsustainable)
 - Without good reason (audit trail)
 
+### Manager Settings Portal
+
+*Available only if you're designated as a manager (is_manager=True) or staff user*
+
+As a manager, you have access to a dedicated settings portal for configuring system parameters and managing your team.
+
+#### Accessing Manager Settings
+
+```
+1. Log in to technician portal
+2. Click your username in top-right corner
+3. Click "Manager Settings" from dropdown
+4. Dashboard shows available settings cards
+```
+
+**Direct URL**: `https://[your-domain]/tech/settings/`
+
+#### Available Settings Features
+
+**Viscosity Rules Management** (`/tech/settings/viscosity/`):
+- Configure temperature-based resin viscosity recommendations
+- Add, edit, delete, and toggle viscosity rules
+- Set temperature ranges and recommended viscosity levels
+- Customize badge colors and suggestion text
+- Control what technicians see during repairs
+
+**Team Overview Dashboard** (`/tech/settings/team/`):
+- View performance metrics for your managed technicians
+- See repair counts (total, pending, completed)
+- Check completion rates and progress
+- View recent repairs for each team member
+- Access contact information for your team
+
+#### Using Viscosity Rules
+
+**To Add a New Rule**:
+```
+1. Navigate to Viscosity Rules settings
+2. Click "Add New Rule" (green button)
+3. Fill in modal form:
+   - Rule name: "Cold Weather"
+   - Temperature range: Min 32°F, Max 59.9°F
+   - Recommended viscosity: "Low"
+   - Badge color: Blue
+   - Suggestion text: "Low viscosity recommended for cold conditions"
+   - Priority: 1 (lower = higher priority)
+   - Active: Checked
+4. Click "Save Rule"
+5. Rule appears as card in grid
+```
+
+**To Edit a Rule**:
+```
+1. Find rule card
+2. Click "Edit" button
+3. Modify fields in modal
+4. Click "Save Rule"
+```
+
+**Quick Actions**:
+- **Toggle Active/Inactive**: Use switch in card header
+- **Delete Rule**: Click red "Delete" button and confirm
+
+**What Technicians See**:
+- When technicians enter a windshield temperature during repair creation
+- System automatically suggests appropriate viscosity
+- Displays as colored badge with your custom text
+- Helps ensure proper resin selection
+
+**Example Display for Technicians**:
+```
+Temperature: 72°F
+┌─────────────────────────────────────────┐
+│ 💧 Medium viscosity recommended for    │
+│    optimal conditions                   │
+└─────────────────────────────────────────┘
+```
+
+#### Team Overview Features
+
+**Summary Stats**:
+- Total repairs across all managed technicians
+- Pending repair count
+- Completed repair count
+- Team-wide metrics
+
+**Individual Technician Cards**:
+- Name and contact information
+- Total repairs assigned
+- Pending vs completed breakdown
+- Completion rate percentage
+- Visual progress bars
+- Last 5 repairs with status badges
+
+**Use Cases**:
+- Monitor team performance
+- Identify workload imbalances
+- Track completion rates
+- Contact team members quickly
+- Review recent repair activity
+
+#### Future Features (Coming Soon)
+
+The Manager Settings portal is actively being expanded. Upcoming features include:
+
+**Pricing Configuration**:
+- Manage custom pricing tiers
+- Set per-customer pricing rules
+- Configure volume discounts
+- Approve pricing override requests
+
+**Audit & Reporting**:
+- Pricing override audit log
+- Manager action history
+- Team performance reports
+- Export functionality
+
+See `docs/development/MANAGER_SETTINGS_ROADMAP.md` for detailed feature roadmap and implementation timeline.
+
+#### Permissions
+
+**Who Can Access**:
+- Users with `is_manager=True` flag
+- Staff users (administrators)
+
+**What Requires Staff Access**:
+- Some future features may require staff-level permissions
+- Current features (viscosity rules, team overview) accessible to all managers
+
+**Security**:
+- All actions are logged for audit trail
+- Manager changes take effect immediately
+- Permission decorator (`@manager_required`) enforces access control
+
+#### Troubleshooting
+
+**"Can't see Manager Settings link"**:
+- Check with admin that your account has `is_manager=True`
+- Verify you're logged into technician portal (`/tech/`)
+- Look in user dropdown menu (top-right corner)
+
+**"Getting permission denied"**:
+- Ensure you're logged in as a manager
+- Try logging out and back in
+- Contact admin if issue persists
+
+**"Changes not taking effect"**:
+- Changes are immediate - no page refresh needed
+- Check that rule is marked as "Active"
+- Verify temperature ranges don't overlap incorrectly
+- Test with actual temperature input in repair form
+
 ---
 
 ## Repair Workflows
@@ -533,13 +685,21 @@ This helps you know what to expect before finalizing.
 
 ---
 
-**Last Updated**: October 28, 2025
-**For**: RS Systems v1.5.0
+**Last Updated**: November 18, 2025
+**For**: RS Systems v1.7.0
 **Support**: Contact your team lead or system administrator
 
 ---
 
 ## Recent Updates
+
+### November 18, 2025 - Manager Settings Portal
+- ✅ New Manager Settings dashboard at `/tech/settings/`
+- ✅ Viscosity Rules Management - configure temperature-based recommendations
+- ✅ Team Overview dashboard with performance metrics
+- ✅ Card-based UI with modal editing for modern UX
+- ✅ Real-time updates without page refresh
+- 🔜 Coming soon: Pricing configuration and audit logging
 
 ### October 28, 2025 - Working Manager Feature
 - ✅ Managers can now complete repairs themselves

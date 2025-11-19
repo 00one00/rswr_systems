@@ -700,3 +700,142 @@ class TechnicianNotification(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+
+class ViscosityRecommendation(models.Model):
+    """
+    Configurable temperature-based resin viscosity recommendations.
+    Managers can configure these rules through the settings UI.
+    """
+    BADGE_COLOR_CHOICES = [
+        ('blue', 'Blue'),
+        ('green', 'Green'),
+        ('orange', 'Orange'),
+        ('red', 'Red'),
+        ('yellow', 'Yellow'),
+        ('purple', 'Purple'),
+    ]
+
+    name = models.CharField(
+        max_length=100,
+        help_text="Descriptive name for this rule (e.g., 'Cold Weather', 'Standard Conditions')"
+    )
+    min_temperature = models.DecimalField(
+        max_digits=5,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Minimum temperature in °F (leave blank for no minimum)"
+    )
+    max_temperature = models.DecimalField(
+        max_digits=5,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Maximum temperature in °F (leave blank for no maximum)"
+    )
+    recommended_viscosity = models.CharField(
+        max_length=50,
+        help_text="Recommended viscosity level (e.g., 'Low', 'Medium', 'High')"
+    )
+    suggestion_text = models.TextField(
+        help_text="The suggestion message shown to technicians (e.g., 'Low viscosity recommended for cold conditions')"
+    )
+    badge_color = models.CharField(
+        max_length=20,
+        choices=BADGE_COLOR_CHOICES,
+        default='green',
+        help_text="Color of the badge displayed with the suggestion"
+    )
+    display_order = models.IntegerField(
+        default=0,
+        help_text="Order in which rules are evaluated (lower = higher priority)"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this rule is currently active"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_order', 'id']
+        verbose_name = 'Viscosity Recommendation'
+        verbose_name_plural = 'Viscosity Recommendations'
+
+    def __str__(self):
+        temp_range = self._get_temp_range_display()
+        return f"{self.name} ({temp_range}) → {self.recommended_viscosity}"
+
+    def _get_temp_range_display(self):
+        """Generate a human-readable temperature range."""
+        if self.min_temperature is not None and self.max_temperature is not None:
+            return f"{self.min_temperature}°F - {self.max_temperature}°F"
+        elif self.min_temperature is not None:
+            return f"≥ {self.min_temperature}°F"
+        elif self.max_temperature is not None:
+            return f"≤ {self.max_temperature}°F"
+        else:
+            return "Any temperature"
+
+    def get_temp_range_display(self):
+        """
+        Public method for template access to temperature range display.
+        Django templates cannot access methods starting with underscore.
+        """
+        return self._get_temp_range_display()
+
+    def matches_temperature(self, temperature):
+        """
+        Check if a given temperature matches this rule's criteria.
+
+        Args:
+            temperature (Decimal or float): Temperature in Fahrenheit
+
+        Returns:
+            bool: True if the temperature matches this rule's range
+        """
+        if temperature is None:
+            return False
+
+        from decimal import Decimal
+        temp = Decimal(str(temperature))
+
+        # Check minimum temperature constraint
+        if self.min_temperature is not None and temp < self.min_temperature:
+            return False
+
+        # Check maximum temperature constraint
+        if self.max_temperature is not None and temp > self.max_temperature:
+            return False
+
+        return True
+
+    @classmethod
+    def get_recommendation_for_temperature(cls, temperature):
+        """
+        Get the appropriate viscosity recommendation for a given temperature.
+
+        Args:
+            temperature (Decimal or float): Temperature in Fahrenheit
+
+        Returns:
+            dict or None: Dictionary with recommendation details, or None if no match
+        """
+        if temperature is None:
+            return None
+
+        # Query active rules ordered by display_order
+        active_rules = cls.objects.filter(is_active=True).order_by('display_order', 'id')
+
+        # Find first matching rule
+        for rule in active_rules:
+            if rule.matches_temperature(temperature):
+                return {
+                    'recommendation': rule.recommended_viscosity,
+                    'suggestion_text': rule.suggestion_text,
+                    'badge_color': rule.badge_color,
+                    'rule_name': rule.name,
+                }
+
+        return None
+

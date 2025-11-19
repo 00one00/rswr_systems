@@ -23,6 +23,7 @@ urlpatterns = [
     path('repairs/<int:repair_id>/update-status/', views.update_queue_status, name='update_queue_status'),
     path('check-existing-repair/', views.check_existing_repair, name='check_existing_repair'),
     path('api/batch-pricing/', views.get_batch_pricing_json, name='get_batch_pricing'),
+    path('api/viscosity-suggestion/', views.get_viscosity_suggestion, name='get_viscosity_suggestion'),
 
     # Multi-break batch management (technician portal)
     path('batch/<uuid:batch_id>/', views.technician_batch_detail, name='technician_batch_detail'),
@@ -38,4 +39,15 @@ urlpatterns = [
     # Rewards and notifications
     path('reward-fulfillment/<int:redemption_id>/', views.reward_fulfillment_detail, name='reward_fulfillment_detail'),
     path('notification/<int:notification_id>/mark-read/', views.mark_notification_read, name='mark_notification_read'),
+
+    # Manager Settings
+    path('settings/', views.manager_settings_dashboard, name='manager_settings_dashboard'),
+    path('settings/viscosity/', views.manage_viscosity_rules, name='manage_viscosity_rules'),
+    path('settings/team/', views.team_overview, name='team_overview'),
+
+    # Manager Settings API endpoints
+    path('settings/api/viscosity/create/', views.create_viscosity_rule, name='create_viscosity_rule'),
+    path('settings/api/viscosity/<int:rule_id>/update/', views.update_viscosity_rule, name='update_viscosity_rule'),
+    path('settings/api/viscosity/<int:rule_id>/delete/', views.delete_viscosity_rule, name='delete_viscosity_rule'),
+    path('settings/api/viscosity/<int:rule_id>/toggle/', views.toggle_viscosity_rule, name='toggle_viscosity_rule'),
 ]

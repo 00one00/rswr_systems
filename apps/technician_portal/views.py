@@ -1208,6 +1208,59 @@ def get_batch_pricing_json(request):
 
 
 @technician_required
+def get_viscosity_suggestion(request):
+    """
+    API endpoint to get viscosity recommendation based on temperature.
+    GET /tech/api/viscosity-suggestion/?temperature=72.5
+
+    Returns JSON:
+    {
+        "recommendation": "Medium",
+        "suggestion_text": "Medium viscosity recommended for optimal conditions",
+        "badge_color": "green"
+    }
+    """
+    from .models import ViscosityRecommendation
+    import logging
+    logger = logging.getLogger(__name__)
+
+    temperature = request.GET.get('temperature')
+
+    if not temperature:
+        return JsonResponse({'error': 'Temperature parameter is required'}, status=400)
+
+    try:
+        # Convert to float for validation
+        temp_value = float(temperature)
+
+        # Get recommendation using the model's class method
+        recommendation = ViscosityRecommendation.get_recommendation_for_temperature(temp_value)
+
+        if recommendation:
+            return JsonResponse({
+                'success': True,
+                'recommendation': recommendation['recommendation'],
+                'suggestion_text': recommendation['suggestion_text'],
+                'badge_color': recommendation['badge_color'],
+            })
+        else:
+            # No matching rule found
+            return JsonResponse({
+                'success': True,
+                'recommendation': None,
+                'suggestion_text': 'No recommendation available for this temperature',
+                'badge_color': 'gray',
+            })
+
+    except ValueError:
+        logger.warning(f"Invalid temperature value: {temperature}")
+        return JsonResponse({'error': 'Invalid temperature value'}, status=400)
+    except Exception as e:
+        logger.error(f"Error getting viscosity suggestion: {e}", exc_info=True)
+        return JsonResponse({'error': 'Server error getting viscosity suggestion'}, status=500)
+
+
+@technician_required
 def update_repair(request, repair_id):
     logger = logging.getLogger(__name__)
 
@@ -1936,3 +1989,280 @@ def apply_reward_to_repair(request, repair_id):
         'repair': repair,
         'available_redemptions': available_redemptions,
     })
+
+
+# ============================================================================
+# MANAGER SETTINGS VIEWS
+# ============================================================================
+
+from .decorators import manager_required
+from .models import ViscosityRecommendation
+import json
+
+
+@technician_required
+@manager_required
+def manager_settings_dashboard(request):
+    """
+    Main manager settings dashboard with navigation tiles.
+    Accessible to managers (is_manager=True) and staff users.
+    """
+    manager = request.user.technician if hasattr(request.user, 'technician') else None
+
+    # Get stats for dashboard tiles
+    viscosity_rules_count = ViscosityRecommendation.objects.filter(is_active=True).count()
+
+    team_count = 0
+    if manager:
+        team_count = manager.managed_technicians.filter(is_active=True).count()
+
+    context = {
+        'is_admin': request.user.is_staff,
+        'technician': manager,
+        'viscosity_rules_count': viscosity_rules_count,
+        'team_count': team_count,
+    }
+
+    return render(request, 'technician_portal/settings/settings_dashboard.html', context)
+
+
+@technician_required
+@manager_required
+def manage_viscosity_rules(request):
+    """
+    Manage viscosity recommendation rules with card-based interface.
+    Supports CRUD operations via AJAX modals.
+    """
+    manager = request.user.technician if hasattr(request.user, 'technician') else None
+
+    # Get all rules ordered by display_order
+    rules = ViscosityRecommendation.objects.all().order_by('display_order', 'id')
+
+    context = {
+        'is_admin': request.user.is_staff,
+        'technician': manager,
+        'rules': rules,
+        'badge_colors': ViscosityRecommendation.BADGE_COLOR_CHOICES,
+    }
+
+    return render(request, 'technician_portal/settings/viscosity_rules.html', context)
+
+
+@technician_required
+@manager_required
+def create_viscosity_rule(request):
+    """
+    AJAX endpoint to create a new viscosity recommendation rule.
+    POST /tech/settings/api/viscosity/create/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+
+        # Validate required fields
+        required_fields = ['name', 'recommended_viscosity', 'suggestion_text', 'badge_color']
+        for field in required_fields:
+            if not data.get(field):
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }, status=400)
+
+        # Create new rule
+        rule = ViscosityRecommendation.objects.create(
+            name=data['name'],
+            min_temperature=data.get('min_temperature') or None,
+            max_temperature=data.get('max_temperature') or None,
+            recommended_viscosity=data['recommended_viscosity'],
+            suggestion_text=data['suggestion_text'],
+            badge_color=data['badge_color'],
+            display_order=data.get('display_order', 999),
+            is_active=data.get('is_active', True)
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Viscosity rule created successfully',
+            'rule': {
+                'id': rule.id,
+                'name': rule.name,
+                'temp_range': rule._get_temp_range_display(),
+                'recommended_viscosity': rule.recommended_viscosity,
+                'suggestion_text': rule.suggestion_text,
+                'badge_color': rule.badge_color,
+                'display_order': rule.display_order,
+                'is_active': rule.is_active,
+            }
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error creating viscosity rule: {str(e)}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@technician_required
+@manager_required
+def update_viscosity_rule(request, rule_id):
+    """
+    AJAX endpoint to update an existing viscosity recommendation rule.
+    PUT /tech/settings/api/viscosity/<id>/update/
+    """
+    if request.method not in ['PUT', 'POST']:  # Allow POST for compatibility
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    try:
+        rule = get_object_or_404(ViscosityRecommendation, id=rule_id)
+        data = json.loads(request.body)
+
+        # Update fields
+        if 'name' in data:
+            rule.name = data['name']
+        if 'min_temperature' in data:
+            rule.min_temperature = data['min_temperature'] or None
+        if 'max_temperature' in data:
+            rule.max_temperature = data['max_temperature'] or None
+        if 'recommended_viscosity' in data:
+            rule.recommended_viscosity = data['recommended_viscosity']
+        if 'suggestion_text' in data:
+            rule.suggestion_text = data['suggestion_text']
+        if 'badge_color' in data:
+            rule.badge_color = data['badge_color']
+        if 'display_order' in data:
+            rule.display_order = data['display_order']
+        if 'is_active' in data:
+            rule.is_active = data['is_active']
+
+        rule.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Viscosity rule updated successfully',
+            'rule': {
+                'id': rule.id,
+                'name': rule.name,
+                'temp_range': rule._get_temp_range_display(),
+                'recommended_viscosity': rule.recommended_viscosity,
+                'suggestion_text': rule.suggestion_text,
+                'badge_color': rule.badge_color,
+                'display_order': rule.display_order,
+                'is_active': rule.is_active,
+            }
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error updating viscosity rule: {str(e)}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@technician_required
+@manager_required
+def delete_viscosity_rule(request, rule_id):
+    """
+    AJAX endpoint to delete a viscosity recommendation rule.
+    DELETE /tech/settings/api/viscosity/<id>/delete/
+    """
+    if request.method not in ['DELETE', 'POST']:  # Allow POST for compatibility
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    try:
+        rule = get_object_or_404(ViscosityRecommendation, id=rule_id)
+        rule_name = rule.name
+        rule.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Viscosity rule "{rule_name}" deleted successfully'
+        })
+
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error deleting viscosity rule: {str(e)}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@technician_required
+@manager_required
+def toggle_viscosity_rule(request, rule_id):
+    """
+    AJAX endpoint to toggle active status of a viscosity recommendation rule.
+    PATCH /tech/settings/api/viscosity/<id>/toggle/
+    """
+    if request.method not in ['PATCH', 'POST']:  # Allow POST for compatibility
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    try:
+        rule = get_object_or_404(ViscosityRecommendation, id=rule_id)
+        rule.is_active = not rule.is_active
+        rule.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Viscosity rule {"activated" if rule.is_active else "deactivated"}',
+            'is_active': rule.is_active
+        })
+
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error toggling viscosity rule: {str(e)}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@technician_required
+@manager_required
+def team_overview(request):
+    """
+    Team overview dashboard showing managed technicians and their stats.
+    """
+    manager = request.user.technician if hasattr(request.user, 'technician') else None
+
+    if not manager:
+        messages.warning(request, "Technician profile not found")
+        return redirect('technician_dashboard')
+
+    # Get managed technicians
+    team_members = manager.managed_technicians.filter(is_active=True).select_related('user')
+
+    # Calculate stats for each team member
+    team_stats = []
+    for tech in team_members:
+        repairs = Repair.objects.filter(technician=tech)
+        pending_repairs = repairs.filter(queue_status__in=['REQUESTED', 'PENDING', 'APPROVED'])
+        completed_repairs = repairs.filter(queue_status='COMPLETED')
+
+        total_count = repairs.count()
+        completed_count = completed_repairs.count()
+        completion_rate = (completed_count / total_count * 100) if total_count > 0 else 0
+
+        team_stats.append({
+            'technician': tech,
+            'total_repairs': total_count,
+            'pending_repairs': pending_repairs.count(),
+            'completed_repairs': completed_count,
+            'completion_rate': round(completion_rate, 1),
+            'recent_repairs': repairs.order_by('-repair_date')[:5]
+        })
+
+    # Overall team stats
+    total_team_repairs = sum(stat['total_repairs'] for stat in team_stats)
+    total_team_pending = sum(stat['pending_repairs'] for stat in team_stats)
+    total_team_completed = sum(stat['completed_repairs'] for stat in team_stats)
+
+    context = {
+        'is_admin': request.user.is_staff,
+        'technician': manager,
+        'team_stats': team_stats,
+        'total_team_repairs': total_team_repairs,
+        'total_team_pending': total_team_pending,
+        'total_team_completed': total_team_completed,
+        'team_members_count': team_members.count(),
+    }
+
+    return render(request, 'technician_portal/settings/team_overview.html', context)

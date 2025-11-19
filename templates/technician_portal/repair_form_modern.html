@@ -247,7 +247,7 @@
                                 {{ form.drilled_before_repair }}
                                 <p class="icon-field-helper">
                                     <i class="fas fa-info-circle"></i>
-                                    Did you drill the break before starting the repair?
+                                    Indicate if hole was drilled before applying resin
                                 </p>
                                 {% if form.drilled_before_repair.errors %}
                                     <div class="field-error">
@@ -311,10 +311,8 @@
                                        placeholder="e.g., Low(l), Medium(m), High(h)">
                                 <p class="icon-field-helper">
                                     <i class="fas fa-info-circle"></i>
-                                    Document resin viscosity for quality tracking
+                                    Document resin consistency for quality tracking
                                 </p>
-                                <!-- Viscosity Suggestion Container (populated by JavaScript) -->
-                                <div id="viscositySuggestion" class="hidden mt-2"></div>
                                 {% if form.resin_viscosity.errors %}
                                     <div class="field-error">
                                         <i class="fas fa-exclamation-circle"></i>
