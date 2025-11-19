@@ -26,6 +26,11 @@ All notable changes to the RS Systems windshield repair management platform.
 
 - **Viscosity Rules Management**: Configure temperature-based resin viscosity recommendations (`/tech/settings/viscosity/`)
   - **Card-Based Interface**: Visual display of each rule with all key information
+  - **Auto-Priority System**: Rules automatically assigned priority order (no manual input needed)
+    - **Visual Priority Badges**: 🥇 Gold (1st), 🥈 Silver (2nd), 🥉 Bronze (3rd), numbered badges (4th+)
+    - **Automatic Assignment**: New rules get `(max existing priority + 10)`
+    - **Zero Cognitive Load**: Users never see numeric priority values, only position
+    - **Evaluation Order**: Rules checked 1st → 2nd → 3rd... until match found
   - **Modal Editing**: Click "Edit" to modify rules in overlay form without page refresh
   - **Toggle Switches**: Quick enable/disable functionality in card header
   - **Add New Rules**: Green "Add New Rule" button opens creation modal
@@ -119,6 +124,20 @@ All notable changes to the RS Systems windshield repair management platform.
 - Transaction safety for database operations
 
 #### Changed
+- **Viscosity Rules UX Overhaul**: Removed confusing priority number input, implemented auto-priority system
+  - **Previous**: Manual priority number field with confusing "lower = higher priority" label
+  - **New**: Automatic priority assignment with visual badges (🥇 🥈 🥉)
+  - **Benefit**: Zero cognitive load - users see position (1st, 2nd, 3rd) instead of abstract numbers
+  - **Backend**: Auto-assigns `display_order = max + 10` for new rules
+  - **Frontend**: Priority badges with gold/silver/bronze gradients for top 3
+  - **Files Modified**:
+    - `apps/technician_portal/views.py:2087-2127` (auto-assignment logic)
+    - `apps/technician_portal/views.py:2063-2071` (ordinal suffix helper)
+    - `templates/technician_portal/settings/viscosity_rules.html:119-127` (removed field)
+    - `templates/technician_portal/settings/viscosity_rules.html:34-43` (priority badges)
+    - `static/js/manager_settings.js:112-121` (removed display_order from payload)
+    - `static/css/components/manager-settings.css:203-249` (badge styling)
+
 - **ViscosityRecommendation Model**: Added public `get_temp_range_display()` method
   - **Previous**: Only private `_get_temp_range_display()` method (inaccessible from templates)
   - **New**: Public wrapper method for Django template access

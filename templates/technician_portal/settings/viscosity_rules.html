@@ -28,17 +28,23 @@
 
     <!-- Rules Grid -->
     <div id="rulesGrid" class="rules-grid">
-        {% for rule in rules %}
-        <div class="rule-card {% if not rule.is_active %}inactive{% endif %}" data-rule-id="{{ rule.id }}">
+        {% for item in rules_with_position %}
+        <div class="rule-card {% if not item.rule.is_active %}inactive{% endif %}" data-rule-id="{{ item.rule.id }}">
             <div class="rule-card-header">
-                <div class="rule-name">
-                    <i class="fas fa-thermometer-half"></i>
-                    {{ rule.name }}
+                <div class="rule-name-with-priority">
+                    <!-- Priority Badge -->
+                    <span class="priority-badge priority-{{ item.position }}">
+                        {% if item.position == 1 %}🥇{% elif item.position == 2 %}🥈{% elif item.position == 3 %}🥉{% else %}{{ item.position }}{{ item.position_suffix }}{% endif %}
+                    </span>
+                    <div class="rule-name">
+                        <i class="fas fa-thermometer-half"></i>
+                        {{ item.rule.name }}
+                    </div>
                 </div>
                 <div class="rule-status-toggle">
                     <label class="toggle-switch">
-                        <input type="checkbox" {% if rule.is_active %}checked{% endif %}
-                               onchange="toggleRule({{ rule.id }}, this.checked)">
+                        <input type="checkbox" {% if item.rule.is_active %}checked{% endif %}
+                               onchange="toggleRule({{ item.rule.id }}, this.checked)">
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
@@ -48,37 +54,31 @@
                 <!-- Temperature Range -->
                 <div class="rule-detail">
                     <span class="detail-label">Temperature Range</span>
-                    <span class="detail-value">{{ rule.get_temp_range_display }}</span>
+                    <span class="detail-value">{{ item.rule.get_temp_range_display }}</span>
                 </div>
 
                 <!-- Recommended Viscosity Badge -->
                 <div class="rule-detail">
                     <span class="detail-label">Recommended Viscosity</span>
-                    <span class="viscosity-badge badge-{{ rule.badge_color }}">
+                    <span class="viscosity-badge badge-{{ item.rule.badge_color }}">
                         <i class="fas fa-tint"></i>
-                        {{ rule.recommended_viscosity }}
+                        {{ item.rule.recommended_viscosity }}
                     </span>
                 </div>
 
                 <!-- Suggestion Text -->
                 <div class="rule-detail full-width">
                     <span class="detail-label">Suggestion Text</span>
-                    <span class="detail-value">{{ rule.suggestion_text }}</span>
-                </div>
-
-                <!-- Display Order -->
-                <div class="rule-detail">
-                    <span class="detail-label">Priority</span>
-                    <span class="detail-value">#{{ rule.display_order }}</span>
+                    <span class="detail-value">{{ item.rule.suggestion_text }}</span>
                 </div>
             </div>
 
             <div class="rule-card-footer">
-                <button class="btn-edit" onclick="editRule({{ rule.id }})">
+                <button class="btn-edit" onclick="editRule({{ item.rule.id }})">
                     <i class="fas fa-edit"></i>
                     Edit
                 </button>
-                <button class="btn-delete" onclick="deleteRule({{ rule.id }}, '{{ rule.name }}')">
+                <button class="btn-delete" onclick="deleteRule({{ item.rule.id }}, '{{ item.rule.name }}')">
                     <i class="fas fa-trash-alt"></i>
                     Delete
                 </button>
@@ -118,33 +118,32 @@
 
             <div class="form-section">
                 <h3 class="section-title">Basic Information</h3>
-                <div class="field-grid field-grid-2">
-                    <div class="form-group">
-                        <label for="ruleName">Rule Name <span class="required">*</span></label>
-                        <input type="text" id="ruleName" name="name" class="form-input"
-                               placeholder="e.g., Cold Weather" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="displayOrder">Priority (lower = higher priority)</label>
-                        <input type="number" id="displayOrder" name="display_order"
-                               class="form-input" value="999" min="1">
-                    </div>
+                <div class="form-group">
+                    <label for="ruleName">Rule Name <span class="required">*</span></label>
+                    <input type="text" id="ruleName" name="name" class="form-input"
+                           placeholder="e.g., Cold Weather" required>
+                    <small class="field-hint">Priority is automatically assigned - new rules are added at the end</small>
                 </div>
             </div>
 
             <div class="form-section">
                 <h3 class="section-title">Temperature Range</h3>
-                <p class="section-description">Leave min blank for "all temps below max". Leave max blank for "all temps above min".</p>
+                <p class="section-description">
+                    <strong>Examples:</strong><br>
+                    • Cold (below 60°F): Min = <em>blank</em>, Max = 59.9<br>
+                    • Standard (60-85°F): Min = 60, Max = 85<br>
+                    • Hot (above 85°F): Min = 85, Max = <em>blank</em>
+                </p>
                 <div class="field-grid field-grid-2">
                     <div class="form-group">
                         <label for="minTemp">Minimum Temperature (°F)</label>
                         <input type="number" id="minTemp" name="min_temperature"
-                               class="form-input" step="0.1" placeholder="e.g., 60.0">
+                               class="form-input" step="0.1" placeholder="Leave blank for no lower limit">
                     </div>
                     <div class="form-group">
                         <label for="maxTemp">Maximum Temperature (°F)</label>
                         <input type="number" id="maxTemp" name="max_temperature"
-                               class="form-input" step="0.1" placeholder="e.g., 84.9">
+                               class="form-input" step="0.1" placeholder="Leave blank for no upper limit">
                     </div>
                 </div>
             </div>

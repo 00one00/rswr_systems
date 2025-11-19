@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.conf import settings
 from core.models import Customer
 from apps.technician_portal.models import Repair, UnitRepairCount, TechnicianNotification, Technician
 from apps.rewards_referrals.models import ReferralCode, RewardOption, RewardRedemption, Referral
@@ -901,99 +902,384 @@ def edit_company(request):
 @customer_required
 def request_repair(request):
     """
-    Handle customer repair requests with photo upload support.
-    
-    Allows customers to submit repair requests with optional damage photos.
-    Validates photo files (type, size) and assigns repairs to available technicians
-    using round-robin assignment based on current workload.
-    
+    Handle customer repair requests with multi-unit batch submission support.
+
+    Supports both single and batch repair submissions:
+    - Single: Traditional form submission
+    - Batch: Multiple units submitted at once via AJAX
+
     Returns:
         - GET: Render repair request form
-        - POST: Process form submission and create repair request
+        - POST: Process form submission and create repair request(s)
     """
     # Get the customer user record
     try:
         customer_user = CustomerUser.objects.get(user=request.user)
         customer = customer_user.customer
-        
+
         if request.method == 'POST':
-            # Create a new repair request
-            unit_number = request.POST.get('unit_number', '')
-            description = request.POST.get('description', '')
-            damage_type = request.POST.get('damage_type', '')
-            damage_photo = request.FILES.get('damage_photo_before')
+            # Check if this is a batch submission
+            is_batch = request.POST.get('batch_submission') == 'true'
 
-            if not unit_number:
-                messages.error(request, "Unit number is required.")
-                return render(request, 'customer_portal/request_repair.html')
+            if is_batch:
+                return handle_batch_repair_request(request, customer)
+            else:
+                # Legacy single repair submission (for backwards compatibility)
+                return handle_single_repair_request(request, customer)
 
-            # Provide defaults for optional fields
-            if not damage_type:
-                damage_type = "Unknown"
-            if not description:
-                description = "Customer repair request - details to be determined by technician"
-
-            # Validate photo if provided (BEFORE conversion)
-            if damage_photo:
-                # Check file size (limit to 5MB)
-                if damage_photo.size > 5 * 1024 * 1024:
-                    messages.error(request, "Photo file size must be less than 5MB.")
-                    return render(request, 'customer_portal/request_repair.html')
-
-                # Check file type - includes HEIC for iPhone photos
-                # Accept both standard and non-standard HEIC content types from different browsers
-                allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
-                file_ext = damage_photo.name.lower().split('.')[-1] if '.' in damage_photo.name else ''
-
-                # Accept file if content_type is valid OR if file extension is valid (for HEIC files with wrong content_type)
-                is_valid_content_type = damage_photo.content_type in allowed_types
-                is_valid_extension = file_ext in ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
-
-                if not (is_valid_content_type or is_valid_extension):
-                    messages.error(request, "Please upload a valid image file (JPEG, PNG, WebP, or HEIC).")
-                    return render(request, 'customer_portal/request_repair.html')
-
-            # Convert HEIC to JPEG for browser compatibility (AFTER validation)
-            if damage_photo:
-                damage_photo = convert_heic_to_jpeg(damage_photo)
-            
-            # Find an available technician using round-robin assignment
-            # Get technicians ordered by their current repair load (ascending)
-            technicians = Technician.objects.annotate(
-                active_repairs=Count('repair', filter=Q(repair__queue_status__in=['REQUESTED', 'PENDING', 'APPROVED', 'IN_PROGRESS']))
-            ).order_by('active_repairs', 'id')
-            
-            if not technicians.exists():
-                messages.error(request, "No technicians available. Please try again later.")
-                return render(request, 'customer_portal/request_repair.html')
-            
-            # Assign to the technician with the least active repairs
-            technician = technicians.first()
-            
-            # Create the repair with a special "REQUESTED" status
-            # This distinguishes it from technician-created PENDING repairs that need customer approval
-            try:
-                repair = Repair.objects.create(
-                    technician=technician,
-                    customer=customer,
-                    unit_number=unit_number,
-                    description=description,
-                    damage_type=damage_type,
-                    customer_submitted_photo=damage_photo,  # Store in customer-specific field
-                    customer_notes=description,  # Store customer's description in customer_notes field
-                    queue_status='REQUESTED'  # Using a new status for customer-initiated requests
-                )
-                
-                messages.success(request, "Repair request submitted successfully! A technician will review your request.")
-                return redirect('customer_dashboard')  # Redirect to dashboard instead of repair details
-            except Exception as e:
-                messages.error(request, f"Error creating repair request: {str(e)}")
-        
         # Render the repair request form
         return render(request, 'customer_portal/request_repair.html')
     except CustomerUser.DoesNotExist:
         messages.warning(request, "Please complete your profile first.")
         return redirect('profile_creation')
+
+
+def handle_single_repair_request(request, customer):
+    """Handle traditional single repair request submission"""
+    unit_number = request.POST.get('unit_number', '')
+    description = request.POST.get('description', '')
+    damage_type = request.POST.get('damage_type', '')
+    damage_photo = request.FILES.get('damage_photo_before')
+
+    if not unit_number:
+        messages.error(request, "Unit number is required.")
+        return render(request, 'customer_portal/request_repair.html')
+
+    # Provide defaults for optional fields
+    if not damage_type:
+        damage_type = "Unknown"
+    if not description:
+        description = "Customer repair request - details to be determined by technician"
+
+    # Validate and convert photo
+    if damage_photo:
+        photo_valid, photo_error = validate_repair_photo(damage_photo)
+        if not photo_valid:
+            messages.error(request, photo_error)
+            return render(request, 'customer_portal/request_repair.html')
+        damage_photo = convert_heic_to_jpeg(damage_photo)
+
+    # Find available technician
+    technician = get_available_technician()
+    if not technician:
+        messages.error(request, "No technicians available. Please try again later.")
+        return render(request, 'customer_portal/request_repair.html')
+
+    # Create the repair
+    try:
+        repair = Repair.objects.create(
+            technician=technician,
+            customer=customer,
+            unit_number=unit_number,
+            description=description,
+            damage_type=damage_type,
+            customer_submitted_photo=damage_photo,
+            customer_notes=description,
+            queue_status='REQUESTED'
+        )
+
+        messages.success(request, "Repair request submitted successfully! A technician will review your request.")
+        return redirect('customer_dashboard')
+    except Exception as e:
+        messages.error(request, f"Error creating repair request: {str(e)}")
+        return render(request, 'customer_portal/request_repair.html')
+
+
+def handle_batch_repair_request(request, customer):
+    """Handle multi-unit batch repair request submission"""
+    import json
+    import uuid
+
+    try:
+        # Parse units data from JSON
+        units_data_json = request.POST.get('units_data')
+        if not units_data_json:
+            messages.error(request, "No repair data provided.")
+            return render(request, 'customer_portal/request_repair.html')
+
+        units_data = json.loads(units_data_json)
+
+        if not units_data or len(units_data) == 0:
+            messages.error(request, "Please add at least one unit to submit.")
+            return render(request, 'customer_portal/request_repair.html')
+
+        # Find available technician
+        technician = get_available_technician()
+        if not technician:
+            messages.error(request, "No technicians available. Please try again later.")
+            return render(request, 'customer_portal/request_repair.html')
+
+        # Create all repairs atomically
+        created_repairs = []
+        with transaction.atomic():
+            for index, unit_data in enumerate(units_data):
+                unit_number = unit_data.get('unitNumber', '').strip()
+                damage_type = unit_data.get('damageType', 'Unknown')
+                notes = unit_data.get('notes', '')
+                has_photo = unit_data.get('hasPhoto', False)
+                has_multiple_breaks = unit_data.get('hasMultipleBreaks', False)
+                break_count = unit_data.get('breakCount')
+
+                if not unit_number:
+                    continue  # Skip invalid entries
+
+                # Get photo if provided
+                photo_file = None
+                if has_photo:
+                    photo_key = f'photo_{index}'
+                    photo_file = request.FILES.get(photo_key)
+                    if photo_file:
+                        photo_valid, photo_error = validate_repair_photo(photo_file)
+                        if photo_valid:
+                            photo_file = convert_heic_to_jpeg(photo_file)
+                        else:
+                            photo_file = None  # Skip invalid photos
+
+                # Set description
+                description = notes if notes else "Customer repair request - details to be determined by technician"
+
+                # Handle multi-break repairs
+                if has_multiple_breaks and break_count and break_count > 1:
+                    # Create multiple repair records with batch tracking
+                    batch_id = uuid.uuid4()
+                    for break_num in range(1, break_count + 1):
+                        repair = Repair.objects.create(
+                            technician=technician,
+                            customer=customer,
+                            unit_number=unit_number,
+                            description=f"{description} (Break {break_num} of {break_count})",
+                            damage_type=damage_type,
+                            customer_submitted_photo=photo_file if break_num == 1 else None,  # Only attach photo to first break
+                            customer_notes=notes,
+                            queue_status='REQUESTED',
+                            repair_batch_id=batch_id,
+                            break_number=break_num,
+                            total_breaks_in_batch=break_count
+                        )
+                        created_repairs.append(repair)
+                elif has_multiple_breaks:
+                    # Multi-break estimate (unknown count)
+                    repair = Repair.objects.create(
+                        technician=technician,
+                        customer=customer,
+                        unit_number=unit_number,
+                        description=f"{description} (Multiple breaks - count TBD)",
+                        damage_type=damage_type,
+                        customer_submitted_photo=photo_file,
+                        customer_notes=notes,
+                        queue_status='REQUESTED',
+                        is_multi_break_estimate=True
+                    )
+                    created_repairs.append(repair)
+                else:
+                    # Single break repair (no batch fields)
+                    repair = Repair.objects.create(
+                        technician=technician,
+                        customer=customer,
+                        unit_number=unit_number,
+                        description=description,
+                        damage_type=damage_type,
+                        customer_submitted_photo=photo_file,
+                        customer_notes=notes,
+                        queue_status='REQUESTED'
+                    )
+                    created_repairs.append(repair)
+
+        # Success message
+        count = len(created_repairs)
+        messages.success(
+            request,
+            f"Successfully submitted {count} repair request{'s' if count != 1 else ''}! A technician will review your requests."
+        )
+        return redirect('customer_dashboard')
+
+    except json.JSONDecodeError:
+        messages.error(request, "Invalid request data format.")
+        return render(request, 'customer_portal/request_repair.html')
+    except Exception as e:
+        logging.error(f"Error creating batch repair request: {str(e)}")
+        messages.error(request, f"Error creating repair requests: {str(e)}")
+        return render(request, 'customer_portal/request_repair.html')
+
+
+def validate_repair_photo(photo_file):
+    """
+    Validate photo file for repair request
+
+    Returns:
+        Tuple of (is_valid: bool, error_message: str)
+    """
+    # Check file size (limit to 5MB)
+    if photo_file.size > 5 * 1024 * 1024:
+        return False, "Photo file size must be less than 5MB."
+
+    # Check file type - includes HEIC for iPhone photos
+    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    file_ext = photo_file.name.lower().split('.')[-1] if '.' in photo_file.name else ''
+
+    # Accept file if content_type is valid OR if file extension is valid
+    is_valid_content_type = photo_file.content_type in allowed_types
+    is_valid_extension = file_ext in ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+
+    if not (is_valid_content_type or is_valid_extension):
+        return False, "Please upload a valid image file (JPEG, PNG, WebP, or HEIC)."
+
+    return True, ""
+
+
+def get_available_technician():
+    """
+    Get an available technician using round-robin assignment.
+
+    Returns:
+        Technician object or None if no technicians available
+    """
+    technicians = Technician.objects.annotate(
+        active_repairs=Count('repair', filter=Q(repair__queue_status__in=['REQUESTED', 'PENDING', 'APPROVED', 'IN_PROGRESS']))
+    ).order_by('active_repairs', 'id')
+
+    return technicians.first() if technicians.exists() else None
+
+
+@customer_required
+def repair_pricing_api(request):
+    """
+    API endpoint to get pricing estimates for repair requests.
+
+    POST /app/api/repair-pricing/
+    Body: {
+        "units": [
+            {
+                "unit_number": "1001",
+                "has_multiple_breaks": false,
+                "break_count": null
+            }
+        ]
+    }
+
+    Returns:
+        JSON with pricing information for each unit including multi-break breakdown
+    """
+    import json
+    from apps.technician_portal.services.pricing_service import get_expected_repair_cost
+    from apps.technician_portal.services.batch_pricing_service import calculate_batch_pricing, calculate_batch_total
+    from apps.customer_portal.pricing_models import CustomerPricing
+    from decimal import Decimal
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST request required'}, status=405)
+
+    try:
+        customer_user = CustomerUser.objects.get(user=request.user)
+        customer = customer_user.customer
+
+        # Parse request body
+        data = json.loads(request.body)
+        units_data = data.get('units', [])
+
+        # Backward compatibility: support old format with unit_numbers
+        if not units_data and 'unit_numbers' in data:
+            units_data = [{'unit_number': un, 'has_multiple_breaks': False, 'break_count': None}
+                         for un in data.get('unit_numbers', [])]
+
+        if not units_data:
+            return JsonResponse({'error': 'No unit data provided'}, status=400)
+
+        # Check if customer uses custom pricing
+        uses_custom_pricing = CustomerPricing.objects.filter(
+            customer=customer,
+            use_custom_pricing=True
+        ).exists()
+
+        # Calculate pricing for each unit
+        units_pricing = []
+        for unit_data in units_data:
+            unit_number = unit_data.get('unit_number', '').strip()
+            has_multiple_breaks = unit_data.get('has_multiple_breaks', False)
+            break_count = unit_data.get('break_count')
+
+            if not unit_number:
+                continue
+
+            # Handle multi-break pricing
+            if has_multiple_breaks and break_count and break_count > 1:
+                # Exact count: Calculate progressive pricing breakdown
+                pricing_breakdown = calculate_batch_pricing(customer, unit_number, break_count)
+                batch_total = calculate_batch_total(pricing_breakdown)
+
+                units_pricing.append({
+                    'unit_number': unit_number,
+                    'has_multiple_breaks': True,
+                    'break_count': break_count,
+                    'total_price': float(batch_total['total_cost']),
+                    'total_price_formatted': f'${batch_total["total_cost"]:.2f}',
+                    'breakdown': [
+                        {
+                            'break_number': item['break_number'],
+                            'price': float(item['price']),
+                            'price_formatted': item['price_formatted'],
+                            'repair_number': item['repair_tier']
+                        }
+                        for item in pricing_breakdown
+                    ],
+                    'uses_custom_pricing': uses_custom_pricing
+                })
+            elif has_multiple_breaks:
+                # Unknown count: Calculate range estimate (2-4 breaks)
+                min_breaks = 2
+                max_breaks = 4
+
+                min_pricing = calculate_batch_pricing(customer, unit_number, min_breaks)
+                max_pricing = calculate_batch_pricing(customer, unit_number, max_breaks)
+
+                min_total = calculate_batch_total(min_pricing)
+                max_total = calculate_batch_total(max_pricing)
+
+                units_pricing.append({
+                    'unit_number': unit_number,
+                    'has_multiple_breaks': True,
+                    'break_count': None,
+                    'is_estimate': True,
+                    'min_price': float(min_total['total_cost']),
+                    'max_price': float(max_total['total_cost']),
+                    'min_price_formatted': f'${min_total["total_cost"]:.2f}',
+                    'max_price_formatted': f'${max_total["total_cost"]:.2f}',
+                    'range_formatted': f'${min_total["total_cost"]:.2f} - ${max_total["total_cost"]:.2f}',
+                    'min_breaks': min_breaks,
+                    'max_breaks': max_breaks,
+                    'uses_custom_pricing': uses_custom_pricing
+                })
+            else:
+                # Single repair
+                expected_cost, next_repair_count = get_expected_repair_cost(customer, unit_number)
+
+                units_pricing.append({
+                    'unit_number': unit_number,
+                    'has_multiple_breaks': False,
+                    'price': float(expected_cost),
+                    'price_formatted': f'${expected_cost:.2f}',
+                    'repair_count': next_repair_count - 1,  # Current count
+                    'next_repair_number': next_repair_count,
+                    'uses_custom_pricing': uses_custom_pricing
+                })
+
+        return JsonResponse({
+            'units': units_pricing,
+            'customer_name': customer.name,
+            'uses_custom_pricing': uses_custom_pricing
+        })
+
+    except CustomerUser.DoesNotExist:
+        return JsonResponse({'error': 'Customer profile not found'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        logging.error(f"Error in repair_pricing_api: {str(e)}\n{error_trace}")
+        return JsonResponse({
+            'error': 'An error occurred while calculating pricing'
+        }, status=500)
 
 @customer_required
 def account_settings(request):

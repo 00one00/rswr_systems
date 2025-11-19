@@ -252,6 +252,10 @@ class Repair(models.Model):
         blank=True,
         help_text="Total number of breaks in this repair batch"
     )
+    is_multi_break_estimate = models.BooleanField(
+        default=False,
+        help_text="True if customer indicated multiple breaks exist but didn't specify exact count"
+    )
 
     def save(self, *args, **kwargs):
         # BATCH INTEGRITY VALIDATION: Ensure batch data is consistent
@@ -478,8 +482,8 @@ class Repair(models.Model):
     # Batch repair helper methods
     @property
     def is_part_of_batch(self):
-        """Check if this repair is part of a multi-break batch."""
-        return self.repair_batch_id is not None
+        """Check if this repair is part of a multi-break batch or is a multi-break estimate."""
+        return (self.repair_batch_id is not None and self.total_breaks_in_batch and self.total_breaks_in_batch > 1) or self.is_multi_break_estimate
 
     @classmethod
     def get_batch_repairs(cls, batch_id):

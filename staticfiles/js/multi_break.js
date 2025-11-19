@@ -771,3 +771,108 @@ document.getElementById('createAnotherBatchBtn').addEventListener('click', funct
     submitBtn.disabled = false;
     submitBtn.innerHTML = 'Submit All Repairs (0)';
 });
+
+// ================ VISCOSITY SUGGESTION BASED ON TEMPERATURE ================
+
+const modalTemperatureInput = document.getElementById('modal_windshield_temperature');
+const modalViscositySuggestionContainer = document.getElementById('modalViscositySuggestion');
+let modalViscosityTimeout = null;
+
+/**
+ * Fetch viscosity suggestion from API based on temperature (for modal)
+ */
+function fetchModalViscositySuggestion(temperature) {
+    if (!temperature || temperature === '') {
+        // Hide suggestion if no temperature
+        if (modalViscositySuggestionContainer) {
+            modalViscositySuggestionContainer.classList.add('hidden');
+        }
+        return;
+    }
+
+    // Debounce the API call
+    clearTimeout(modalViscosityTimeout);
+    modalViscosityTimeout = setTimeout(() => {
+        const url = `/tech/api/viscosity-suggestion/?temperature=${temperature}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.recommendation) {
+                    displayModalViscositySuggestion(data);
+                } else {
+                    // No recommendation available
+                    hideModalViscositySuggestion();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching viscosity suggestion:', error);
+                hideModalViscositySuggestion();
+            });
+    }, 500); // Wait 500ms after user stops typing
+}
+
+/**
+ * Display viscosity suggestion badge in modal
+ */
+function displayModalViscositySuggestion(data) {
+    if (!modalViscositySuggestionContainer) return;
+
+    const badgeColor = data.badge_color || 'gray';
+    const icon = getIconForViscosity(data.recommendation);
+
+    // Use Tailwind classes for the badge styling (matching modal style)
+    let badgeColorClasses = 'bg-gray-100 text-gray-800';
+    if (badgeColor === 'blue') {
+        badgeColorClasses = 'bg-blue-100 text-blue-800';
+    } else if (badgeColor === 'green') {
+        badgeColorClasses = 'bg-green-100 text-green-800';
+    } else if (badgeColor === 'yellow') {
+        badgeColorClasses = 'bg-yellow-100 text-yellow-800';
+    } else if (badgeColor === 'red') {
+        badgeColorClasses = 'bg-red-100 text-red-800';
+    }
+
+    modalViscositySuggestionContainer.innerHTML = `
+        <div class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium ${badgeColorClasses}">
+            <i class="${icon} mr-2"></i>
+            <span>${data.suggestion_text}</span>
+        </div>
+    `;
+
+    modalViscositySuggestionContainer.classList.remove('hidden');
+}
+
+/**
+ * Hide viscosity suggestion in modal
+ */
+function hideModalViscositySuggestion() {
+    if (modalViscositySuggestionContainer) {
+        modalViscositySuggestionContainer.classList.add('hidden');
+    }
+}
+
+/**
+ * Get appropriate icon for viscosity level
+ */
+function getIconForViscosity(viscosity) {
+    if (!viscosity) return 'fas fa-info-circle';
+
+    const viscosityLower = viscosity.toLowerCase();
+    if (viscosityLower.includes('low')) {
+        return 'fas fa-tint';
+    } else if (viscosityLower.includes('medium')) {
+        return 'fas fa-tint';
+    } else if (viscosityLower.includes('high')) {
+        return 'fas fa-tint';
+    }
+    return 'fas fa-lightbulb';
+}
+
+// Attach temperature change listener for modal
+if (modalTemperatureInput && modalViscositySuggestionContainer) {
+    // Listen for temperature changes in modal
+    modalTemperatureInput.addEventListener('input', function(e) {
+        fetchModalViscositySuggestion(e.target.value);
+    });
+}

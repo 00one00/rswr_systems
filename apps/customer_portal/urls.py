@@ -33,4 +33,5 @@ urlpatterns = [
     # API endpoints for data visualization
     path('api/unit-repair-data/', views.unit_repair_data_api, name='unit_repair_data_api'),
     path('api/repair-cost-data/', views.repair_cost_data_api, name='repair_cost_data_api'),
+    path('api/repair-pricing/', views.repair_pricing_api, name='repair_pricing_api'),
 ]

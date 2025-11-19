@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.utils import timezone
 from django.http import JsonResponse
-from django.db import transaction
+from django.db import transaction, models
 from datetime import timedelta
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
@@ -2032,20 +2032,77 @@ def manage_viscosity_rules(request):
     """
     Manage viscosity recommendation rules with card-based interface.
     Supports CRUD operations via AJAX modals.
+
+    Rules are displayed with auto-calculated priority positions (1st, 2nd, 3rd...)
+    based on their display_order field.
     """
     manager = request.user.technician if hasattr(request.user, 'technician') else None
 
     # Get all rules ordered by display_order
+    # Enumerate to get priority position (1st, 2nd, 3rd...)
     rules = ViscosityRecommendation.objects.all().order_by('display_order', 'id')
+    rules_with_position = [
+        {
+            'rule': rule,
+            'position': idx + 1,  # 1-indexed position for display
+            'position_suffix': get_ordinal_suffix(idx + 1)  # "st", "nd", "rd", "th"
+        }
+        for idx, rule in enumerate(rules)
+    ]
 
     context = {
         'is_admin': request.user.is_staff,
         'technician': manager,
-        'rules': rules,
+        'rules_with_position': rules_with_position,
         'badge_colors': ViscosityRecommendation.BADGE_COLOR_CHOICES,
     }
 
     return render(request, 'technician_portal/settings/viscosity_rules.html', context)
+
+
+def get_ordinal_suffix(n):
+    """
+    Returns the ordinal suffix for a number (st, nd, rd, th).
+    Examples: 1 → "st", 2 → "nd", 3 → "rd", 4 → "th", 11 → "th"
+    """
+    if 10 <= n % 100 <= 20:
+        return 'th'
+    else:
+        return {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+
+
+@technician_required
+@manager_required
+def get_viscosity_rule(request, rule_id):
+    """
+    AJAX endpoint to fetch a single viscosity recommendation rule.
+    GET /tech/settings/api/viscosity/<id>/
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    try:
+        rule = get_object_or_404(ViscosityRecommendation, id=rule_id)
+
+        return JsonResponse({
+            'success': True,
+            'rule': {
+                'id': rule.id,
+                'name': rule.name,
+                'min_temperature': str(rule.min_temperature) if rule.min_temperature is not None else '',
+                'max_temperature': str(rule.max_temperature) if rule.max_temperature is not None else '',
+                'recommended_viscosity': rule.recommended_viscosity,
+                'suggestion_text': rule.suggestion_text,
+                'badge_color': rule.badge_color,
+                'display_order': rule.display_order,
+                'is_active': rule.is_active,
+            }
+        })
+
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error fetching viscosity rule: {str(e)}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @technician_required
@@ -2054,6 +2111,9 @@ def create_viscosity_rule(request):
     """
     AJAX endpoint to create a new viscosity recommendation rule.
     POST /tech/settings/api/viscosity/create/
+
+    Priority is auto-assigned: new rules get (max existing priority + 10)
+    This leaves room for manual database adjustments if needed.
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
@@ -2070,6 +2130,13 @@ def create_viscosity_rule(request):
                     'error': f'Missing required field: {field}'
                 }, status=400)
 
+        # Auto-assign priority: get max existing display_order and add 10
+        # This leaves room for manual reordering in database if needed
+        max_order = ViscosityRecommendation.objects.aggregate(
+            max_order=models.Max('display_order')
+        )['max_order']
+        next_order = (max_order or 0) + 10
+
         # Create new rule
         rule = ViscosityRecommendation.objects.create(
             name=data['name'],
@@ -2078,7 +2145,7 @@ def create_viscosity_rule(request):
             recommended_viscosity=data['recommended_viscosity'],
             suggestion_text=data['suggestion_text'],
             badge_color=data['badge_color'],
-            display_order=data.get('display_order', 999),
+            display_order=next_order,  # Auto-assigned priority
             is_active=data.get('is_active', True)
         )
 

@@ -47,6 +47,7 @@ urlpatterns = [
 
     # Manager Settings API endpoints
     path('settings/api/viscosity/create/', views.create_viscosity_rule, name='create_viscosity_rule'),
+    path('settings/api/viscosity/<int:rule_id>/', views.get_viscosity_rule, name='get_viscosity_rule'),
     path('settings/api/viscosity/<int:rule_id>/update/', views.update_viscosity_rule, name='update_viscosity_rule'),
     path('settings/api/viscosity/<int:rule_id>/delete/', views.delete_viscosity_rule, name='delete_viscosity_rule'),
     path('settings/api/viscosity/<int:rule_id>/toggle/', views.toggle_viscosity_rule, name='toggle_viscosity_rule'),

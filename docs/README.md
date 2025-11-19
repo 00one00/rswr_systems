@@ -22,6 +22,15 @@ Welcome to the comprehensive documentation for the RS Systems windshield repair 
 - Regression testing for system reliability
 - Performance and security testing guidelines
 
+#### 🎯 [Viscosity Rules Auto-Priority System](development/VISCOSITY_RULES_AUTO_PRIORITY.md)
+**Deep dive into the auto-priority system for viscosity rules**
+- Priority calculation algorithm and examples
+- Visual badge system (🥇🥈🥉)
+- Rule evaluation order and matching logic
+- Implementation details and code locations
+- User experience flows and API reference
+- Troubleshooting and future enhancements
+
 #### 🛠️ [Developer Guide](DEVELOPER_GUIDE.md)
 **Technical implementation and system architecture**
 - System architecture deep dive

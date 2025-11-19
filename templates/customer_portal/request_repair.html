@@ -1,291 +1,410 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/components/customer-repair-request.css' %}">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    blue: {
-                        50: '#eff6ff',
-                        100: '#dbeafe',
-                        200: '#bfdbfe',
-                        300: '#93c5fd',
-                        400: '#60a5fa',
-                        500: '#3b82f6',
-                        600: '#2563eb',
-                        700: '#1d4ed8',
-                        800: '#1e40af',
-                        900: '#1e3a8a',
-                    }
-                }
-            }
-        }
-    }
-    
-    function updateFileName(input) {
-        const fileDisplay = document.getElementById('selected-file');
-        if (input.files && input.files[0]) {
-            const file = input.files[0];
-
-            // Validate file size (5MB limit)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('File size must be less than 5MB. Please choose a smaller image.');
-                input.value = '';
-                fileDisplay.classList.add('hidden');
-                return;
-            }
-
-            // Validate file type - includes HEIC for iPhone photos
-            // Check both MIME type and file extension (some browsers report HEIC files with incorrect MIME types)
-            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-            const fileName = file.name.toLowerCase();
-            const fileExt = fileName.split('.').pop();
-            const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
-
-            const isValidType = allowedTypes.includes(file.type);
-            const isValidExtension = allowedExtensions.includes(fileExt);
-
-            if (!isValidType && !isValidExtension) {
-                alert('Please upload a valid image file (JPEG, PNG, WebP, or HEIC).');
-                input.value = '';
-                fileDisplay.classList.add('hidden');
-                return;
-            }
-
-            fileDisplay.textContent = 'Selected: ' + file.name;
-            fileDisplay.classList.remove('hidden');
-        } else {
-            fileDisplay.classList.add('hidden');
-        }
-    }
-    
-    // Add character counter for description and drag-drop functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        // Drag and drop functionality
-        const dropZone = document.querySelector('.border-dashed');
-        const fileInput = document.getElementById('damage_photo_before');
-        
-        if (dropZone && fileInput) {
-            // Prevent default drag behaviors
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, preventDefaults, false);
-                document.body.addEventListener(eventName, preventDefaults, false);
-            });
-            
-            // Highlight drop zone when item is dragged over it
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropZone.addEventListener(eventName, highlight, false);
-            });
-            
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, unhighlight, false);
-            });
-            
-            // Handle dropped files
-            dropZone.addEventListener('drop', handleDrop, false);
-            
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            
-            function highlight(e) {
-                dropZone.classList.add('border-blue-500', 'bg-blue-50');
-            }
-            
-            function unhighlight(e) {
-                dropZone.classList.remove('border-blue-500', 'bg-blue-50');
-            }
-            
-            function handleDrop(e) {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                
-                if (files.length > 0) {
-                    // Update the file input with the dropped file
-                    fileInput.files = files;
-                    updateFileName(fileInput);
-                }
-            }
-        }
-        
-        // Character counter functionality
-        const descriptionField = document.getElementById('description');
-        const maxLength = 1000;
-        
-        if (descriptionField) {
-            // Create character counter element
-            const counter = document.createElement('div');
-            counter.className = 'text-xs text-gray-500 mt-1';
-            counter.id = 'char-counter';
-            descriptionField.parentNode.appendChild(counter);
-            
-            function updateCounter() {
-                const remaining = maxLength - descriptionField.value.length;
-                counter.textContent = `${descriptionField.value.length}/${maxLength} characters`;
-                
-                if (remaining < 50) {
-                    counter.className = 'text-xs text-red-500 mt-1';
-                } else if (remaining < 100) {
-                    counter.className = 'text-xs text-yellow-600 mt-1';
-                } else {
-                    counter.className = 'text-xs text-gray-500 mt-1';
-                }
-            }
-            
-            descriptionField.addEventListener('input', updateCounter);
-            updateCounter(); // Initialize counter
-        }
-    });
-</script>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200 bg-blue-600 text-white rounded-t-lg">
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+            <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
                 <div class="flex items-center justify-between">
-                    <h1 class="text-xl font-semibold">Request a New Repair</h1>
-                    <a href="{% url 'customer_dashboard' %}" class="inline-flex items-center px-3 py-1 border border-white border-opacity-20 text-white text-sm font-medium rounded hover:bg-white hover:bg-opacity-10 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-colors">
-                        Back to Dashboard
+                    <div>
+                        <h1 class="text-2xl font-bold">Request Repair</h1>
+                        <p class="text-blue-100 text-sm mt-1">Submit repair requests for multiple units at once</p>
+                    </div>
+                    <a href="{% url 'customer_dashboard' %}"
+                       class="inline-flex items-center px-4 py-2 border border-white border-opacity-30 text-white text-sm font-medium rounded-lg hover:bg-white hover:bg-opacity-10 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all">
+                        <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
                     </a>
                 </div>
             </div>
-            <div class="p-6">
-                {% if messages %}
-                <div class="mb-6 space-y-4">
-                    {% for message in messages %}
-                    <div class="bg-{% if message.tags == 'error' %}red-50 border-l-4 border-red-400{% elif message.tags == 'success' %}green-50 border-l-4 border-green-400{% else %}blue-50 border-l-4 border-blue-400{% endif %} p-4">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                {% if message.tags == 'error' %}
-                                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                                </svg>
-                                {% elif message.tags == 'success' %}
-                                <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                </svg>
-                                {% else %}
-                                <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                                </svg>
-                                {% endif %}
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm {% if message.tags == 'error' %}text-red-700{% elif message.tags == 'success' %}text-green-700{% else %}text-blue-700{% endif %}">{{ message }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
+        </div>
+
+        <!-- Restore Data Prompt (Hidden by default) -->
+        <div id="restoreDataPrompt" class="hidden restore-prompt rounded-lg p-4 mb-6">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 text-xl"></i>
                 </div>
-                {% endif %}
-                
-                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <h3 class="text-sm font-medium text-blue-800">Request a Windshield Repair</h3>
-                            <div class="mt-2 text-sm text-blue-700">
-                                <p class="mb-2">Please provide the details about the windshield damage that needs repair.</p>
-                                <p>Once submitted, a technician will review your request and contact you with additional information.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <form method="post" enctype="multipart/form-data" class="space-y-6">
-                    {% csrf_token %}
-                    
-                    <div>
-                        <label for="unit_number" class="block text-sm font-medium text-gray-700 mb-1">
-                            Unit/Vehicle Number <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text" 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
-                            id="unit_number" 
-                            name="unit_number" 
-                            required
-                            minlength="1"
-                            maxlength="50"
-                            pattern="^[A-Za-z0-9\-_]+$"
-                            title="Unit number can contain letters, numbers, hyphens, and underscores">
-                        <p class="mt-1 text-xs text-gray-500">Enter the identification number of the vehicle that needs repair.</p>
-                    </div>
-                    
-                    <div>
-                        <label for="damage_type" class="block text-sm font-medium text-gray-700 mb-1">
-                            Type of Damage <span class="text-gray-500">(Optional)</span>
-                        </label>
-                        <select class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
-                            id="damage_type" 
-                            name="damage_type">
-                            <option value="">Unknown / Not Sure</option>
-                            <option value="Chip">Chip</option>
-                            <option value="Crack">Crack</option>
-                            <option value="Star Break">Star Break</option>
-                            <option value="Bull's Eye">Bull's Eye</option>
-                            <option value="Combination Break">Combination Break</option>
-                            <option value="Half-Moon">Half-Moon</option>
-                            <option value="Other">Other</option>
-                        </select>
-                        <p class="mt-1 text-xs text-gray-500">If you're not sure, our technician will determine the damage type.</p>
-                    </div>
-                    
-                    <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
-                            Additional Notes <span class="text-gray-500">(Optional)</span>
-                        </label>
-                        <textarea class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
-                            id="description" 
-                            name="description" 
-                            rows="4" 
-                            maxlength="1000"
-                            placeholder="Any additional information about the damage, special instructions, or preferred repair timeframe..."></textarea>
-                        <p class="mt-1 text-xs text-gray-500">Add any additional details that might help our technicians (location on windshield, when it happened, etc.)</p>
-                    </div>
-                    
-                    <div>
-                        <label for="damage_photo_before" class="block text-sm font-medium text-gray-700 mb-1">
-                            Photo of Damage <span class="text-gray-500">(Optional)</span>
-                        </label>
-                        <div class="mt-1 flex justify-center px-3 sm:px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors">
-                            <div class="space-y-1 text-center">
-                                <svg class="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                                <div class="flex flex-col sm:flex-row items-center justify-center text-sm text-gray-600">
-                                    <label for="damage_photo_before" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 px-2 py-1">
-                                        <span>Choose Photo</span>
-                                        <input id="damage_photo_before" name="damage_photo_before" type="file" class="sr-only" accept="image/*" capture="environment" onchange="updateFileName(this)">
-                                    </label>
-                                    <p class="sm:pl-1 mt-1 sm:mt-0">or drag and drop</p>
-                                </div>
-                                <p class="text-xs text-gray-500">PNG, JPG, WebP, HEIC up to 5MB</p>
-                                <p id="selected-file" class="text-sm text-blue-600 hidden break-words px-2"></p>
-                            </div>
-                        </div>
-                        <p class="mt-1 text-xs text-gray-500">A photo of the damage can help our technicians prepare for the repair. iPhone HEIC photos are supported.</p>
-                    </div>
-                    
-                    <div class="flex flex-col sm:flex-row gap-3 pt-6">
-                        <button type="submit" class="flex-1 inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                            <i class="fas fa-paper-plane mr-2"></i>Submit Repair Request
+                <div class="ml-3 flex-1">
+                    <h3 class="text-sm font-medium text-yellow-900">Unsaved Data Found</h3>
+                    <p class="text-sm text-yellow-700 mt-1">
+                        We found repair request data from a previous session. Would you like to restore it?
+                    </p>
+                    <div class="mt-3 flex gap-3">
+                        <button type="button" id="restoreSavedDataBtn"
+                                class="text-sm bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 transition-colors">
+                            <i class="fas fa-undo mr-1"></i>Restore Data
                         </button>
-                        <a href="{% url 'customer_dashboard' %}" class="flex-1 inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                            <i class="fas fa-times mr-2"></i>Cancel
-                        </a>
+                        <button type="button" id="discardSavedDataBtn"
+                                class="text-sm bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition-colors">
+                            <i class="fas fa-trash mr-1"></i>Discard
+                        </button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="mb-6 space-y-4">
+            {% for message in messages %}
+            <div class="bg-{% if message.tags == 'error' %}red-50 border-l-4 border-red-400{% elif message.tags == 'success' %}green-50 border-l-4 border-green-400{% else %}blue-50 border-l-4 border-blue-400{% endif %} p-4 rounded">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        {% if message.tags == 'error' %}
+                        <i class="fas fa-times-circle text-red-400"></i>
+                        {% elif message.tags == 'success' %}
+                        <i class="fas fa-check-circle text-green-400"></i>
+                        {% else %}
+                        <i class="fas fa-info-circle text-blue-400"></i>
+                        {% endif %}
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm {% if message.tags == 'error' %}text-red-700{% elif message.tags == 'success' %}text-green-700{% else %}text-blue-700{% endif %}">{{ message }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left Column - Units List -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            Units to Repair
+                            <span id="unitCountBadge" class="hidden ml-2 bg-blue-100 text-blue-800 text-sm font-bold px-2.5 py-0.5 rounded-full">
+                                0
+                            </span>
+                        </h2>
+                        <button type="button" id="addUnitBtn"
+                                class="btn-primary inline-flex items-center px-4 py-2 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="fas fa-plus mr-2"></i>Add Unit
+                        </button>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="emptyState" class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-truck"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Units Added Yet</h3>
+                        <p class="text-gray-600 mb-4">Click "Add Unit" to start building your repair request</p>
+                        <button type="button" onclick="document.getElementById('addUnitBtn').click()"
+                                class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Add Your First Unit
+                        </button>
+                    </div>
+
+                    <!-- Units Container -->
+                    <div id="unitsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Unit cards will be inserted here by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Pricing & Submit -->
+            <div class="lg:col-span-1">
+
+                <!-- Pricing Preview -->
+                <div id="pricingPreview" class="hidden pricing-container rounded-lg p-4 mb-4">
+                    <h3 class="font-semibold text-gray-900 mb-3 flex items-center">
+                        <i class="fas fa-calculator mr-2 text-blue-600"></i>
+                        Estimated Cost
+                    </h3>
+                    <div id="pricingDetails" class="mb-4">
+                        <!-- Pricing details will be inserted here -->
+                    </div>
+                    <div class="border-t-2 border-blue-300 pt-3 mt-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-semibold text-gray-900">Total:</span>
+                            <span id="totalCost" class="pricing-total">$0.00</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-2">
+                        <i class="fas fa-info-circle"></i> Prices shown are estimates and may vary
+                    </p>
+                </div>
+
+                <!-- Info Card -->
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg mb-4">
+                    <h3 class="text-sm font-medium text-blue-900 mb-2">
+                        <i class="fas fa-lightbulb mr-1"></i>How it Works
+                    </h3>
+                    <ul class="text-sm text-blue-800 space-y-2">
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-blue-600 mr-2 mt-0.5"></i>
+                            <span>Add each unit that needs repair</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-blue-600 mr-2 mt-0.5"></i>
+                            <span>Include photos and damage details</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-blue-600 mr-2 mt-0.5"></i>
+                            <span>Review pricing estimates</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-blue-600 mr-2 mt-0.5"></i>
+                            <span>Submit all repairs at once</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Submit Form -->
+                <form id="batchRepairForm" method="post" class="space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="batch_submission" value="true">
+
+                    <button type="submit" id="submitBatchBtn" disabled
+                            class="w-full btn-primary inline-flex items-center justify-center px-6 py-3 text-white text-base font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-paper-plane mr-2"></i>Submit Repair Request
+                    </button>
+
+                    <a href="{% url 'customer_dashboard' %}"
+                       class="w-full btn-secondary inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-gray-700 text-base font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        <i class="fas fa-times mr-2"></i>Cancel
+                    </a>
                 </form>
+
+                <!-- Auto-save Indicator -->
+                <div class="mt-4 text-center text-xs text-gray-500">
+                    <i class="fas fa-save mr-1"></i>Progress auto-saved
+                </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %} 
+
+<!-- Add/Edit Unit Modal -->
+<div id="addUnitModal" class="hidden fixed inset-0 z-50 overflow-y-auto modal-overlay" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="modal-container bg-white rounded-lg shadow-xl max-w-2xl w-full">
+            <!-- Modal Header -->
+            <div class="modal-header px-6 py-4 text-white rounded-t-lg">
+                <h3 id="modalTitle" class="text-xl font-bold">Add Unit Repair</h3>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="px-6 py-6 space-y-5">
+
+                <!-- Unit Number -->
+                <div>
+                    <label for="modalUnitNumber" class="block text-sm font-medium text-gray-700 mb-1">
+                        Unit/Vehicle Number <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="modalUnitNumber"
+                           class="form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., 1001, TRUCK-42"
+                           pattern="^[A-Za-z0-9\-_]+$"
+                           maxlength="50">
+                    <div id="modalUnitNumberError" class="form-error hidden">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span></span>
+                    </div>
+                </div>
+
+                <!-- Damage Type -->
+                <div>
+                    <label for="modalDamageType" class="block text-sm font-medium text-gray-700 mb-1">
+                        Type of Damage <span class="text-gray-500">(Optional)</span>
+                    </label>
+                    <select id="modalDamageType"
+                            class="form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Unknown / Not Sure</option>
+                        <option value="Chip">Chip</option>
+                        <option value="Crack">Crack</option>
+                        <option value="Star Break">Star Break</option>
+                        <option value="Bull's Eye">Bull's Eye</option>
+                        <option value="Combination Break">Combination Break</option>
+                        <option value="Half-Moon">Half-Moon</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">If unsure, our technician will assess the damage type</p>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label for="modalNotes" class="block text-sm font-medium text-gray-700 mb-1">
+                        Additional Notes <span class="text-gray-500">(Optional)</span>
+                    </label>
+                    <textarea id="modalNotes" rows="3"
+                              class="form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Location on windshield, urgency, special instructions..."
+                              maxlength="1000"></textarea>
+                </div>
+
+                <!-- Multi-Break Option -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input type="checkbox" id="modalHasMultipleBreaks"
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <label for="modalHasMultipleBreaks" class="font-medium text-gray-900 cursor-pointer">
+                                Multiple breaks on this unit?
+                            </label>
+                            <p class="text-sm text-gray-600 mt-1">
+                                Check this if you've found more than one break on this vehicle's windshield
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Number of Breaks (shown when checkbox is checked) -->
+                    <div id="modalBreakCountContainer" class="hidden mt-4 pl-7">
+                        <label for="modalBreakCount" class="block text-sm font-medium text-gray-700 mb-1">
+                            Number of breaks <span class="text-gray-500">(Optional)</span>
+                        </label>
+                        <input type="number" id="modalBreakCount" min="2" max="10"
+                               class="form-input w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="e.g., 3">
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle"></i> If you know the exact count, enter it for accurate pricing. Leave blank for a price range estimate.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Photo Upload -->
+                <div>
+                    <label for="modalPhotoInput" class="block text-sm font-medium text-gray-700 mb-1">
+                        Photo of Damage <span class="text-gray-500">(Optional)</span>
+                    </label>
+                    <div class="upload-zone mt-1 flex justify-center px-6 pt-5 pb-6 rounded-md">
+                        <div class="space-y-1 text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <div class="flex text-sm text-gray-600">
+                                <label for="modalPhotoInput" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                    <span>Choose Photo</span>
+                                    <input id="modalPhotoInput" type="file" class="sr-only" accept="image/*">
+                                </label>
+                                <p class="pl-1">or drag and drop</p>
+                            </div>
+                            <p class="text-xs text-gray-500">PNG, JPG, WebP, HEIC up to 5MB</p>
+                        </div>
+                    </div>
+                    <div id="modalPhotoInputError" class="form-error hidden">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span></span>
+                    </div>
+
+                    <!-- Photo Preview -->
+                    <div id="photoPreviewContainer" class="hidden mt-4">
+                        <div class="photo-preview-container">
+                            <img id="photoPreview" src="" alt="Preview" class="photo-preview-image">
+                            <button type="button" onclick="removePhoto()" class="photo-remove-btn" title="Remove photo">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <p id="photoFileName" class="text-sm text-gray-600 mt-2"></p>
+                    </div>
+                </div>
+
+                <!-- Live Pricing Preview in Modal -->
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <i class="fas fa-calculator text-blue-600"></i>
+                        <h4 class="font-semibold text-gray-900">Estimated Cost</h4>
+                    </div>
+                    <div id="modalPricingPreview" class="ml-6">
+                        <span class="text-gray-400 text-sm">
+                            <i class="fas fa-info-circle"></i> Enter unit number to see pricing estimate
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-gray-50 rounded-b-lg flex justify-end space-x-3">
+                <button type="button" id="cancelModalBtn"
+                        class="btn-secondary px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                    <i class="fas fa-times mr-1"></i>Cancel
+                </button>
+                <button type="button" id="saveUnitBtn"
+                        class="btn-primary px-4 py-2 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-save mr-1"></i>Save Unit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmationModal" class="hidden fixed inset-0 z-50 overflow-y-auto modal-overlay" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="modal-container bg-white rounded-lg shadow-xl max-w-2xl w-full">
+            <div class="modal-header px-6 py-4 text-white rounded-t-lg">
+                <h3 class="text-xl font-bold">Confirm Submission</h3>
+            </div>
+            <div class="px-6 py-6">
+                <p class="text-gray-700 mb-4">You are about to submit the following repair requests:</p>
+                <div id="confirmationSummary" class="max-h-96 overflow-y-auto">
+                    <!-- Summary will be inserted here -->
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 rounded-b-lg flex justify-end space-x-3">
+                <button type="button" onclick="closeConfirmationModal()"
+                        class="btn-secondary px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg">
+                    <i class="fas fa-arrow-left mr-1"></i>Go Back
+                </button>
+                <button type="button" onclick="confirmAndSubmit()"
+                        class="btn-primary px-4 py-2 text-white text-sm font-medium rounded-lg">
+                    <i class="fas fa-check mr-1"></i>Confirm & Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div id="successModal" class="hidden fixed inset-0 z-50 overflow-y-auto modal-overlay" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="modal-container bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="px-6 py-8 text-center">
+                <div class="success-checkmark">
+                    <div class="check-icon"></div>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">Request Submitted!</h3>
+                <p class="text-gray-600 mb-1">
+                    Successfully submitted <span id="successUnitCount" class="font-semibold text-blue-600">0</span> repair request(s)
+                </p>
+                <div class="mt-6 inline-flex items-center px-3 py-1.5 bg-yellow-100 text-yellow-800 rounded-full text-sm">
+                    <i class="fas fa-clock mr-2"></i>
+                    <span class="font-semibold">Status: Pending Approval</span>
+                </div>
+                <p class="text-sm text-gray-600 mt-4">
+                    A technician will review your request and provide additional details soon.
+                </p>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 rounded-b-lg space-y-2">
+                <button type="button" onclick="closeSuccessModal()"
+                        class="w-full btn-primary px-4 py-2 text-white text-sm font-medium rounded-lg">
+                    <i class="fas fa-th-large mr-2"></i>View My Repairs
+                </button>
+                <button type="button" onclick="createAnotherBatch()"
+                        class="w-full btn-secondary px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg">
+                    <i class="fas fa-plus mr-2"></i>Submit Another Request
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/customer_repair_request.js' %}"></script>
+{% endblock %}
