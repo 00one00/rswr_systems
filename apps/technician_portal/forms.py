@@ -198,12 +198,14 @@ class RepairForm(forms.ModelForm):
             # But ensure widget has proper format
             if self.instance.repair_date:
                 self.fields['repair_date'].initial = self.instance.repair_date
-                self.fields['repair_date'].widget.attrs['value'] = self.instance.repair_date.strftime('%Y-%m-%dT%H:%M')
+                # Convert to local timezone for datetime-local input
+                local_time = timezone.localtime(self.instance.repair_date)
+                self.fields['repair_date'].widget.attrs['value'] = local_time.strftime('%Y-%m-%dT%H:%M')
         else:
             # This is a new repair - set initial date to current time
-            self.fields['repair_date'].initial = current_time
-            # Also set the widget value directly for immediate display
-            self.fields['repair_date'].widget.attrs['value'] = current_time.strftime('%Y-%m-%dT%H:%M')
+            # Convert to local timezone for datetime-local input (browser expects local time, not UTC)
+            local_time = timezone.localtime(current_time)
+            self.fields['repair_date'].widget.attrs['value'] = local_time.strftime('%Y-%m-%dT%H:%M')
         
         # Make customer_notes read-only for technicians - they should not modify customer input
         if 'customer_notes' in self.fields:
