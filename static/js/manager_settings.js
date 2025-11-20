@@ -3,15 +3,22 @@
  * Handles modal interactions and AJAX operations for viscosity rules management
  */
 
-// Get CSRF token from cookie
-function getCookie(name) {
+// Get CSRF token from DOM (works with CSRF_COOKIE_HTTPONLY = True)
+function getCSRFToken() {
+    // Try to get from DOM element first (works with HttpOnly cookies)
+    const tokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (tokenElement) {
+        return tokenElement.value;
+    }
+
+    // Fallback to cookie method (for backwards compatibility)
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
         for (let i = 0; i < cookies.length; i++) {
             const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            if (cookie.substring(0, 10) === 'csrftoken=') {
+                cookieValue = decodeURIComponent(cookie.substring(10));
                 break;
             }
         }
@@ -19,7 +26,7 @@ function getCookie(name) {
     return cookieValue;
 }
 
-const csrftoken = getCookie('csrftoken');
+const csrftoken = getCSRFToken();
 
 // Global variables
 let currentRuleId = null;

@@ -2047,6 +2047,7 @@ def manager_settings_dashboard(request):
 
 @technician_required
 @manager_required
+@ensure_csrf_cookie
 def manage_viscosity_rules(request):
     """
     Manage viscosity recommendation rules with card-based interface.
