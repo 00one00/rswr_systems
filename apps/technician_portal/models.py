@@ -4,6 +4,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.core.validators import FileExtensionValidator
+from decimal import Decimal
 from core.models import Customer
 
 class Technician(models.Model):
@@ -506,7 +507,14 @@ class Repair(models.Model):
             return None
 
         first_repair = repairs.first()
-        total_cost = sum(repair.cost for repair in repairs)
+
+        # CRITICAL FIX: Explicitly check first_repair is not None
+        if not first_repair:
+            return None
+
+        # CRITICAL FIX: Use Decimal('0') as start value to avoid int + Decimal TypeError
+        # Previously: sum(repair.cost for repair in repairs) defaulted to int 0
+        total_cost = sum((repair.cost for repair in repairs), Decimal('0'))
         statuses = list(repairs.values_list('queue_status', flat=True).distinct())
 
         # Calculate progress

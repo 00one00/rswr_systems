@@ -24,6 +24,9 @@ from functools import wraps
 from common.utils import convert_heic_to_jpeg
 from .services.batch_pricing_service import calculate_batch_pricing, get_batch_pricing_preview
 
+# Initialize logger for this module
+logger = logging.getLogger(__name__)
+
 # Add a helper function to safely check if a user has technician access
 def has_technician_access(user):
     """Helper function to check if a user has technician access through profile or admin privileges"""
@@ -159,9 +162,13 @@ def technician_dashboard(request):
             if repair.is_part_of_batch:
                 # Only add batch summary once (for the first repair in batch we encounter)
                 if repair.repair_batch_id not in batch_repairs_approved:
-                    batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
-                    if batch_summary:
-                        batch_repairs_approved[repair.repair_batch_id] = batch_summary
+                    try:
+                        batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
+                        if batch_summary:
+                            batch_repairs_approved[repair.repair_batch_id] = batch_summary
+                    except Exception as e:
+                        logger.error(f"Error getting batch summary for batch {repair.repair_batch_id}: {e}", exc_info=True)
+                        # Continue gracefully - don't show this batch but don't crash
             else:
                 individual_repairs_approved.append(repair)
 
@@ -183,14 +190,18 @@ def technician_dashboard(request):
             if repair.is_part_of_batch:
                 # Only add batch summary once
                 if repair.repair_batch_id not in batch_repairs_in_progress:
-                    batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
-                    if batch_summary:
-                        # Include batches that have any incomplete work (IN_PROGRESS or APPROVED)
-                        # This keeps the batch visible during the transition from starting to completing
-                        incomplete_count = batch_summary.get('in_progress_count', 0) + batch_summary.get('approved_count', 0)
-                        # Only show if NOT in recently approved section (avoid duplicates)
-                        if incomplete_count > 0 and repair.repair_batch_id not in batch_repairs_approved:
-                            batch_repairs_in_progress[repair.repair_batch_id] = batch_summary
+                    try:
+                        batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
+                        if batch_summary:
+                            # Include batches that have any incomplete work (IN_PROGRESS or APPROVED)
+                            # This keeps the batch visible during the transition from starting to completing
+                            incomplete_count = batch_summary.get('in_progress_count', 0) + batch_summary.get('approved_count', 0)
+                            # Only show if NOT in recently approved section (avoid duplicates)
+                            if incomplete_count > 0 and repair.repair_batch_id not in batch_repairs_approved:
+                                batch_repairs_in_progress[repair.repair_batch_id] = batch_summary
+                    except Exception as e:
+                        logger.error(f"Error getting batch summary for batch {repair.repair_batch_id}: {e}", exc_info=True)
+                        # Continue gracefully - don't show this batch but don't crash
             else:
                 # Individual repairs that are IN_PROGRESS (not APPROVED, those go in approved section)
                 if repair.queue_status == 'IN_PROGRESS':
@@ -215,11 +226,15 @@ def technician_dashboard(request):
             if repair.is_part_of_batch:
                 # Only add batch summary once
                 if repair.repair_batch_id not in batch_repairs_completed:
-                    batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
-                    if batch_summary:
-                        # Only show batches where ALL repairs are completed
-                        if batch_summary.get('completed_count', 0) == batch_summary.get('break_count', 0):
-                            batch_repairs_completed[repair.repair_batch_id] = batch_summary
+                    try:
+                        batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
+                        if batch_summary:
+                            # Only show batches where ALL repairs are completed
+                            if batch_summary.get('completed_count', 0) == batch_summary.get('break_count', 0):
+                                batch_repairs_completed[repair.repair_batch_id] = batch_summary
+                    except Exception as e:
+                        logger.error(f"Error getting batch summary for batch {repair.repair_batch_id}: {e}", exc_info=True)
+                        # Continue gracefully - don't show this batch but don't crash
             else:
                 # Individual completed repairs
                 individual_repairs_completed.append(repair)
@@ -510,17 +525,21 @@ def repair_detail(request, repair_id):
     batch_info = None
     next_break = None
     if repair.is_part_of_batch:
-        batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
-        if batch_summary:
-            batch_info = batch_summary
-            # Find the next break that needs work (not COMPLETED or DENIED)
-            # Sort by break_number to ensure correct ordering
-            incomplete_repairs = [
-                r for r in sorted(batch_summary['all_repairs'], key=lambda x: x.break_number or 0)
-                if r.queue_status not in ['COMPLETED', 'DENIED'] and r.id != repair.id
-            ]
-            if incomplete_repairs:
-                next_break = incomplete_repairs[0]  # Get the first incomplete break by break_number
+        try:
+            batch_summary = Repair.get_batch_summary(repair.repair_batch_id)
+            if batch_summary:
+                batch_info = batch_summary
+                # Find the next break that needs work (not COMPLETED or DENIED)
+                # Sort by break_number to ensure correct ordering
+                incomplete_repairs = [
+                    r for r in sorted(batch_summary['all_repairs'], key=lambda x: x.break_number or 0)
+                    if r.queue_status not in ['COMPLETED', 'DENIED'] and r.id != repair.id
+                ]
+                if incomplete_repairs:
+                    next_break = incomplete_repairs[0]  # Get the first incomplete break by break_number
+        except Exception as e:
+            logger.error(f"Error getting batch summary for repair {repair.id} in batch {repair.repair_batch_id}: {e}", exc_info=True)
+            # Continue without batch info - page will still render
 
     return render(request, 'technician_portal/repair_detail.html', {
         'repair': repair,

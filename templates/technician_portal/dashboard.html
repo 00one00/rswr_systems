@@ -314,7 +314,7 @@
                                     </span>
                                 </div>
                                 <div class="text-xs text-gray-600 mb-2">
-                                    {{ batch.customer.name }} • ${{ batch.total_cost|floatformat:2 }}
+                                    {{ batch.customer.name|default:"Unknown" }} • ${{ batch.total_cost|floatformat:2|default:"0.00" }}
                                 </div>
                                 <div class="w-full bg-gray-200 rounded-full h-1.5 mb-2">
                                     <div class="bg-orange-500 h-1.5 rounded-full" style="width: {{ batch.progress_percentage }}%"></div>
@@ -377,7 +377,7 @@
                                     </span>
                                 </div>
                                 <div class="text-xs text-gray-600 mb-2">
-                                    {{ batch.customer.name }} • ${{ batch.total_cost|floatformat:2 }}
+                                    {{ batch.customer.name|default:"Unknown" }} • ${{ batch.total_cost|floatformat:2|default:"0.00" }}
                                 </div>
                                 <div class="flex items-center gap-1">
                                     {% for repair in batch.all_repairs|slice:":5" %}
