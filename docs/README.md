@@ -31,6 +31,14 @@ Welcome to the comprehensive documentation for the RS Systems windshield repair 
 - User experience flows and API reference
 - Troubleshooting and future enhancements
 
+#### 🌍 [Timezone Handling Guide](development/TIMEZONE_HANDLING.md)
+**Multi-timezone support for distributed teams**
+- Browser-based timezone detection for datetime inputs
+- Server-side timezone configuration (Django)
+- Best practices for datetime handling across timezones
+- Testing procedures for timezone scenarios
+- Future enhancements for multi-location deployments
+
 #### 🛠️ [Developer Guide](DEVELOPER_GUIDE.md)
 **Technical implementation and system architecture**
 - System architecture deep dive
