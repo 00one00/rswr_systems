@@ -191,8 +191,7 @@ class RepairForm(forms.ModelForm):
             self.fields['cost_override'].widget = forms.HiddenInput()
             self.fields['override_reason'].widget = forms.HiddenInput()
         
-        # Auto-populate repair_date for all repairs (new and existing)
-        current_time = timezone.now()
+        # Auto-populate repair_date for existing repairs
         if self.instance and self.instance.pk:
             # This is an existing repair being edited - keep existing date
             # But ensure widget has proper format
@@ -201,11 +200,8 @@ class RepairForm(forms.ModelForm):
                 # Convert to local timezone for datetime-local input
                 local_time = timezone.localtime(self.instance.repair_date)
                 self.fields['repair_date'].widget.attrs['value'] = local_time.strftime('%Y-%m-%dT%H:%M')
-        else:
-            # This is a new repair - set initial date to current time
-            # Convert to local timezone for datetime-local input (browser expects local time, not UTC)
-            local_time = timezone.localtime(current_time)
-            self.fields['repair_date'].widget.attrs['value'] = local_time.strftime('%Y-%m-%dT%H:%M')
+        # For new repairs, JavaScript will set the current time in the user's browser timezone
+        # See static/js/repair_form.js lines 40-54 for client-side initialization
         
         # Make customer_notes read-only for technicians - they should not modify customer input
         if 'customer_notes' in self.fields:

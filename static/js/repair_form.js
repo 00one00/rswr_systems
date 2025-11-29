@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize autosave
     const autosave = new FormAutosave('repairForm', {
         saveDelay: 2000,
-        excludeFields: ['csrfmiddlewaretoken', 'damage_photo_before', 'damage_photo_after', 'customer_submitted_photo'],
+        excludeFields: ['csrfmiddlewaretoken', 'damage_photo_before', 'damage_photo_after', 'customer_submitted_photo', 'repair_date'],
         showIndicator: true,
         confirmRestore: true,
         onRestore: (data) => {
@@ -40,17 +40,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // ================ REPAIR DATE INITIALIZATION ================
     // Set repair date to current time in user's local timezone
     // This ensures technicians see the correct local time regardless of server timezone
+    // Note: We always set the current time for new repairs (no check for existing value)
+    // Existing repairs will have their value set by Django backend (forms.py)
     const repairDateInput = document.getElementById('id_repair_date');
-    if (repairDateInput && !repairDateInput.value) {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
-        repairDateInput.value = dateTimeString;
-        console.log(`Repair date initialized to user's local time: ${dateTimeString}`);
+    if (repairDateInput) {
+        // Only set if field is empty (new repair form)
+        // For existing repairs, Django will have already set the value
+        if (!repairDateInput.value) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
+            repairDateInput.value = dateTimeString;
+            console.log(`Repair date initialized to user's local time: ${dateTimeString}`);
+        }
     }
 
     // ================ PHOTO REQUIREMENT WARNING ================
