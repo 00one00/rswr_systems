@@ -16,4 +16,8 @@ chown -R webapp:webapp /var/app/current/media
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 
+# Setup notification templates (safe to run multiple times)
+echo "Setting up notification templates..."
+python manage.py setup_notification_templates || echo "Warning: setup_notification_templates failed or not needed"
+
 echo "Django setup completed"
