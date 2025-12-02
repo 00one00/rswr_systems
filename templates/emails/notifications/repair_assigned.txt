@@ -1,0 +1,48 @@
+================================================
+{{ branding.company_name }}
+📋 NEW REPAIR ASSIGNMENT
+================================================
+
+You've been assigned to a new windshield repair. Please review the details below.
+
+================================================
+REPAIR #{{ repair.id }}
+Unit {{ repair.unit_number }}
+================================================
+
+{% if repair.customer %}CUSTOMER:           {{ repair.customer.company_name }}
+
+{% endif %}BREAK DESCRIPTION:  {{ repair.break_description }}
+
+REQUESTED DATE:     {{ repair.requested_repair_date|date:"M d, Y" }}
+
+REPAIR COST:        ${{ repair.total_cost }}
+
+{% if repair.damage_photo_before %}================================================
+DAMAGE PHOTO
+================================================
+
+View damage photo at: {{ repair.damage_photo_before.url }}
+
+{% endif %}================================================
+VIEW FULL DETAILS & START REPAIR
+================================================
+
+{{ view_repair_url }}
+
+================================================
+⏰ ACTION REQUIRED
+================================================
+
+Please review this repair assignment and update the status once you begin work. The customer is waiting for your update.
+
+================================================
+
+{{ branding.footer_text }}
+
+Manage notification preferences:
+{{ unsubscribe_url }}
+
+{{ branding.company_name }}
+{% if branding.company_address %}{{ branding.company_address }}
+{% endif %}{% if branding.website_url %}{{ branding.website_url }}{% endif %}

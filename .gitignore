@@ -30,6 +30,11 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Celery
+celerybeat-schedule
+celerybeat-schedule.db
+celerybeat.pid
+
 # Media files (user-uploaded content - photos, documents, etc.)
 # These should be stored in cloud storage (S3) for production
 media/
@@ -77,6 +82,7 @@ SECURITY_DEPLOYMENT_GUIDE.md
 DEPLOYMENT_GUIDE.md
 DOMAIN_SSL_SETUP.md
 HTTPS_SETUP_GUIDE.md
+docs/deployment/NOTIFICATION_NEXT_STEPS.md
 
 # Misc.
 CLAUDE.md

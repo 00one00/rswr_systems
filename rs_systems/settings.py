@@ -203,7 +203,7 @@ INSTALLED_APPS = [
     'apps.queue_management',
     'apps.scheduling',
     'apps.security',
-    'core',
+    'core',  # Core app (includes Customer model and notification system)
     'drf_spectacular',
     'django_cleanup.apps.CleanupConfig',  # Must be last - automatically deletes files when models are deleted
 ]
@@ -304,6 +304,89 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # =========================================
+# EMAIL CONFIGURATION
+# =========================================
+
+# Development: Email backend (prints to console for testing)
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Console backend (for development without SES)
+
+# AWS SES SMTP Backend (enabled for notification system)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('AWS_SES_HOST', 'email-smtp.us-east-1.amazonaws.com')
+EMAIL_PORT = int(os.environ.get('AWS_SES_PORT', 587))
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get('AWS_SES_SMTP_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('AWS_SES_SMTP_PASSWORD')
+
+# Email sender information
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@rssystems.com')
+DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME', 'RS Systems')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL  # For error emails
+
+# =========================================
+# SMS CONFIGURATION (AWS SNS)
+# =========================================
+
+# AWS SNS Configuration (for test_sns command)
+# In development, these are only used if you configure AWS SNS
+AWS_SNS_REGION_NAME = os.environ.get('AWS_SNS_REGION', 'us-east-1')
+SMS_ENABLED = os.environ.get('SMS_ENABLED', 'False').lower() == 'true'
+
+# =========================================
+# CELERY CONFIGURATION
+# =========================================
+
+# Celery broker and result backend (Redis)
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+
+# Celery serialization settings
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+# Timezone configuration (match Django timezone)
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+
+# Task routing (send notification tasks to specific queue)
+CELERY_TASK_ROUTES = {
+    'apps.core.tasks.send_notification_email': {'queue': 'notifications'},
+    'apps.core.tasks.send_notification_sms': {'queue': 'notifications'},
+    'apps.core.tasks.retry_failed_notifications': {'queue': 'notifications'},
+    'apps.core.tasks.send_daily_digests': {'queue': 'notifications'},
+    'apps.core.tasks.cleanup_old_delivery_logs': {'queue': 'maintenance'},
+}
+
+# Task time limits (prevent hanging tasks)
+CELERY_TASK_TIME_LIMIT = 300  # 5 minutes hard limit
+CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutes soft limit (raises SoftTimeLimitExceeded)
+
+# Retry configuration
+CELERY_TASK_ACKS_LATE = True  # Tasks acknowledged after completion (safer for critical tasks)
+CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Requeue if worker crashes
+
+# Worker concurrency (number of worker processes)
+CELERY_WORKER_CONCURRENCY = int(os.environ.get('CELERY_CONCURRENCY', 4))
+
+# Development: Uncomment to run tasks synchronously for easier debugging
+# CELERY_TASK_ALWAYS_EAGER = True
+# CELERY_TASK_EAGER_PROPAGATES = True
+
+# =========================================
+# CACHING CONFIGURATION (Redis)
+# =========================================
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.environ.get('REDIS_CACHE_URL', 'redis://localhost:6379/1'),
+        'KEY_PREFIX': 'rs_systems',
+        'TIMEOUT': 300,  # 5 minutes default timeout
+    }
+}
+
+# =========================================
 # LOGGING CONFIGURATION
 # =========================================
 
@@ -330,6 +413,11 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'celery': {
+            'handlers': ['console'],
+            'level': 'INFO',
             'propagate': False,
         },
     },

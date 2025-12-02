@@ -1,3 +1,1 @@
-# This file is intentionally empty to make the directory a Python package.
-
-# Commands package
+# Core management commands

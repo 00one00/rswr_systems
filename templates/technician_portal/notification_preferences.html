@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    .form-check-input:checked {
+        background-color: #16a34a;
+        border-color: #16a34a;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Notification Preferences</h1>
+                    <p class="text-gray-600 mt-1">Manage how and when you receive notifications</p>
+                </div>
+                <a href="{% url 'technician_dashboard' %}" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Contact Verification Status -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h5 class="font-semibold text-blue-900 mb-3 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Contact Verification
+            </h5>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <strong class="text-gray-700">Email:</strong>
+                        <span class="text-gray-600">{{ user.email }}</span>
+                    </div>
+                    {% if technician.email_verified %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            Verified
+                        </span>
+                    {% else %}
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Not Verified
+                            </span>
+                            <a href="{% url 'verify_email' %}" class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                                Verify Email
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <strong class="text-gray-700">Phone:</strong>
+                        <span class="text-gray-600">{{ technician.phone_number|default:"Not provided" }}</span>
+                    </div>
+                    {% if technician.phone_verified %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            Verified
+                        </span>
+                    {% elif technician.phone_number %}
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Not Verified
+                            </span>
+                            <a href="{% url 'verify_phone' %}" class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                                Verify Phone
+                            </a>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'technician_profile' %}" class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700">
+                            Add Phone Number
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Preferences Form -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <form method="post" id="preferences-form">
+                {% csrf_token %}
+
+                <!-- Delivery Channels -->
+                <div class="px-6 py-5 border-b border-gray-200">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-1">Delivery Channels</h4>
+                    <p class="text-sm text-gray-600 mb-4">Choose how you want to receive notifications</p>
+
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.receive_in_app_notifications }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.receive_in_app_notifications.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    In-App Notifications
+                                </label>
+                                <p class="text-sm text-gray-500">Show notifications in the dashboard (always enabled for urgent notifications)</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.receive_email_notifications }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.receive_email_notifications.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    Email Notifications
+                                </label>
+                                <p class="text-sm text-gray-500">Receive medium-priority notifications via email</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.receive_sms_notifications }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.receive_sms_notifications.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    SMS Notifications
+                                </label>
+                                <p class="text-sm text-gray-500">{{ form.receive_sms_notifications.help_text }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Preferences -->
+                <div class="px-6 py-5 border-b border-gray-200">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-1">Notification Categories</h4>
+                    <p class="text-sm text-gray-600 mb-4">Choose which types of notifications you want to receive</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.notify_new_assignments }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.notify_new_assignments.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    New Assignments
+                                </label>
+                                <p class="text-sm text-gray-500">When you're assigned new repairs</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.notify_reassignments }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.notify_reassignments.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    Reassignments
+                                </label>
+                                <p class="text-sm text-gray-500">When repairs are reassigned away from you</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.notify_customer_approvals }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.notify_customer_approvals.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    Customer Approvals/Denials
+                                </label>
+                                <p class="text-sm text-gray-500">When customers approve or deny your repairs (always urgent)</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.notify_repair_status }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.notify_repair_status.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    Repair Status Changes
+                                </label>
+                                <p class="text-sm text-gray-500">Updates on repair progress</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.notify_reward_redemptions }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.notify_reward_redemptions.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    Reward Redemptions
+                                </label>
+                                <p class="text-sm text-gray-500">When rewards are available or redeemed</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.notify_system }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.notify_system.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    System Announcements
+                                </label>
+                                <p class="text-sm text-gray-500">Important system updates and announcements</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quiet Hours -->
+                <div class="px-6 py-5 border-b border-gray-200">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-1">Quiet Hours</h4>
+                    <p class="text-sm text-gray-600 mb-4">Pause non-urgent notifications during specified hours</p>
+
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.quiet_hours_enabled }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.quiet_hours_enabled.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    Enable Quiet Hours
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="quiet-hours-settings" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="display: {% if form.quiet_hours_enabled.value %}block{% else %}none{% endif %};">
+                            <div>
+                                <label for="{{ form.quiet_hours_start.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                                {{ form.quiet_hours_start }}
+                            </div>
+                            <div>
+                                <label for="{{ form.quiet_hours_end.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                                {{ form.quiet_hours_end }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily Digest -->
+                <div class="px-6 py-5 border-b border-gray-200">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-1">Daily Digest</h4>
+                    <p class="text-sm text-gray-600 mb-4">Receive one daily summary email instead of individual notifications</p>
+
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                {{ form.digest_enabled }}
+                            </div>
+                            <div class="ml-3">
+                                <label for="{{ form.digest_enabled.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                                    Enable Daily Digest
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="digest-settings" style="display: {% if form.digest_enabled.value %}block{% else %}none{% endif %};">
+                            <label for="{{ form.digest_time.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Digest Time</label>
+                            {{ form.digest_time }}
+                            <p class="mt-1 text-sm text-gray-500">Time to receive daily notification summary</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="px-6 py-4 bg-gray-50 flex items-center justify-between">
+                    <a href="{% url 'technician_dashboard' %}" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Cancel
+                    </a>
+                    <button type="submit" class="px-6 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        Save Preferences
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Notification Statistics -->
+        <div class="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h4 class="text-lg font-semibold text-gray-900">Notification Statistics</h4>
+            </div>
+            <div class="px-6 py-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                    <div>
+                        <h3 class="text-3xl font-bold text-blue-600">{{ unread_count }}</h3>
+                        <p class="text-gray-600 mt-1">Unread Notifications</p>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-bold text-gray-600">{{ total_notifications }}</h3>
+                        <p class="text-gray-600 mt-1">Total Notifications</p>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <a href="{% url 'notification_history' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700">
+                            View Notification History
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show/hide quiet hours settings
+document.getElementById('{{ form.quiet_hours_enabled.id_for_label }}').addEventListener('change', function() {
+    document.getElementById('quiet-hours-settings').style.display = this.checked ? 'block' : 'none';
+});
+
+// Show/hide digest settings
+document.getElementById('{{ form.digest_enabled.id_for_label }}').addEventListener('change', function() {
+    document.getElementById('digest-settings').style.display = this.checked ? 'block' : 'none';
+});
+</script>
+{% endblock %}

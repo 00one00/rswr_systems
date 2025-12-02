@@ -8,6 +8,7 @@ import logging
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from .models import Technician, Repair, Customer, UnitRepairCount
+from core.models import TechnicianNotificationPreference
 from django.utils import timezone
 from django.forms.widgets import DateTimeInput
 from django.db import transaction
@@ -337,5 +338,75 @@ class RepairForm(forms.ModelForm):
                         ),
                         code='existing_repair'
                     )
+
+        return cleaned_data
+
+
+class TechnicianNotificationPreferenceForm(forms.ModelForm):
+    """
+    Form for technician notification preferences.
+
+    Groups settings into logical sections with helpful descriptions.
+    """
+
+    class Meta:
+        model = TechnicianNotificationPreference
+        fields = [
+            # Global preferences
+            'receive_email_notifications',
+            'receive_sms_notifications',
+            'receive_in_app_notifications',
+
+            # Category preferences
+            'notify_repair_status',
+            'notify_new_assignments',
+            'notify_reassignments',
+            'notify_customer_approvals',
+            'notify_reward_redemptions',
+            'notify_system',
+
+            # Quiet hours
+            'quiet_hours_enabled',
+            'quiet_hours_start',
+            'quiet_hours_end',
+
+            # Digest mode
+            'digest_enabled',
+            'digest_time',
+        ]
+
+        widgets = {
+            'quiet_hours_start': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+            'quiet_hours_end': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+            'digest_time': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+        }
+
+        help_texts = {
+            'receive_sms_notifications': 'Receive high-priority notifications via text message (standard SMS rates may apply)',
+            'quiet_hours_enabled': 'Pause non-urgent notifications during specified hours',
+            'digest_enabled': 'Receive one daily email summary instead of individual notifications',
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Validate quiet hours
+        quiet_enabled = cleaned_data.get('quiet_hours_enabled')
+        quiet_start = cleaned_data.get('quiet_hours_start')
+        quiet_end = cleaned_data.get('quiet_hours_end')
+
+        if quiet_enabled and (not quiet_start or not quiet_end):
+            raise forms.ValidationError(
+                "Quiet hours start and end times are required when quiet hours are enabled."
+            )
+
+        # Validate digest settings
+        digest_enabled = cleaned_data.get('digest_enabled')
+        digest_time = cleaned_data.get('digest_time')
+
+        if digest_enabled and not digest_time:
+            raise forms.ValidationError(
+                "Digest time is required when daily digest is enabled."
+            )
 
         return cleaned_data

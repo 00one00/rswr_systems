@@ -3,14 +3,34 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from django.core.validators import FileExtensionValidator
+from django.core.validators import FileExtensionValidator, RegexValidator
 from decimal import Decimal
 from core.models import Customer
 
 class Technician(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    phone_number = models.CharField(max_length=15, blank=True)
+    phone_number = models.CharField(
+        max_length=20,
+        blank=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\+?1?\d{9,15}$',
+                message="Phone number must be entered in format: '+999999999'. Up to 15 digits allowed."
+            )
+        ],
+        help_text="Contact phone number in E.164 format (e.g., +12025551234)"
+    )
     expertise = models.CharField(max_length=100, blank=True)
+
+    # Contact verification fields (added for notification system)
+    email_verified = models.BooleanField(
+        default=False,
+        help_text="Whether email address has been verified"
+    )
+    phone_verified = models.BooleanField(
+        default=False,
+        help_text="Whether phone number has been verified"
+    )
 
     # Dual Role Support
     is_manager = models.BooleanField(

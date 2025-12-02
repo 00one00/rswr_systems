@@ -47,9 +47,15 @@
 <div class="min-h-screen bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Welcome Header -->
-        <div class="mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Welcome, {{ technician.user.first_name|default:request.user.first_name }}</h1>
-            <p class="text-gray-600 mt-1">Manage repairs and track your work efficiently</p>
+        <div class="mb-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Welcome, {{ technician.user.first_name|default:request.user.first_name }}</h1>
+                <p class="text-gray-600 mt-1">Manage repairs and track your work efficiently</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <!-- Notification Bell -->
+                {% include "technician_portal/includes/notification_bell.html" %}
+            </div>
         </div>
 
         <!-- Quick Actions + Work Summary - TOP PRIORITY SECTION -->

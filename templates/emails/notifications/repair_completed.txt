@@ -1,0 +1,52 @@
+================================================
+{{ branding.company_name }}
+✓ REPAIR COMPLETED
+================================================
+
+Great news! Your windshield has been repaired and is ready to return to service.
+
+================================================
+REPAIR SUMMARY
+================================================
+
+Repair ID:          #{{ repair.id }}
+Unit Number:        {{ repair.unit_number }}
+{% if repair.customer %}Company:            {{ repair.customer.company_name }}
+{% endif %}{% if repair.assigned_technician %}Technician:         {{ repair.assigned_technician.get_full_name }}
+{% endif %}Completed On:       {{ repair.actual_repair_date|date:"M d, Y" }}
+Total Cost:         ${{ repair.total_cost }}
+
+{% if repair.damage_photo_before or repair.damage_photo_after %}================================================
+REPAIR DOCUMENTATION
+================================================
+
+{% if repair.damage_photo_before %}Before Photo: {{ repair.damage_photo_before.url }}
+{% endif %}{% if repair.damage_photo_after %}After Photo:  {{ repair.damage_photo_after.url }}
+{% endif %}
+{% endif %}================================================
+VIEW COMPLETE DETAILS
+================================================
+
+{{ view_repair_url }}
+
+================================================
+THANK YOU
+================================================
+
+Thank you for choosing {{ branding.company_name }}!
+
+If you have any questions about this repair or need additional service, please don't hesitate to reach out.
+
+{% if branding.support_email %}Email: {{ branding.support_email }}
+{% endif %}{% if branding.support_phone %}Phone: {{ branding.support_phone }}
+{% endif %}
+================================================
+
+{{ branding.footer_text }}
+
+Manage notification preferences:
+{{ unsubscribe_url }}
+
+{{ branding.company_name }}
+{% if branding.company_address %}{{ branding.company_address }}
+{% endif %}{% if branding.website_url %}{{ branding.website_url }}{% endif %}

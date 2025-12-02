@@ -1,23 +1,20 @@
-from django.db import models
+# Backward compatibility - import all models from the models package
+from core.models.customer import Customer
+from core.models.notification import Notification
+from core.models.notification_preferences import (
+    BaseNotificationPreference,
+    TechnicianNotificationPreference,
+    CustomerNotificationPreference
+)
+from core.models.notification_template import NotificationTemplate
+from core.models.notification_delivery_log import NotificationDeliveryLog
 
-# Create your models here.
-class Customer(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    email = models.EmailField(unique=True, null=True, blank=True)
-    phone = models.CharField(max_length=100, null=True, blank=True)
-    address = models.TextField(null=True, blank=True)
-    city = models.CharField(max_length=100, null=True, blank=True)
-    state = models.CharField(max_length=100, null=True, blank=True)
-    zip_code = models.CharField(max_length=100, null=True, blank=True)
-    
-    class Meta:
-        ordering = ['name']
-        verbose_name = 'Customer'
-        verbose_name_plural = 'Customers'
-    
-    def __str__(self):
-        return self.name
-
-    def save(self, *args, **kwargs):
-        self.name = self.name.lower()
-        super().save(*args, **kwargs)
+__all__ = [
+    'Customer',
+    'Notification',
+    'BaseNotificationPreference',
+    'TechnicianNotificationPreference',
+    'CustomerNotificationPreference',
+    'NotificationTemplate',
+    'NotificationDeliveryLog',
+]

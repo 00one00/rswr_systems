@@ -1,0 +1,61 @@
+================================================
+{{ branding.company_name }}
+✓ BATCH REPAIRS APPROVED
+================================================
+
+Good news! We've approved {{ repairs_count }} windshield repair{% if repairs_count > 1 %}s{% endif %} for unit {{ unit_number }}.
+
+================================================
+BATCH SUMMARY
+================================================
+
+Unit Number:        {{ unit_number }}
+Total Breaks:       {{ repairs_count }}
+Total Cost:         ${{ total_cost }}
+
+================================================
+APPROVED REPAIRS
+================================================
+{% for repair in repairs %}
+--- BREAK #{{ forloop.counter }} ---
+Repair ID:          #{{ repair.id }}
+Description:        {{ repair.break_description }}
+Cost:               ${{ repair.total_cost }}
+
+{% endfor %}{% if pricing_note %}================================================
+💡 PRICING NOTE
+================================================
+
+{{ pricing_note }}
+
+{% endif %}================================================
+WHAT HAPPENS NEXT?
+================================================
+
+1. A technician will be assigned to your repairs
+2. All breaks will be repaired during the same visit
+3. You'll receive updates as work progresses
+
+================================================
+VIEW ALL REPAIR DETAILS
+================================================
+
+{{ view_repairs_url }}
+
+================================================
+QUESTIONS?
+================================================
+
+{% if branding.support_email %}Email: {{ branding.support_email }}
+{% endif %}{% if branding.support_phone %}Phone: {{ branding.support_phone }}
+{% endif %}
+================================================
+
+{{ branding.footer_text }}
+
+Manage notification preferences:
+{{ unsubscribe_url }}
+
+{{ branding.company_name }}
+{% if branding.company_address %}{{ branding.company_address }}
+{% endif %}{% if branding.website_url %}{{ branding.website_url }}{% endif %}

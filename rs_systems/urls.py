@@ -20,6 +20,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from . import views
+from core.views import preview_email_template
 
 urlpatterns = [
     path('', views.home, name='home'),  
@@ -36,6 +37,7 @@ urlpatterns = [
     
     # Admin and authentication
     path('admin/register-technician/', views.register_technician, name='register_technician'),
+    path('admin/email-preview/<str:template_name>/', preview_email_template, name='email_preview'),
     path('admin/', admin.site.urls),
     
     # Customer portal (primary users)

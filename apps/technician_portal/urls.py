@@ -38,7 +38,17 @@ urlpatterns = [
     
     # Rewards and notifications
     path('reward-fulfillment/<int:redemption_id>/', views.reward_fulfillment_detail, name='reward_fulfillment_detail'),
-    path('notification/<int:notification_id>/mark-read/', views.mark_notification_read, name='mark_notification_read'),
+
+    # Notification Management (Phase 5)
+    path('notifications/preferences/', views.notification_preferences, name='notification_preferences'),
+    path('notifications/history/', views.notification_history, name='notification_history'),
+    path('notifications/<int:notification_id>/mark-read/', views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/mark-all-read/', views.mark_all_read, name='mark_all_read'),
+    path('notifications/unread-count/', views.get_unread_count, name='get_unread_count'),
+    path('verify-email/', views.verify_email, name='verify_email'),
+    path('verify-phone/', views.verify_phone, name='verify_phone'),
+    path('verify-email/<str:uidb64>/<str:token>/', views.confirm_email_verification, name='confirm_email_verification'),
+    path('verify-phone/confirm/', views.confirm_phone_verification, name='confirm_phone_verification'),
 
     # Manager Settings
     path('settings/', views.manager_settings_dashboard, name='manager_settings_dashboard'),

@@ -3,8 +3,8 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from .models import Technician, Repair, UnitRepairCount, TechnicianNotification
-from core.models import Customer
-from .forms import TechnicianForm, RepairForm, CustomerForm, TechnicianRegistrationForm
+from core.models import Customer, Notification, TechnicianNotificationPreference
+from .forms import TechnicianForm, RepairForm, CustomerForm, TechnicianRegistrationForm, TechnicianNotificationPreferenceForm
 from django.db.models import Count, F, Q
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
@@ -17,6 +17,8 @@ from decimal import Decimal, InvalidOperation
 from apps.customer_portal.models import RepairApproval, CustomerUser, CustomerRepairPreference
 from apps.rewards_referrals.models import RewardRedemption
 from apps.rewards_referrals.services import RewardFulfillmentService
+from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
 import logging
 import uuid
 from django.core.paginator import Paginator
@@ -291,12 +293,30 @@ def technician_dashboard(request):
             'pending_redemptions': RewardRedemption.objects.filter(status='PENDING').count()
         }
     
+    # Get notification bell data
+    if technician:
+        technician_ct = ContentType.objects.get_for_model(Technician)
+        unread_count = Notification.objects.filter(
+            recipient_type=technician_ct,
+            recipient_id=technician.id,
+            read=False
+        ).count()
+        recent_notifications = Notification.objects.filter(
+            recipient_type=technician_ct,
+            recipient_id=technician.id
+        ).order_by('-created_at')[:5]
+    else:
+        unread_count = 0
+        recent_notifications = []
+
     return render(request, 'technician_portal/dashboard.html', {
         'technician': technician,
         'customer_requested_repairs': customer_requested_repairs,
         'assigned_redemptions': assigned_redemptions,
         'all_pending_redemptions': all_pending_redemptions,
         'unread_notifications': unread_notifications,
+        'unread_count': unread_count,
+        'recent_notifications': recent_notifications,
         'batch_repairs_approved': batch_repairs_approved.values() if batch_repairs_approved else [],
         'individual_repairs_approved': individual_repairs_approved,
         'batch_repairs_in_progress': batch_repairs_in_progress.values() if batch_repairs_in_progress else [],
@@ -2353,3 +2373,392 @@ def team_overview(request):
     }
 
     return render(request, 'technician_portal/settings/team_overview.html', context)
+
+
+# ============================================================================
+# NOTIFICATION MANAGEMENT VIEWS (Phase 5)
+# ============================================================================
+
+@login_required
+def notification_preferences(request):
+    """
+    Technician notification preferences management page.
+
+    Allows technicians to:
+    - Enable/disable notification channels (email, SMS, in-app)
+    - Configure quiet hours
+    - Set category preferences
+    - Verify contact information
+    - Enable daily digest mode
+    """
+
+    try:
+        technician = request.user.technician
+    except Technician.DoesNotExist:
+        messages.error(request, "Technician profile not found.")
+        return redirect('technician_dashboard')
+
+    # Get or create preferences
+    preferences, created = TechnicianNotificationPreference.objects.get_or_create(
+        technician=technician
+    )
+
+    if request.method == 'POST':
+        form = TechnicianNotificationPreferenceForm(request.POST, instance=preferences)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Notification preferences updated successfully!")
+            return redirect('notification_preferences')
+    else:
+        form = TechnicianNotificationPreferenceForm(instance=preferences)
+
+    # Get notification statistics
+    technician_ct = ContentType.objects.get_for_model(Technician)
+    unread_count = Notification.objects.filter(
+        recipient_type=technician_ct,
+        recipient_id=technician.id,
+        read=False
+    ).count()
+
+    total_notifications = Notification.objects.filter(
+        recipient_type=technician_ct,
+        recipient_id=technician.id
+    ).count()
+
+    context = {
+        'form': form,
+        'preferences': preferences,
+        'technician': technician,
+        'unread_count': unread_count,
+        'total_notifications': total_notifications,
+    }
+
+    return render(request, 'technician_portal/notification_preferences.html', context)
+
+
+@login_required
+def notification_history(request):
+    """
+    View all notifications for technician.
+
+    Paginated list with filters (read/unread, category, date range).
+    """
+    try:
+        technician = request.user.technician
+    except Technician.DoesNotExist:
+        messages.error(request, "Technician profile not found.")
+        return redirect('technician_dashboard')
+
+    technician_ct = ContentType.objects.get_for_model(Technician)
+
+    # Get notifications with optimized query (avoid N+1 queries)
+    notifications = Notification.objects.filter(
+        recipient_type=technician_ct,
+        recipient_id=technician.id
+    ).select_related(
+        'repair',
+        'customer',
+        'template'
+    ).order_by('-created_at')
+
+    # Filters
+    show_read = request.GET.get('show_read', 'false') == 'true'
+    category = request.GET.get('category', '')
+
+    if not show_read:
+        notifications = notifications.filter(read=False)
+
+    if category:
+        notifications = notifications.filter(category=category)
+
+    # Pagination
+    paginator = Paginator(notifications, 25)  # 25 per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'notifications': page_obj,
+        'show_read': show_read,
+        'category': category,
+        'categories': Notification.CATEGORY_CHOICES,
+        'technician': technician,
+    }
+
+    return render(request, 'technician_portal/notification_history.html', context)
+
+
+@login_required
+def mark_notification_read(request, notification_id):
+    """Mark single notification as read"""
+    try:
+        technician = request.user.technician
+        technician_ct = ContentType.objects.get_for_model(Technician)
+
+        notification = Notification.objects.get(
+            id=notification_id,
+            recipient_type=technician_ct,
+            recipient_id=technician.id
+        )
+
+        notification.mark_as_read()
+        return JsonResponse({'success': True})
+
+    except Notification.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error marking notification as read: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def mark_all_read(request):
+    """Mark all notifications as read for technician"""
+    try:
+        technician = request.user.technician
+        technician_ct = ContentType.objects.get_for_model(Technician)
+
+        updated = Notification.objects.filter(
+            recipient_type=technician_ct,
+            recipient_id=technician.id,
+            read=False
+        ).update(read=True, read_at=timezone.now())
+
+        return JsonResponse({'success': True, 'count': updated})
+
+    except Exception as e:
+        logger.error(f"Error marking all notifications as read: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def get_unread_count(request):
+    """
+    AJAX endpoint for notification bell polling.
+
+    Implements caching to reduce database queries (Phase 6 optimization).
+    Cache TTL: 2 minutes (frequent polling requires shorter TTL).
+    """
+    try:
+        technician = request.user.technician
+        technician_ct = ContentType.objects.get_for_model(Technician)
+
+        # Cache key for unread count
+        cache_key = f'notif_unread_count:tech:{technician.id}'
+
+        # Try to get from cache first
+        cached_data = cache.get(cache_key)
+
+        if cached_data is not None:
+            # Cache hit - return cached data
+            return JsonResponse(cached_data)
+
+        # Cache miss - query database
+        count = Notification.objects.filter(
+            recipient_type=technician_ct,
+            recipient_id=technician.id,
+            read=False
+        ).count()
+
+        # Also get recent notifications for dropdown
+        recent_notifications = Notification.objects.filter(
+            recipient_type=technician_ct,
+            recipient_id=technician.id
+        ).select_related('template').order_by('-created_at')[:5]
+
+        notifications_data = [{
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'created_at': n.created_at.isoformat(),
+            'read': n.read,
+            'action_url': n.action_url or '#',
+        } for n in recent_notifications]
+
+        response_data = {
+            'success': True,
+            'count': count,
+            'notifications': notifications_data
+        }
+
+        # Cache for 2 minutes (120 seconds)
+        # Note: Cache is invalidated by signals when notifications are created/updated
+        cache.set(cache_key, response_data, timeout=120)
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        logger.error(f"Error getting unread count: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def verify_email(request):
+    """
+    Send email verification link to technician.
+
+    Sends verification email with unique token.
+    """
+    try:
+        technician = request.user.technician
+        preferences = technician.notification_preferences
+    except (Technician.DoesNotExist, TechnicianNotificationPreference.DoesNotExist):
+        messages.error(request, "Unable to verify email.")
+        return redirect('notification_preferences')
+
+    # Generate verification token
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.http import urlsafe_base64_encode
+    from django.utils.encoding import force_bytes
+
+    token = default_token_generator.make_token(request.user)
+    uid = urlsafe_base64_encode(force_bytes(request.user.pk))
+
+    # Build verification URL
+    verification_url = request.build_absolute_uri(
+        reverse('confirm_email_verification', kwargs={'uidb64': uid, 'token': token})
+    )
+
+    # Send verification email
+    from django.core.mail import send_mail
+    from django.conf import settings
+
+    try:
+        send_mail(
+            subject='Verify your email address - RS Systems',
+            message=f'Click this link to verify your email address: {verification_url}',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[request.user.email],
+            fail_silently=False,
+        )
+        messages.success(request, f"Verification email sent to {request.user.email}")
+    except Exception as e:
+        logger.error(f"Failed to send verification email: {str(e)}")
+        messages.error(request, "Failed to send verification email. Please try again later.")
+
+    return redirect('notification_preferences')
+
+
+@login_required
+def verify_phone(request):
+    """
+    Send SMS verification code to technician.
+
+    Sends 6-digit verification code via SMS.
+    """
+    try:
+        technician = request.user.technician
+        preferences = technician.notification_preferences
+    except (Technician.DoesNotExist, TechnicianNotificationPreference.DoesNotExist):
+        messages.error(request, "Unable to verify phone.")
+        return redirect('notification_preferences')
+
+    if not technician.phone_number:
+        messages.error(request, "Please add a phone number first.")
+        return redirect('notification_preferences')
+
+    # Generate 6-digit code
+    import random
+    code = f"{random.randint(100000, 999999)}"
+
+    # Store code in session
+    request.session['phone_verification_code'] = code
+    request.session['phone_verification_number'] = technician.phone_number
+    request.session['phone_verification_expires'] = (timezone.now() + timedelta(minutes=10)).isoformat()
+
+    # Send verification SMS
+    from core.services.sms_service import SMSService
+    message = f"Your RS Systems verification code is: {code}. This code expires in 10 minutes."
+
+    try:
+        # Use SMS service if configured
+        from django.conf import settings
+        if hasattr(settings, 'SMS_ENABLED') and settings.SMS_ENABLED:
+            SMSService.send_sms(
+                phone_number=technician.phone_number,
+                message=message
+            )
+            messages.success(request, f"Verification code sent to {technician.phone_number}")
+        else:
+            # Development mode - show code in message
+            messages.info(request, f"Development mode: Your verification code is {code}")
+    except Exception as e:
+        logger.error(f"Failed to send SMS verification: {str(e)}")
+        messages.error(request, "Failed to send verification code. Please try again later.")
+
+    return redirect('notification_preferences')
+
+
+@login_required
+def confirm_email_verification(request, uidb64, token):
+    """Process email verification token"""
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.http import urlsafe_base64_decode
+    from django.contrib.auth.models import User
+
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        try:
+            technician = user.technician
+            technician.email_verified = True
+            technician.email_verified_at = timezone.now()
+            technician.save()
+            messages.success(request, "Email verified successfully!")
+        except Technician.DoesNotExist:
+            messages.error(request, "Technician profile not found.")
+    else:
+        messages.error(request, "Invalid or expired verification link.")
+
+    return redirect('notification_preferences')
+
+
+@login_required
+def confirm_phone_verification(request):
+    """Process phone verification code"""
+    if request.method == 'POST':
+        code = request.POST.get('code', '').strip()
+        stored_code = request.session.get('phone_verification_code')
+        stored_number = request.session.get('phone_verification_number')
+        expires_str = request.session.get('phone_verification_expires')
+
+        if not all([stored_code, stored_number, expires_str]):
+            messages.error(request, "No verification code found. Please request a new code.")
+            return redirect('notification_preferences')
+
+        # Check expiration
+        from dateutil import parser
+        expires = parser.isoparse(expires_str)
+        if timezone.now() > expires:
+            messages.error(request, "Verification code has expired. Please request a new code.")
+            # Clean up session
+            request.session.pop('phone_verification_code', None)
+            request.session.pop('phone_verification_number', None)
+            request.session.pop('phone_verification_expires', None)
+            return redirect('notification_preferences')
+
+        # Verify code
+        if code == stored_code:
+            try:
+                technician = request.user.technician
+                if technician.phone_number == stored_number:
+                    technician.phone_verified = True
+                    technician.phone_verified_at = timezone.now()
+                    technician.save()
+                    messages.success(request, "Phone number verified successfully!")
+
+                    # Clean up session
+                    request.session.pop('phone_verification_code', None)
+                    request.session.pop('phone_verification_number', None)
+                    request.session.pop('phone_verification_expires', None)
+                else:
+                    messages.error(request, "Phone number has changed. Please request a new verification code.")
+            except Technician.DoesNotExist:
+                messages.error(request, "Technician profile not found.")
+        else:
+            messages.error(request, "Invalid verification code. Please try again.")
+
+    return redirect('notification_preferences')

@@ -241,6 +241,129 @@ else:
     MEDIA_URL = '/media/'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# =========================================
+# EMAIL CONFIGURATION (AWS SES)
+# =========================================
+
+# Production: AWS SES SMTP Backend
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+# SES SMTP Settings
+EMAIL_HOST = os.environ.get('AWS_SES_HOST', 'email-smtp.us-east-1.amazonaws.com')
+EMAIL_PORT = int(os.environ.get('AWS_SES_PORT', 587))
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False  # Use TLS on port 587, not SSL
+
+# SES Credentials (from IAM user with SES permissions)
+EMAIL_HOST_USER = os.environ.get('AWS_SES_SMTP_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('AWS_SES_SMTP_PASSWORD')
+
+# Sender information
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'notifications@rockstarwindshield.repair')
+DEFAULT_FROM_NAME = os.environ.get('DEFAULT_FROM_NAME', 'RS Systems')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL  # For error emails
+
+# SES Configuration
+AWS_SES_REGION_NAME = os.environ.get('AWS_SES_REGION', 'us-east-1')
+AWS_SES_CONFIGURATION_SET = os.environ.get('AWS_SES_CONFIGURATION_SET', '')  # Optional: for tracking
+
+# Email rate limiting (to avoid SES limits)
+EMAIL_RATE_LIMIT = int(os.environ.get('EMAIL_RATE_LIMIT', 14))  # Emails per second (stay under SES limit)
+
+# =========================================
+# SMS CONFIGURATION (AWS SNS)
+# =========================================
+
+# AWS SNS Configuration for SMS
+AWS_SNS_REGION_NAME = os.environ.get('AWS_SNS_REGION', 'us-east-1')
+# AWS credentials shared with S3 (already defined above if USE_S3=true)
+# If not using S3, need to define AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+if not USE_S3:
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+
+# SMS Settings
+SMS_ENABLED = os.environ.get('SMS_ENABLED', 'True').lower() == 'true'
+SMS_DEFAULT_SENDER_ID = os.environ.get('SMS_SENDER_ID', 'RS Systems')  # Not used in US
+SMS_MAX_PRICE_USD = float(os.environ.get('SMS_MAX_PRICE_USD', '0.50'))  # Max price per SMS
+
+# SMS rate limiting
+SMS_RATE_LIMIT = int(os.environ.get('SMS_RATE_LIMIT', 10))  # SMS per second
+
+# =========================================
+# CELERY CONFIGURATION (Production)
+# =========================================
+
+# Celery broker and result backend (AWS ElastiCache Redis)
+CELERY_BROKER_URL = os.environ.get(
+    'CELERY_BROKER_URL',
+    os.environ.get('REDIS_URL', 'redis://localhost:6379/0')  # Fallback for local testing
+)
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+
+# Celery serialization settings
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+# Timezone configuration (match Django timezone)
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+
+# Task routing (send notification tasks to specific queue)
+CELERY_TASK_ROUTES = {
+    'apps.core.tasks.send_notification_email': {'queue': 'notifications'},
+    'apps.core.tasks.send_notification_sms': {'queue': 'notifications'},
+    'apps.core.tasks.retry_failed_notifications': {'queue': 'notifications'},
+    'apps.core.tasks.send_daily_digests': {'queue': 'notifications'},
+    'apps.core.tasks.cleanup_old_delivery_logs': {'queue': 'maintenance'},
+}
+
+# Task time limits (prevent hanging tasks)
+CELERY_TASK_TIME_LIMIT = 300  # 5 minutes hard limit
+CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutes soft limit
+
+# Retry configuration
+CELERY_TASK_ACKS_LATE = True  # Tasks acknowledged after completion (safer)
+CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Requeue if worker crashes
+
+# Worker concurrency (number of worker processes)
+CELERY_WORKER_CONCURRENCY = int(os.environ.get('CELERY_CONCURRENCY', 8))
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000  # Restart workers after 1000 tasks (prevents memory leaks)
+
+# Production: Never use eager mode
+CELERY_TASK_ALWAYS_EAGER = False
+
+# Rate limiting for external APIs (SES/SNS)
+CELERY_ANNOTATIONS = {
+    'apps.core.tasks.send_notification_email': {
+        'rate_limit': '14/s',  # Match SES limit (14 emails/second)
+    },
+    'apps.core.tasks.send_notification_sms': {
+        'rate_limit': '10/s',  # Conservative SMS rate limit
+    },
+}
+
+# Monitoring
+CELERY_SEND_TASK_ERROR_EMAILS = True
+CELERY_SEND_TASK_SENT_EVENT = True
+
+# =========================================
+# CACHING CONFIGURATION (AWS ElastiCache Redis)
+# =========================================
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.environ.get(
+            'REDIS_CACHE_URL',
+            os.environ.get('REDIS_URL', 'redis://localhost:6379/1')
+        ),
+        'KEY_PREFIX': 'rs_systems_prod',
+        'TIMEOUT': 300,  # 5 minutes default timeout
+    }
+}
+
 # Logging configuration - outputs errors with full tracebacks to stdout
 LOGGING = {
     'version': 1,
@@ -272,5 +395,63 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
+        'celery': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'apps.core.tasks': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
-} 
+}
+
+# =========================================
+# SENTRY ERROR TRACKING (Production Only)
+# =========================================
+
+# Sentry configuration for production error tracking and performance monitoring
+# Only initialize Sentry in production (DEBUG=False)
+if not DEBUG:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+
+    sentry_sdk.init(
+        # Sentry DSN from environment variable
+        dsn=os.environ.get('SENTRY_DSN'),
+
+        # Integrations for Django, Celery, and Redis monitoring
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            RedisIntegration(),
+        ],
+
+        # Performance monitoring (10% sampling to reduce overhead)
+        traces_sample_rate=0.1,
+
+        # Error sampling (capture 100% of errors)
+        sample_rate=1.0,
+
+        # Environment and release tracking
+        environment=os.environ.get('ENVIRONMENT', 'production'),
+        release=os.environ.get('APP_VERSION', 'unknown'),
+
+        # Send default PII (Personally Identifiable Information)
+        send_default_pii=False,  # Set to True if you want user context
+
+        # Tag all events with component information
+        before_send=lambda event, hint: event,
+    )
+
+# =========================================
+# CLOUDWATCH METRICS (Production Only)
+# =========================================
+
+# Enable CloudWatch metrics publishing for notification system monitoring
+AWS_CLOUDWATCH_ENABLED = os.environ.get('AWS_CLOUDWATCH_ENABLED', 'False').lower() == 'true'
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1') 
