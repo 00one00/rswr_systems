@@ -596,10 +596,10 @@ function submitForm() {
         }
     });
 
-    // Disable submit button and show loading state
+    // Disable submit button and show loading state with spinner
     const submitBtn = document.getElementById('submitAllBtn');
     submitBtn.disabled = true;
-    submitBtn.innerHTML = 'Submitting...';
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
 
     // Get CSRF token from form field (more reliable than cookie in production)
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -649,7 +649,7 @@ function submitForm() {
         console.error('Error submitting repairs:', error);
         alert('Error submitting repairs: ' + error.message);
         submitBtn.disabled = false;
-        submitBtn.innerHTML = `Submit All Repairs (${breaks.length})`;
+        submitBtn.innerHTML = `<i class="fas fa-paper-plane mr-2"></i> Submit All Repairs (<span id="submitBreakCount">${breaks.length}</span>)`;
     });
 }
 
@@ -804,10 +804,10 @@ document.getElementById('createAnotherBatchBtn').addEventListener('click', funct
     document.getElementById('customer').value = customer;
     document.getElementById('repair_date').value = date;
 
-    // Re-enable submit button
+    // Re-enable submit button with icon
     const submitBtn = document.getElementById('submitAllBtn');
     submitBtn.disabled = false;
-    submitBtn.innerHTML = 'Submit All Repairs (0)';
+    submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Submit All Repairs (<span id="submitBreakCount">0</span>)';
 });
 
 // ================ VISCOSITY SUGGESTION BASED ON TEMPERATURE ================
