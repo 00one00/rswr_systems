@@ -425,6 +425,21 @@ function renderBreaksList() {
         emptyState.classList.add('hidden');
         submitSection.classList.remove('hidden');
 
+        // iOS Safari fix: Force DOM reflow to ensure button is properly registered
+        // This fixes touch event issues with dynamically shown buttons on iOS
+        submitSection.offsetHeight;
+
+        // iOS Safari fix: Ensure submit button is properly touchable on iOS
+        const submitBtn = document.getElementById('submitAllBtn');
+        if (submitBtn) {
+            // Prevent iOS text selection and callout on button
+            submitBtn.style.webkitUserSelect = 'none';
+            submitBtn.style.webkitTouchCallout = 'none';
+
+            // Add subtle touch feedback for better mobile UX
+            submitBtn.style.transition = 'transform 0.1s ease';
+        }
+
         // Clear only the break cards, not the emptyState element
         const breakCards = container.querySelectorAll('.break-card');
         breakCards.forEach(card => card.remove());
@@ -537,10 +552,8 @@ function createBreakCard(breakData, index) {
     return card;
 }
 
-// Form Submission
-document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-
+// Form Submission - Shared function for both form submit and button click
+function submitForm() {
     // Validate we have breaks
     if (breaks.length === 0) {
         alert('Please add at least one break before submitting');
@@ -638,7 +651,32 @@ document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
         submitBtn.disabled = false;
         submitBtn.innerHTML = `Submit All Repairs (${breaks.length})`;
     });
+}
+
+// Form submit handler (for keyboard enter key, accessibility)
+document.getElementById('multiBreakForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitForm();
 });
+
+// Button click handler (for iOS touch events - fixes iOS Safari bug)
+// iOS Safari has issues with touch events not firing submit on dynamically shown buttons
+document.getElementById('submitAllBtn').addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent any default button behavior
+    submitForm();
+});
+
+// Add touch feedback for better mobile UX (iOS Safari optimization)
+const submitBtn = document.getElementById('submitAllBtn');
+if (submitBtn) {
+    submitBtn.addEventListener('touchstart', function() {
+        this.style.transform = 'scale(0.98)';
+    }, {passive: true});
+
+    submitBtn.addEventListener('touchend', function() {
+        this.style.transform = 'scale(1)';
+    }, {passive: true});
+}
 
 // LocalStorage Autosave Functions
 function saveToLocalStorage() {
